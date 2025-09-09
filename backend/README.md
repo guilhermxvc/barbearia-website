@@ -252,4 +252,4 @@ Para suporte técnico, entre em contato:
 - Documentação: http://localhost:3000/api-docs
 \`\`\`
 
-```json file="" isHidden
+\`\`\`json file="" isHidden
