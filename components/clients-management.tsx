@@ -3,109 +3,157 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Users, Search, Download, Upload, Calendar, Phone, Mail, Gift, Plus, MoreHorizontal, Cake } from "lucide-react"
-
-interface Client {
-  id: string
-  name: string
-  email: string
-  phone: string
-  birth_date?: string
-  address?: string
-  total_appointments: number
-  last_appointment?: string
-  total_spent: number
-  status: "active" | "inactive"
-  created_at: string
-}
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { 
+  Calendar, 
+  Download, 
+  Mail, 
+  Phone, 
+  Plus, 
+  Search, 
+  Upload, 
+  User, 
+  UserCheck,
+  Filter,
+  FileX,
+  Edit,
+  Trash2,
+  Users
+} from "lucide-react"
+import { clientsApi, Client } from "@/lib/api/clients"
 
 export function ClientsManagement() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
-  const [birthdayClients, setBirthdayClients] = useState<Client[]>([])
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
 
   useEffect(() => {
-    fetchClients()
+    loadClients()
   }, [])
 
-  const fetchClients = async () => {
+  const loadClients = async () => {
+    setLoading(true)
+    setError("")
+    
     try {
-      setLoading(true)
+      const barbershopId = localStorage.getItem('barbershopId')
+      
+      if (!barbershopId) {
+        setError("ID da barbearia não encontrado")
+        return
+      }
 
-      // Simular delay de carregamento
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Usar apenas dados mock
-      setClients(mockClients)
-      setBirthdayClients(getMockBirthdayClients())
-    } catch (error) {
-      console.error("Erro ao carregar clientes:", error)
-      setClients(mockClients)
-      setBirthdayClients(getMockBirthdayClients())
+      const response = await clientsApi.getAll(barbershopId, searchTerm || undefined)
+      
+      if (response.success && response.data) {
+        setClients(response.data)
+      } else {
+        setError(response.error || "Erro ao carregar clientes")
+      }
+    } catch (err) {
+      setError("Erro ao carregar clientes")
+      console.error("Load clients error:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  const getBirthdayClients = (clientsList: Client[]) => {
-    const today = new Date()
-    const currentMonth = today.getMonth()
-    const currentDay = today.getDate()
+  const handleCreateClient = async (clientData: { name: string; email: string; phone?: string }) => {
+    try {
+      setLoading(true)
+      
+      const barbershopId = localStorage.getItem('barbershopId')
+      if (!barbershopId) {
+        setError("ID da barbearia não encontrado")
+        return
+      }
 
-    return clientsList.filter((client) => {
-      if (!client.birth_date) return false
-      const birthDate = new Date(client.birth_date)
-      const birthMonth = birthDate.getMonth()
-      const birthDay = birthDate.getDate()
+      const response = await clientsApi.create({
+        barbershopId,
+        ...clientData,
+      })
 
-      // Aniversariantes de hoje ou próximos 7 dias
-      const daysDiff = Math.abs(currentDay - birthDay)
-      return birthMonth === currentMonth && daysDiff <= 7
-    })
+      if (response.success) {
+        await loadClients()
+        setShowCreateForm(false)
+      } else {
+        setError(response.error || "Erro ao criar cliente")
+      }
+    } catch (err) {
+      setError("Erro ao criar cliente")
+      console.error("Create client error:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const getMockBirthdayClients = () => {
-    return mockClients.filter((client) => client.birth_date).slice(0, 3)
+  const handleUpdateClient = async (clientId: string, updates: { name?: string; phone?: string }) => {
+    try {
+      setLoading(true)
+      
+      const response = await clientsApi.update(clientId, updates)
+      
+      if (response.success) {
+        await loadClients()
+        setEditingClient(null)
+      } else {
+        setError(response.error || "Erro ao atualizar cliente")
+      }
+    } catch (err) {
+      setError("Erro ao atualizar cliente")
+      console.error("Update client error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeactivateClient = async (clientId: string) => {
+    if (!confirm("Tem certeza que deseja desativar este cliente?")) return
+    
+    try {
+      setLoading(true)
+      
+      const response = await clientsApi.deactivate(clientId)
+      
+      if (response.success) {
+        await loadClients()
+      } else {
+        setError(response.error || "Erro ao desativar cliente")
+      }
+    } catch (err) {
+      setError("Erro ao desativar cliente")
+      console.error("Deactivate client error:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm)
+      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.phone?.includes(searchTerm)
 
-    const matchesFilter = filterStatus === "all" || client.status === filterStatus
-
-    return matchesSearch && matchesFilter
+    return matchesSearch
   })
 
   const handleExportClients = () => {
     const csvContent = [
-      [
-        "Nome",
-        "Email",
-        "Telefone",
-        "Data Nascimento",
-        "Endereço",
-        "Total Agendamentos",
-        "Último Agendamento",
-        "Total Gasto",
-        "Status",
-      ],
+      ["Nome", "Email", "Telefone", "Total Visitas", "Total Gasto", "Última Visita"],
       ...filteredClients.map((client) => [
-        client.name,
-        client.email,
-        client.phone,
-        client.birth_date || "",
-        client.address || "",
-        client.total_appointments,
-        client.last_appointment || "",
-        `R$ ${client.total_spent.toFixed(2)}`,
-        client.status === "active" ? "Ativo" : "Inativo",
+        client.name || "",
+        client.email || "",
+        client.phone || "",
+        client.totalVisits || 0,
+        `R$ ${client.totalSpent || '0.00'}`,
+        client.lastVisit ? new Date(client.lastVisit).toLocaleDateString('pt-BR') : "",
       ]),
     ]
       .map((row) => row.join(","))
@@ -122,181 +170,96 @@ export function ClientsManagement() {
     document.body.removeChild(link)
   }
 
-  const handleImportClients = () => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = ".csv"
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const csv = e.target?.result as string
-          // Aqui você implementaria a lógica de parsing do CSV
-          alert("Funcionalidade de importação será implementada em breve!")
-        }
-        reader.readAsText(file)
-      }
-    }
-    input.click()
-  }
-
-  const clientStats = {
-    total: clients.length,
-    active: clients.filter((c) => c.status === "active").length,
-    inactive: clients.filter((c) => c.status === "inactive").length,
-    newThisMonth: clients.filter((c) => {
-      const created = new Date(c.created_at)
-      const now = new Date()
-      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-    }).length,
-    birthdays: birthdayClients.length,
-  }
-
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="flex justify-center items-center py-12">
+        <div className="text-lg">Carregando clientes...</div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Header com estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total de Clientes</p>
-                <p className="text-2xl font-bold text-gray-900">{clientStats.total}</p>
+                <p className="text-sm font-medium text-gray-600">Total de Clientes</p>
+                <p className="text-2xl font-bold text-gray-900">{clients.length}</p>
               </div>
-              <Users className="h-8 w-8 text-amber-600" />
+              <Users className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
-
+        
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Clientes Ativos</p>
-                <p className="text-2xl font-bold text-green-600">{clientStats.active}</p>
+                <p className="text-sm font-medium text-gray-600">Novos Este Mês</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {clients.filter(c => 
+                    new Date(c.createdAt).getMonth() === new Date().getMonth() &&
+                    new Date(c.createdAt).getFullYear() === new Date().getFullYear()
+                  ).length}
+                </p>
               </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-green-600 rounded-full"></div>
-              </div>
+              <UserCheck className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
-
+        
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Novos Este Mês</p>
-                <p className="text-2xl font-bold text-blue-600">{clientStats.newThisMonth}</p>
+                <p className="text-sm font-medium text-gray-600">Clientes Ativos</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {clients.filter(c => c.totalVisits > 0).length}
+                </p>
               </div>
-              <Plus className="h-8 w-8 text-blue-600" />
+              <Calendar className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
-
+        
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Aniversariantes</p>
-                <p className="text-2xl font-bold text-purple-600">{clientStats.birthdays}</p>
+                <p className="text-sm font-medium text-gray-600">Receita Total</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  R$ {clients.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0).toFixed(2)}
+                </p>
               </div>
-              <Cake className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Inativos</p>
-                <p className="text-2xl font-bold text-red-600">{clientStats.inactive}</p>
-              </div>
-              <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-red-600 rounded-full"></div>
-              </div>
+              <Download className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Aniversariantes da Semana */}
-      {birthdayClients.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Gift className="h-5 w-5 mr-2 text-purple-600" />
-              Aniversariantes da Semana
-            </CardTitle>
-            <CardDescription>Clientes fazendo aniversário nos próximos 7 dias</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              {birthdayClients.map((client) => (
-                <div key={client.id} className="p-4 border rounded-lg bg-purple-50 border-purple-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-purple-900">{client.name}</h4>
-                    <Cake className="h-4 w-4 text-purple-600" />
-                  </div>
-                  <p className="text-sm text-purple-700 mb-2">
-                    {client.birth_date ? new Date(client.birth_date).toLocaleDateString("pt-BR") : "Data não informada"}
-                  </p>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="text-purple-700 border-purple-300 bg-transparent">
-                      <Phone className="h-3 w-3 mr-1" />
-                      Ligar
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-purple-700 border-purple-300 bg-transparent">
-                      <Mail className="h-3 w-3 mr-1" />
-                      Email
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Controles */}
+      {/* Ações e filtros */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Gerenciar Clientes</CardTitle>
-              <CardDescription>Lista completa de clientes da barbearia</CardDescription>
+              <CardDescription>Visualize e gerencie todos os seus clientes</CardDescription>
             </div>
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleImportClients}>
-                <Upload className="h-4 w-4 mr-2" />
-                Importar
-              </Button>
+            <div className="flex gap-2">
               <Button variant="outline" onClick={handleExportClients}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
-              <Button className="bg-amber-600 hover:bg-amber-700">
+              <Button onClick={() => setShowCreateForm(true)} className="bg-amber-600 hover:bg-amber-700">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Cliente
               </Button>
@@ -304,127 +267,194 @@ export function ClientsManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nome, email ou telefone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          {/* Busca */}
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por nome, email ou telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <div className="flex space-x-2">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border rounded-md"
-              >
-                <option value="all">Todos os Status</option>
-                <option value="active">Ativos</option>
-                <option value="inactive">Inativos</option>
-              </select>
-            </div>
+            <Button variant="outline" onClick={loadClients}>
+              <Search className="h-4 w-4 mr-2" />
+              Buscar
+            </Button>
           </div>
 
+          {/* Lista de clientes */}
           <div className="space-y-4">
-            {filteredClients.map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                    <Users className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{client.name}</h4>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span className="flex items-center">
-                        <Mail className="h-3 w-3 mr-1" />
-                        {client.email}
-                      </span>
-                      <span className="flex items-center">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {client.phone}
-                      </span>
-                      {client.birth_date && (
-                        <span className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {new Date(client.birth_date).toLocaleDateString("pt-BR")}
-                        </span>
-                      )}
+            {filteredClients.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum cliente encontrado</h3>
+                <p className="text-gray-600">
+                  {clients.length === 0 
+                    ? "Ainda não há clientes cadastrados." 
+                    : "Tente ajustar os filtros de busca."}
+                </p>
+              </div>
+            ) : (
+              filteredClients.map((client) => (
+                <div key={client.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{client.name}</h3>
+                          <p className="text-sm text-gray-600">{client.email}</p>
+                          {client.phone && (
+                            <p className="text-sm text-gray-600">{client.phone}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
+                        <span>{client.totalVisits || 0} visitas</span>
+                        <span>R$ {client.totalSpent || '0.00'} gasto</span>
+                        {client.lastVisit && (
+                          <span>Última visita: {new Date(client.lastVisit).toLocaleDateString('pt-BR')}</span>
+                        )}
+                        <Badge variant={client.totalVisits > 0 ? "default" : "secondary"}>
+                          {client.totalVisits > 0 ? "Ativo" : "Novo"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingClient(client)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeactivateClient(client.id)}
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <div className="text-sm text-gray-600">{client.total_appointments} agendamentos</div>
-                    <div className="font-semibold text-green-600">R$ {client.total_spent.toFixed(2)}</div>
-                  </div>
-                  <Badge
-                    className={client.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                  >
-                    {client.status === "active" ? "Ativo" : "Inativo"}
-                  </Badge>
-                  <Button variant="outline" size="sm">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {filteredClients.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Nenhum cliente encontrado para os filtros selecionados.</p>
-              </div>
+              ))
             )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de criação de cliente */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>Adicione um novo cliente à sua base</DialogDescription>
+          </DialogHeader>
+          <ClientForm
+            onClose={() => setShowCreateForm(false)}
+            onSave={handleCreateClient}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de edição de cliente */}
+      <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogDescription>Modifique os dados do cliente</DialogDescription>
+          </DialogHeader>
+          {editingClient && (
+            <ClientForm
+              client={editingClient}
+              onClose={() => setEditingClient(null)}
+              onSave={(updates) => handleUpdateClient(editingClient.id, updates)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-// Mock data para fallback
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "João Silva",
-    email: "joao@email.com",
-    phone: "(11) 99999-1111",
-    birth_date: "1990-03-15",
-    address: "Rua A, 123",
-    total_appointments: 15,
-    last_appointment: "2024-01-10",
-    total_spent: 675.0,
-    status: "active",
-    created_at: "2023-12-01T00:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Pedro Santos",
-    email: "pedro@email.com",
-    phone: "(11) 99999-2222",
-    birth_date: "1985-01-20",
-    address: "Rua B, 456",
-    total_appointments: 8,
-    last_appointment: "2024-01-08",
-    total_spent: 320.0,
-    status: "active",
-    created_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "3",
-    name: "Carlos Lima",
-    email: "carlos@email.com",
-    phone: "(11) 99999-3333",
-    birth_date: "1992-01-18",
-    address: "Rua C, 789",
-    total_appointments: 22,
-    last_appointment: "2023-12-20",
-    total_spent: 990.0,
-    status: "inactive",
-    created_at: "2023-11-15T00:00:00Z",
-  },
-]
+function ClientForm({ client, onClose, onSave }: { 
+  client?: Client; 
+  onClose: () => void; 
+  onSave: (data: any) => void 
+}) {
+  const [formData, setFormData] = useState({
+    name: client?.name || "",
+    email: client?.email || "",
+    phone: client?.phone || "",
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (client) {
+      // Edição - não permite alterar email
+      onSave({
+        name: formData.name,
+        phone: formData.phone,
+      })
+    } else {
+      // Criação
+      onSave(formData)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Nome Completo</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Ex: João Silva"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          placeholder="joao@email.com"
+          disabled={!!client} // Não permite alterar email em edição
+          required={!client}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="phone">Telefone</Label>
+        <Input
+          id="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          placeholder="(11) 99999-9999"
+        />
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" className="bg-amber-600 hover:bg-amber-700">
+          {client ? "Atualizar" : "Criar"} Cliente
+        </Button>
+      </div>
+    </form>
+  )
+}
