@@ -333,7 +333,7 @@ export function ServicesManagement() {
                             <DialogTitle>Editar Serviço</DialogTitle>
                             <DialogDescription>Modifique os dados do serviço</DialogDescription>
                           </DialogHeader>
-                          <ServiceForm service={service} onClose={() => {}} onSave={loadServices} />
+                          <ServiceForm service={service} onClose={() => setEditingService(null)} onSave={loadServices} />
                         </DialogContent>
                       </Dialog>
                       <Button 
@@ -373,20 +373,60 @@ function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose:
   const [formData, setFormData] = useState({
     name: service?.name || "",
     description: service?.description || "",
-    price: service?.price || 0,
+    price: service?.price || "0",
     duration: service?.duration || 30,
     category: service?.category || "",
-    active: service?.isActive ?? true,
+    isActive: service?.isActive ?? true,
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const categories = ["Corte", "Barba", "Combo", "Especial", "Tratamento"]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aqui seria a integração com Supabase
-    console.log("Salvando serviço:", formData)
-    onSave()
-    onClose()
+    setLoading(true)
+    setError("")
+
+    try {
+      const barbershopId = localStorage.getItem('barbershopId')
+      
+      if (!barbershopId) {
+        setError("Erro: ID da barbearia não encontrado")
+        return
+      }
+
+      const serviceData = {
+        barbershopId,
+        name: formData.name,
+        description: formData.description,
+        price: formData.price,
+        duration: formData.duration,
+        isActive: formData.isActive
+      }
+
+      let response
+
+      if (service) {
+        // Editando serviço existente
+        response = await servicesApi.update(service.id, serviceData)
+      } else {
+        // Criando novo serviço
+        response = await servicesApi.create(serviceData)
+      }
+
+      if (response.success) {
+        onSave() // Recarrega a lista
+        onClose() // Fecha o modal
+      } else {
+        setError(response.error || "Erro ao salvar serviço")
+      }
+    } catch (err) {
+      setError("Erro de conexão. Tente novamente.")
+      console.error("Service save error:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -438,7 +478,7 @@ function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose:
             type="number"
             step="0.01"
             value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             placeholder="0,00"
             required
           />
@@ -460,18 +500,28 @@ function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose:
         <input
           type="checkbox"
           id="active"
-          checked={formData.active}
-          onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+          checked={formData.isActive}
+          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
         />
         <Label htmlFor="active">Serviço ativo</Label>
       </div>
 
+      {error && (
+        <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-end space-x-2 pt-4">
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-amber-600 hover:bg-amber-700">
-          {service ? "Atualizar" : "Adicionar"} Serviço
+        <Button 
+          type="submit" 
+          className="bg-amber-600 hover:bg-amber-700"
+          disabled={loading}
+        >
+          {loading ? "Salvando..." : (service ? "Atualizar" : "Adicionar")} Serviço
         </Button>
       </div>
     </form>

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser, generateToken } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { barbershops, barbers, clients } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -22,14 +25,43 @@ export async function POST(request: NextRequest) {
 
     const token = generateToken(user);
 
+    // Buscar dados específicos baseados no tipo de usuário
+    let userData: any = { 
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      userType: user.userType,
+    }
+    let barbershopId: string | null = null
+    
+    if (user.userType === 'manager') {
+      const barbershop = await db.query.barbershops.findFirst({
+        where: eq(barbershops.ownerId, user.id),
+      })
+      userData.barbershop = barbershop
+      barbershopId = barbershop?.id || null
+    } else if (user.userType === 'barber') {
+      const barber = await db.query.barbers.findFirst({
+        where: eq(barbers.userId, user.id),
+      })
+      if (barber) {
+        userData.barber = barber
+        barbershopId = barber.barbershopId
+      }
+    } else if (user.userType === 'client') {
+      const client = await db.query.clients.findFirst({
+        where: eq(clients.userId, user.id),
+      })
+      userData.client = client
+      // Clientes não têm barbershopId próprio
+    }
+
     return NextResponse.json({
       success: true,
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        userType: user.userType,
+      data: {
+        token,
+        user: userData,
+        barbershopId, // Incluir barbershopId na resposta
       },
     });
   } catch (error) {
