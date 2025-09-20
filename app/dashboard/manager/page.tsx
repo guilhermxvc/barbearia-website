@@ -11,13 +11,14 @@ import { RecentAppointments } from "@/components/recent-appointments"
 import { BarbersManagement } from "@/components/barbers-management"
 import { ServicesManagement } from "@/components/services-management"
 import { ProductsManagement } from "@/components/products-management"
-import { ReportsSection } from "@/components/reports-section"
-import { AIAssistant } from "@/components/ai-assistant"
+import { AIAssistantPremium } from "@/components/ai-assistant-premium"
 import { NotificationsSystem } from "@/components/notifications-system"
+import { ClientsManagement } from "@/components/clients-management"
+import { FinancialManagement } from "@/components/financial-management"
 
 export default function ManagerDashboard() {
   const [activeSection, setActiveSection] = useState("overview")
-  const [userPlan, setUserPlan] = useState("profissional")
+  const [userPlan, setUserPlan] = useState("Profissional")
   const [isClient, setIsClient] = useState(false)
 
   const sectionTitles = {
@@ -28,6 +29,10 @@ export default function ManagerDashboard() {
     appointments: {
       title: "Agendamentos",
       description: "Gerencie todos os agendamentos da barbearia",
+    },
+    clients: {
+      title: "Gestão de Clientes",
+      description: "Gerencie todos os clientes da barbearia",
     },
     barbers: {
       title: "Gestão de Barbeiros",
@@ -41,9 +46,13 @@ export default function ManagerDashboard() {
       title: "Gestão de Produtos",
       description: "Controle seu estoque e vendas",
     },
-    reports: {
-      title: "Relatórios",
-      description: "Análises e métricas da barbearia",
+    financial: {
+      title: "Financeiro",
+      description: "Relatórios, comissões e histórico de vendas",
+    },
+    ai: {
+      title: "Assistente IA",
+      description: "Inteligência artificial para otimizar sua barbearia",
     },
     settings: {
       title: "Configurações",
@@ -53,25 +62,35 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     setIsClient(true)
-    const plan = localStorage.getItem("userPlan") || "profissional"
-    console.log("[v0] Plan from localStorage:", plan)
-    setUserPlan(plan)
+    const userEmail = localStorage.getItem("userEmail")
+
+    if (userEmail) {
+      let plan = "Profissional"
+
+      if (userEmail.includes("basico")) {
+        plan = "Básico"
+      } else if (userEmail.includes("premium")) {
+        plan = "Premium"
+      }
+
+      setUserPlan(plan)
+    }
   }, [])
 
   const isFeatureAvailable = (feature: string) => {
     const planFeatures = {
-      basico: ["overview", "barbers", "services", "settings"],
-      profissional: ["overview", "barbers", "services", "products", "reports", "settings"],
-      premium: ["overview", "barbers", "services", "products", "reports", "settings", "ai", "analytics"],
+      Básico: ["overview", "barbers", "services", "settings"],
+      Profissional: ["overview", "barbers", "services", "products", "financial", "settings"],
+      Premium: ["overview", "barbers", "services", "products", "financial", "settings", "ai", "analytics"],
     }
     return planFeatures[userPlan as keyof typeof planFeatures]?.includes(feature) || false
   }
 
   const getBarberLimit = () => {
     const limits = {
-      basico: 3,
-      profissional: 8,
-      premium: -1, // ilimitado
+      Básico: 3,
+      Profissional: 8,
+      Premium: -1, // ilimitado
     }
     return limits[userPlan as keyof typeof limits] || 8
   }
@@ -82,14 +101,22 @@ export default function ManagerDashboard() {
         return <OverviewSection userPlan={userPlan} />
       case "appointments":
         return <AppointmentsSection userPlan={userPlan} />
+      case "clients":
+        return <ClientsManagement />
       case "barbers":
         return <BarbersManagement userPlan={userPlan} barberLimit={getBarberLimit()} />
       case "services":
         return <ServicesManagement />
       case "products":
         return isFeatureAvailable("products") ? <ProductsManagement /> : <UpgradePrompt feature="Gestão de Estoque" />
-      case "reports":
-        return isFeatureAvailable("reports") ? <ReportsSection /> : <UpgradePrompt feature="Relatórios Avançados" />
+      case "financial":
+        return isFeatureAvailable("financial") ? (
+          <FinancialManagement />
+        ) : (
+          <UpgradePrompt feature="Sistema Financeiro" />
+        )
+      case "ai":
+        return <AIAssistantPremium userPlan={userPlan} />
       case "settings":
         return <SettingsSection userPlan={userPlan} />
       default:
@@ -99,20 +126,23 @@ export default function ManagerDashboard() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <ManagerSidebar activeSection={activeSection} onSectionChange={setActiveSection} userPlan={userPlan} />
+      <ManagerSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
       <main className="flex-1 overflow-y-auto">
         <div className="p-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{sectionTitles[activeSection]?.title || "Dashboard"}</h1>
-              <p className="text-gray-600">{sectionTitles[activeSection]?.description || "Gerencie sua barbearia"}</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}
+              </h1>
+              <p className="text-gray-600">
+                {sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua barbearia"}
+              </p>
             </div>
             <NotificationsSystem userType="manager" />
           </div>
           {renderContent()}
         </div>
       </main>
-      {isFeatureAvailable("ai") ? <AIAssistant userType="manager" userName="Administrador" /> : null}
     </div>
   )
 }
@@ -195,9 +225,9 @@ function OverviewSection({ userPlan }: { userPlan: string }) {
           <CardTitle>Barbeiros Ativos</CardTitle>
           <CardDescription>
             Status atual da equipe
-            {userPlan === "basico" && " (Limite: 3 barbeiros)"}
-            {userPlan === "profissional" && " (Limite: 8 barbeiros)"}
-            {userPlan === "premium" && " (Barbeiros ilimitados)"}
+            {userPlan === "Básico" && " (Limite: 3 barbeiros)"}
+            {userPlan === "Profissional" && " (Limite: 8 barbeiros)"}
+            {userPlan === "Premium" && " (Barbeiros ilimitados)"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -258,11 +288,11 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
 
   const getPlanInfo = () => {
     const plans = {
-      basico: { name: "Básico", price: "R$ 99" },
-      profissional: { name: "Profissional", price: "R$ 125" },
-      premium: { name: "Premium", price: "R$ 199" },
+      Básico: { name: "Básico", price: "R$ 99" },
+      Profissional: { name: "Profissional", price: "R$ 125" },
+      Premium: { name: "Premium", price: "R$ 199" },
     }
-    return plans[userPlan as keyof typeof plans] || plans.profissional
+    return plans[userPlan as keyof typeof plans] || plans.Profissional
   }
 
   const handlePlanChange = (newPlan: string) => {
@@ -277,14 +307,14 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
   }
 
   const getPlanUpgradeText = (currentPlan: string, newPlan: string) => {
-    const planOrder = { basico: 1, profissional: 2, premium: 3 }
+    const planOrder = { Básico: 1, Profissional: 2, Premium: 3 }
     const current = planOrder[currentPlan as keyof typeof planOrder]
     const target = planOrder[newPlan as keyof typeof planOrder]
     return target > current ? "fazer upgrade" : "fazer downgrade"
   }
 
   const getPlanName = (plan: string) => {
-    const names = { basico: "Básico", profissional: "Profissional", premium: "Premium" }
+    const names = { Básico: "Básico", Profissional: "Profissional", Premium: "Premium" }
     return names[plan as keyof typeof names]
   }
 
@@ -382,14 +412,14 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
             <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "basico" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
+              className={`p-4 border-2 rounded-lg ${userPlan === "Básico" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
             >
               <div className="text-center">
                 <h3 className="font-semibold text-lg">Básico</h3>
                 <p className="text-2xl font-bold text-amber-600 mt-2">
                   R$ 99<span className="text-sm font-normal">/mês</span>
                 </p>
-                {userPlan === "basico" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
+                {userPlan === "Básico" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
               </div>
               <ul className="mt-4 space-y-2 text-sm">
                 <li>• Agendamento online</li>
@@ -398,11 +428,11 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
                 <li>• Suporte por email</li>
                 <li>• Dashboard básico</li>
               </ul>
-              {userPlan !== "basico" && (
+              {userPlan !== "Básico" && (
                 <Button
                   variant="outline"
                   className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("basico")}
+                  onClick={() => handlePlanChange("Básico")}
                 >
                   Selecionar
                 </Button>
@@ -410,14 +440,14 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
             </div>
 
             <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "profissional" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
+              className={`p-4 border-2 rounded-lg ${userPlan === "Profissional" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
             >
               <div className="text-center">
                 <h3 className="font-semibold text-lg">Profissional</h3>
                 <p className="text-2xl font-bold text-amber-600 mt-2">
                   R$ 125<span className="text-sm font-normal">/mês</span>
                 </p>
-                {userPlan === "profissional" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
+                {userPlan === "Profissional" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
               </div>
               <ul className="mt-4 space-y-2 text-sm">
                 <li>• Todas as funcionalidades básicas</li>
@@ -427,11 +457,11 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
                 <li>• Até 8 barbeiros</li>
                 <li>• Suporte prioritário</li>
               </ul>
-              {userPlan !== "profissional" && (
+              {userPlan !== "Profissional" && (
                 <Button
                   variant="outline"
                   className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("profissional")}
+                  onClick={() => handlePlanChange("Profissional")}
                 >
                   Selecionar
                 </Button>
@@ -439,14 +469,14 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
             </div>
 
             <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "premium" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
+              className={`p-4 border-2 rounded-lg ${userPlan === "Premium" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
             >
               <div className="text-center">
                 <h3 className="font-semibold text-lg">Premium</h3>
                 <p className="text-2xl font-bold text-amber-600 mt-2">
                   R$ 199<span className="text-sm font-normal">/mês</span>
                 </p>
-                {userPlan === "premium" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
+                {userPlan === "Premium" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
               </div>
               <ul className="mt-4 space-y-2 text-sm">
                 <li>• Todas as funcionalidades profissionais</li>
@@ -456,11 +486,11 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
                 <li>• Suporte 24/7</li>
                 <li>• Análises preditivas</li>
               </ul>
-              {userPlan !== "premium" && (
+              {userPlan !== "Premium" && (
                 <Button
                   variant="outline"
                   className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("premium")}
+                  onClick={() => handlePlanChange("Premium")}
                 >
                   Selecionar
                 </Button>

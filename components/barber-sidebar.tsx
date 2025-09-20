@@ -16,6 +16,7 @@ export function BarberSidebar({ activeSection, onSectionChange }: BarberSidebarP
   const menuItems = [
     { id: "schedule", label: "Minha Agenda", icon: Calendar },
     { id: "clients", label: "Meus Clientes", icon: Users },
+    { id: "reports", label: "Relatórios", icon: BarChart3 },
     { id: "stats", label: "Estatísticas", icon: BarChart3 },
     { id: "profile", label: "Meu Perfil", icon: User },
   ]

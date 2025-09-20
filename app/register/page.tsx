@@ -1,16 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Scissors, Users, User, CreditCard, Check, ArrowLeft, AlertCircle } from "lucide-react"
+import { Building2, User, Scissors, Check, ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 
@@ -19,7 +17,7 @@ export default function RegisterPage() {
 
   const [step, setStep] = useState(1)
   const [userType, setUserType] = useState<"barbearia" | "barbeiro" | "cliente" | null>(null)
-  const [selectedPlan, setSelectedPlan] = useState<"basico" | "profissional" | "premium">("basico")
+  const [selectedPlan, setSelectedPlan] = useState<"basico" | "profissional" | "premium">("profissional")
   const [isClient, setIsClient] = useState(false)
   const [codeValidation, setCodeValidation] = useState<{ isValid: boolean; barbershopName: string; message: string }>({
     isValid: false,
@@ -49,6 +47,8 @@ export default function RegisterPage() {
     cnpj: "",
     codigoBarbearia: "",
     especialidades: [] as string[],
+    experiencia: "",
+    portfolio: "",
     numeroCartao: "",
     nomeCartao: "",
     validadeCartao: "",
@@ -91,30 +91,34 @@ export default function RegisterPage() {
 
   const plans = {
     basico: {
-      name: "Básico",
+      name: "Plano Básico",
       price: "R$ 99",
-      features: ["Até 3 barbeiros", "Agendamento online", "Gestão básica de clientes", "Relatórios simples"],
+      description: "Ideal para barbearias pequenas",
+      features: ["Agendamento online", "Gestão básica de clientes", "Até 3 barbeiros", "Suporte por email"],
     },
     profissional: {
-      name: "Profissional",
+      name: "Plano Profissional",
       price: "R$ 125",
+      description: "Para barbearias em crescimento",
       features: [
-        "Até 8 barbeiros",
-        "Todas funcionalidades básicas",
-        "Relatórios avançados",
+        "Todas as funcionalidades básicas",
         "Gestão de estoque",
+        "Relatórios avançados",
         "Marketing integrado",
+        "Até 10 barbeiros",
       ],
+      popular: true,
     },
     premium: {
-      name: "Premium",
+      name: "Plano Premium",
       price: "R$ 199",
+      description: "Solução completa com IA",
       features: [
-        "Barbeiros ilimitados",
-        "Todas funcionalidades profissionais",
-        "IA avançada",
+        "Todas as funcionalidades profissionais",
+        "IA avançada integrada",
         "Integrações personalizadas",
-        "Suporte prioritário 24/7",
+        "Barbeiros ilimitados",
+        "Suporte 24/7",
       ],
     },
   }
@@ -159,116 +163,296 @@ export default function RegisterPage() {
     )
   }
 
+  const renderProgressSteps = () => (
+    <div className="flex justify-center mb-8">
+      <div className="flex items-center space-x-4">
+        <div
+          className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+            step >= 1 ? "bg-amber-600 text-white" : "bg-gray-300 text-gray-500"
+          }`}
+        >
+          1
+        </div>
+        <div className={`w-12 h-0.5 ${step >= 2 ? "bg-amber-600" : "bg-gray-300"}`}></div>
+        <div
+          className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+            step >= 2 ? "bg-amber-600 text-white" : "bg-gray-300 text-gray-500"
+          }`}
+        >
+          2
+        </div>
+        <div className={`w-12 h-0.5 ${step >= 3 ? "bg-amber-600" : "bg-gray-300"}`}></div>
+        <div
+          className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+            step >= 3 ? "bg-amber-600 text-white" : "bg-gray-300 text-gray-500"
+          }`}
+        >
+          3
+        </div>
+      </div>
+    </div>
+  )
+
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 bg-amber-100 rounded-full w-fit">
-              <Scissors className="h-8 w-8 text-amber-600" />
+        <div className="w-full max-w-5xl">
+          {renderProgressSteps()}
+
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Criar Conta</h1>
+            <p className="text-gray-600">Escolha o tipo de conta que deseja criar</p>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="grid md:grid-cols-3 gap-6 mb-8 max-w-4xl">
+              {/* Dono de Barbearia */}
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
+                  userType === "barbearia" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
+                }`}
+                onClick={() => setUserType("barbearia")}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <Building2 className="h-8 w-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Dono de Barbearia</h3>
+                  <p className="text-sm text-gray-600 mb-4">Quero gerenciar minha barbearia e equipe de barbeiros</p>
+                  <div className="space-y-2 text-left">
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Gestão completa da barbearia</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Cadastro de barbeiros</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Relatórios financeiros</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Barbeiro */}
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
+                  userType === "barbeiro" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
+                }`}
+                onClick={() => setUserType("barbeiro")}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <Scissors className="h-8 w-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Barbeiro</h3>
+                  <p className="text-sm text-gray-600 mb-4">Quero trabalhar em uma barbearia parceira</p>
+                  <div className="space-y-2 text-left">
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Agenda pessoal</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Controle de comissões</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Histórico de clientes</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cliente */}
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
+                  userType === "cliente" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
+                }`}
+                onClick={() => setUserType("cliente")}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <User className="h-8 w-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Cliente</h3>
+                  <p className="text-sm text-gray-600 mb-4">Quero agendar serviços em barbearias</p>
+                  <div className="space-y-2 text-left">
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Agendamento fácil</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Histórico de serviços</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span>Assistente IA</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <CardTitle className="text-2xl font-bold">Criar Conta</CardTitle>
-            <CardDescription>Escolha o tipo de conta que deseja criar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full h-20 flex flex-col items-center justify-center space-y-2 hover:bg-amber-50 hover:border-amber-300 bg-transparent"
-              onClick={() => {
-                setUserType("barbearia")
-                setStep(2)
-              }}
-            >
-              <Scissors className="h-6 w-6 text-amber-600" />
-              <div className="text-center">
-                <div className="font-semibold">Conta Barbearia</div>
-                <div className="text-sm text-gray-500">Gerenciar minha barbearia</div>
-              </div>
-            </Button>
+          </div>
 
+          <div className="flex justify-center">
             <Button
-              variant="outline"
-              className="w-full h-20 flex flex-col items-center justify-center space-y-2 hover:bg-amber-50 hover:border-amber-300 bg-transparent"
-              onClick={() => {
-                setUserType("barbeiro")
-                setStep(2)
-              }}
+              onClick={() => userType && setStep(userType === "barbearia" ? 2 : 3)}
+              disabled={!userType}
+              className="px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg disabled:opacity-50"
             >
-              <User className="h-6 w-6 text-amber-600" />
-              <div className="text-center">
-                <div className="font-semibold">Conta Barbeiro</div>
-                <div className="text-sm text-gray-500">Sou funcionário de uma barbearia</div>
-              </div>
+              Continuar
             </Button>
+          </div>
 
-            <Button
-              variant="outline"
-              className="w-full h-20 flex flex-col items-center justify-center space-y-2 hover:bg-amber-50 hover:border-amber-300 bg-transparent"
-              onClick={() => {
-                setUserType("cliente")
-                setStep(2)
-              }}
-            >
-              <Users className="h-6 w-6 text-amber-600" />
-              <div className="text-center">
-                <div className="font-semibold">Conta Cliente</div>
-                <div className="text-sm text-gray-500">Agendar serviços</div>
-              </div>
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-600">
+              Já tem uma conta?{" "}
+              <Link href="/login" className="text-amber-600 hover:text-amber-700 hover:underline">
+                Fazer login
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 2 && userType === "barbearia") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+        <div className="container mx-auto max-w-6xl">
+          {renderProgressSteps()}
+
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Escolha seu Plano</h1>
+            <p className="text-gray-600">Selecione o plano ideal para sua barbearia</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {Object.entries(plans).map(([key, plan]) => (
+              <Card
+                key={key}
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 relative ${
+                  selectedPlan === key ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
+                }`}
+                onClick={() => setSelectedPlan(key as "basico" | "profissional" | "premium")}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-amber-600 text-white px-3 py-1">Mais Popular</Badge>
+                  </div>
+                )}
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-1">{plan.name}</h3>
+                    <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {plan.price}
+                      <span className="text-sm font-normal text-gray-600">/mês</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {plan.features.map((feature, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <span className="text-sm text-gray-700">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="flex justify-center space-x-4">
+            <Button variant="outline" onClick={() => setStep(1)} className="px-6 py-2">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
             </Button>
-
-            <div className="text-center pt-4">
-              <p className="text-sm text-gray-600">
-                Já tem uma conta?{" "}
-                <Link href="/login" className="text-amber-600 hover:underline">
-                  Fazer login
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            <Button onClick={() => setStep(3)} className="px-8 py-2 bg-amber-600 hover:bg-amber-700 text-white">
+              Continuar com Plano {plans[selectedPlan].name}
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-      <div className="container mx-auto max-w-4xl">
-        <div className="mb-6">
-          <Button variant="ghost" onClick={() => setStep(1)} className="text-gray-600 hover:text-amber-600">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        </div>
+      <div className="container mx-auto max-w-6xl">
+        {renderProgressSteps()}
 
         <div className="grid lg:grid-cols-3 gap-8">
+          {/* Formulário de dados */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl">
-                  {userType === "barbearia" && "Cadastro da Barbearia"}
-                  {userType === "barbeiro" && "Cadastro do Barbeiro"}
-                  {userType === "cliente" && "Cadastro do Cliente"}
+                  {userType === "barbearia"
+                    ? "Dados da Barbearia"
+                    : userType === "barbeiro"
+                      ? "Dados do Barbeiro"
+                      : "Dados do Cliente"}
                 </CardTitle>
                 <CardDescription>
-                  {userType === "barbearia" && "Preencha os dados da sua barbearia e escolha seu plano"}
-                  {userType === "barbeiro" && "Preencha seus dados profissionais e código da barbearia"}
-                  {userType === "cliente" && "Preencha seus dados pessoais"}
+                  {userType === "barbearia"
+                    ? "Informações para criar sua conta"
+                    : userType === "barbeiro"
+                      ? "Informações profissionais"
+                      : "Informações pessoais"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Dados Pessoais</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
+                  {/* Dados da Barbearia */}
+                  {userType === "barbearia" && (
+                    <div className="space-y-4">
                       <div>
-                        <Label htmlFor="nome">Nome Completo</Label>
+                        <Label htmlFor="nomeBarbearia">Nome da Barbearia</Label>
                         <Input
-                          id="nome"
-                          value={formData.nome}
-                          onChange={(e) => handleInputChange("nome", e.target.value)}
+                          id="nomeBarbearia"
+                          value={formData.nomeBarbearia}
+                          onChange={(e) => handleInputChange("nomeBarbearia", e.target.value)}
+                          placeholder="Nome da sua barbearia"
                           required
                         />
                       </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="nome">Nome</Label>
+                          <Input
+                            id="nome"
+                            value={formData.nome}
+                            onChange={(e) => handleInputChange("nome", e.target.value)}
+                            placeholder="Seu nome"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="sobrenome">Sobrenome</Label>
+                          <Input id="sobrenome" placeholder="Seu sobrenome" required />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange("email", e.target.value)}
+                          placeholder="seu@email.com"
+                          required
+                        />
+                      </div>
+
                       <div>
                         <Label htmlFor="telefone">Telefone</Label>
                         <Input
@@ -279,18 +463,41 @@ export default function RegisterPage() {
                           required
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-4">
+
+                      <div>
+                        <Label htmlFor="endereco">Endereço</Label>
+                        <Input
+                          id="endereco"
+                          value={formData.endereco}
+                          onChange={(e) => handleInputChange("endereco", e.target.value)}
+                          placeholder="Endereço completo da barbearia"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="cidade">Cidade</Label>
+                          <Input
+                            id="cidade"
+                            value={formData.cidade}
+                            onChange={(e) => handleInputChange("cidade", e.target.value)}
+                            placeholder="Cidade"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="estado">Estado</Label>
+                          <Input
+                            id="estado"
+                            value={formData.estado}
+                            onChange={(e) => handleInputChange("estado", e.target.value)}
+                            placeholder="Estado"
+                            required
+                          />
+                        </div>
+                      </div>
+
                       <div>
                         <Label htmlFor="senha">Senha</Label>
                         <Input
@@ -298,86 +505,9 @@ export default function RegisterPage() {
                           type="password"
                           value={formData.senha}
                           onChange={(e) => handleInputChange("senha", e.target.value)}
+                          placeholder="Sua senha"
                           required
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
-                        <Input
-                          id="confirmarSenha"
-                          type="password"
-                          value={formData.confirmarSenha}
-                          onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {userType === "barbearia" && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Dados da Barbearia</h3>
-                      <div>
-                        <Label htmlFor="nomeBarbearia">Nome da Barbearia</Label>
-                        <Input
-                          id="nomeBarbearia"
-                          value={formData.nomeBarbearia}
-                          onChange={(e) => handleInputChange("nomeBarbearia", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cnpj">CNPJ</Label>
-                        <Input
-                          id="cnpj"
-                          value={formData.cnpj}
-                          onChange={(e) => handleInputChange("cnpj", e.target.value)}
-                          placeholder="00.000.000/0000-00"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="endereco">Endereço Completo</Label>
-                        <Input
-                          id="endereco"
-                          value={formData.endereco}
-                          onChange={(e) => handleInputChange("endereco", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="cidade">Cidade</Label>
-                          <Input
-                            id="cidade"
-                            value={formData.cidade}
-                            onChange={(e) => handleInputChange("cidade", e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="estado">Estado</Label>
-                          <Select onValueChange={(value) => handleInputChange("estado", value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="SP">São Paulo</SelectItem>
-                              <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                              <SelectItem value="MG">Minas Gerais</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="cep">CEP</Label>
-                          <Input
-                            id="cep"
-                            value={formData.cep}
-                            onChange={(e) => handleInputChange("cep", e.target.value)}
-                            placeholder="00000-000"
-                            required
-                          />
-                        </div>
                       </div>
                     </div>
                   )}
@@ -385,6 +515,88 @@ export default function RegisterPage() {
                   {userType === "barbeiro" && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Dados Profissionais</h3>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="nome">Nome Completo</Label>
+                          <Input
+                            id="nome"
+                            value={formData.nome}
+                            onChange={(e) => handleInputChange("nome", e.target.value)}
+                            placeholder="Seu nome completo"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="telefone">Telefone</Label>
+                          <Input
+                            id="telefone"
+                            value={formData.telefone}
+                            onChange={(e) => handleInputChange("telefone", e.target.value)}
+                            placeholder="(11) 99999-9999"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange("email", e.target.value)}
+                          placeholder="seu@email.com"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="senha">Senha</Label>
+                          <Input
+                            id="senha"
+                            type="password"
+                            value={formData.senha}
+                            onChange={(e) => handleInputChange("senha", e.target.value)}
+                            placeholder="Sua senha"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
+                          <Input
+                            id="confirmarSenha"
+                            type="password"
+                            value={formData.confirmarSenha}
+                            onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
+                            placeholder="Confirme sua senha"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="experiencia">Tempo de Experiência</Label>
+                        <Input
+                          id="experiencia"
+                          value={formData.experiencia}
+                          onChange={(e) => handleInputChange("experiencia", e.target.value)}
+                          placeholder="Ex: 5 anos"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="portfolio">Portfolio/Instagram (opcional)</Label>
+                        <Input
+                          id="portfolio"
+                          value={formData.portfolio}
+                          onChange={(e) => handleInputChange("portfolio", e.target.value)}
+                          placeholder="@seu_instagram ou link do portfolio"
+                        />
+                      </div>
+
                       <div>
                         <Label htmlFor="codigoBarbearia">Código da Barbearia *</Label>
                         <Input
@@ -418,9 +630,9 @@ export default function RegisterPage() {
                           </div>
                         )}
 
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <h4 className="text-sm font-medium text-blue-900 mb-1">Como obter o código?</h4>
-                          <ul className="text-xs text-blue-800 space-y-1">
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <h4 className="text-sm font-medium text-amber-900 mb-1">Como obter o código?</h4>
+                          <ul className="text-xs text-amber-800 space-y-1">
                             <li>• Solicite o código ao gerente/proprietário da barbearia</li>
                             <li>• O código é único para cada barbearia</li>
                             <li>• Formato: 2 letras + 6 caracteres (Ex: BB123ABC)</li>
@@ -457,87 +669,60 @@ export default function RegisterPage() {
                     </div>
                   )}
 
-                  {userType === "barbearia" && (
+                  {userType === "cliente" && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold flex items-center">
-                        <CreditCard className="h-5 w-5 mr-2" />
-                        Dados de Pagamento
-                      </h3>
-                      <div>
-                        <Label htmlFor="numeroCartao">Número do Cartão</Label>
-                        <Input
-                          id="numeroCartao"
-                          value={formData.numeroCartao}
-                          onChange={(e) => handleInputChange("numeroCartao", e.target.value)}
-                          placeholder="0000 0000 0000 0000"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="nomeCartao">Nome no Cartão</Label>
-                        <Input
-                          id="nomeCartao"
-                          value={formData.nomeCartao}
-                          onChange={(e) => handleInputChange("nomeCartao", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <h3 className="text-lg font-semibold">Dados Pessoais</h3>
+                      <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="validadeCartao">Validade</Label>
+                          <Label htmlFor="nome">Nome Completo</Label>
                           <Input
-                            id="validadeCartao"
-                            value={formData.validadeCartao}
-                            onChange={(e) => handleInputChange("validadeCartao", e.target.value)}
-                            placeholder="MM/AA"
+                            id="nome"
+                            value={formData.nome}
+                            onChange={(e) => handleInputChange("nome", e.target.value)}
                             required
                           />
                         </div>
                         <div>
-                          <Label htmlFor="cvv">CVV</Label>
+                          <Label htmlFor="telefone">Telefone</Label>
                           <Input
-                            id="cvv"
-                            value={formData.cvv}
-                            onChange={(e) => handleInputChange("cvv", e.target.value)}
-                            placeholder="000"
+                            id="telefone"
+                            value={formData.telefone}
+                            onChange={(e) => handleInputChange("telefone", e.target.value)}
+                            placeholder="(11) 99999-9999"
                             required
                           />
                         </div>
                       </div>
-
-                      <div key={selectedPlan} className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                        <h4 className="font-semibold text-amber-800 mb-3 flex items-center justify-between">
-                          Plano Selecionado: {currentPlan.name}
-                          <Badge className="bg-amber-600">{currentPlan.price}/mês</Badge>
-                        </h4>
-
-                        <div className="mb-4">
-                          <h5 className="font-medium mb-2 text-amber-700">Funcionalidades incluídas:</h5>
-                          <ul className="space-y-1">
-                            {currentPlan.features.map((feature, index) => (
-                              <li key={index} className="flex items-center space-x-2">
-                                <Check className="h-3 w-3 text-green-600" />
-                                <span className="text-sm text-gray-700">{feature}</span>
-                              </li>
-                            ))}
-                          </ul>
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange("email", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="senha">Senha</Label>
+                          <Input
+                            id="senha"
+                            type="password"
+                            value={formData.senha}
+                            onChange={(e) => handleInputChange("senha", e.target.value)}
+                            required
+                          />
                         </div>
-
-                        <div className="border-t border-amber-200 pt-3">
-                          <h5 className="font-semibold text-amber-800 mb-2">Resumo da Cobrança</h5>
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                              <span>Período de teste (30 dias)</span>
-                              <span className="text-green-600 font-medium">Grátis</span>
-                            </div>
-                            <div className="flex justify-between font-semibold">
-                              <span>Após o período de teste</span>
-                              <span>{currentPlan.price}/mês</span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-amber-700 mt-2">
-                            Você pode cancelar a qualquer momento durante o período de teste.
-                          </p>
+                        <div>
+                          <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
+                          <Input
+                            id="confirmarSenha"
+                            type="password"
+                            value={formData.confirmarSenha}
+                            onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
+                            required
+                          />
                         </div>
                       </div>
                     </div>
@@ -552,63 +737,75 @@ export default function RegisterPage() {
                     />
                     <Label htmlFor="termos" className="text-sm">
                       Aceito os{" "}
-                      <Link href="#" className="text-amber-600 hover:underline">
+                      <Link href="#" className="text-amber-600 hover:text-amber-700 underline">
                         termos de uso
                       </Link>{" "}
                       e{" "}
-                      <Link href="#" className="text-amber-600 hover:underline">
+                      <Link href="#" className="text-amber-600 hover:text-amber-700 underline">
                         política de privacidade
                       </Link>
                     </Label>
                   </div>
 
-                  <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700">
-                    {userType === "barbearia"
-                      ? "Finalizar Cadastro e Pagamento"
-                      : userType === "barbeiro"
-                        ? "Enviar Solicitação"
-                        : "Criar Conta"}
-                  </Button>
+                  <div className="flex space-x-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStep(userType === "barbearia" ? 2 : 1)}
+                      className="flex-1"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Voltar
+                    </Button>
+                    <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
+                      Finalizar Cadastro
+                    </Button>
+                  </div>
                 </form>
               </CardContent>
             </Card>
           </div>
 
+          {/* Resumo do Plano (apenas para barbearia) */}
           {userType === "barbearia" && (
             <div className="lg:col-span-1">
-              <Card className="sticky top-4">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Escolha seu Plano</CardTitle>
-                  <CardDescription>Selecione o plano ideal para sua barbearia</CardDescription>
+                  <CardTitle className="flex items-center">
+                    <Building2 className="h-5 w-5 mr-2" />
+                    Resumo do Plano
+                  </CardTitle>
+                  <CardDescription>Detalhes da sua assinatura</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {Object.entries(plans).map(([key, plan]) => (
-                    <div
-                      key={key}
-                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        selectedPlan === key ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
-                      }`}
-                      onClick={() => handlePlanSelect(key as "basico" | "profissional" | "premium")}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold">{plan.name}</h4>
-                        <Badge className={selectedPlan === key ? "bg-amber-600" : "bg-gray-500"}>
-                          {plan.price}/mês
-                        </Badge>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="text-center p-4 bg-amber-50 rounded-lg">
+                      <h3 className="font-semibold text-lg">{plans[selectedPlan].name}</h3>
+                      <div className="text-2xl font-bold text-amber-600 mt-1">
+                        {plans[selectedPlan].price}
+                        <span className="text-sm font-normal text-gray-600">/mês</span>
                       </div>
-                      <ul className="space-y-1">
-                        {plan.features.slice(0, 2).map((feature, index) => (
-                          <li key={index} className="flex items-center space-x-2">
-                            <Check className="h-3 w-3 text-green-600" />
-                            <span className="text-xs text-gray-600">{feature}</span>
-                          </li>
-                        ))}
-                        {plan.features.length > 2 && (
-                          <li className="text-xs text-gray-500">+{plan.features.length - 2} funcionalidades</li>
-                        )}
-                      </ul>
+                      <Badge className="bg-amber-600 text-white mt-2">30 dias grátis</Badge>
                     </div>
-                  ))}
+
+                    <div>
+                      <h4 className="font-medium mb-3">Funcionalidades incluídas:</h4>
+                      <div className="space-y-2">
+                        {plans[selectedPlan].features.map((feature, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Check className="h-4 w-4 text-green-600" />
+                            <span className="text-sm text-gray-700">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-2 text-sm">
+                      <p>• Primeiro mês grátis, cobrança inicia após 30 dias</p>
+                      <p>• Cancele a qualquer momento</p>
+                      <p>• Suporte completo durante o período de teste</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

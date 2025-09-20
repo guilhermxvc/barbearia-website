@@ -11,6 +11,7 @@ import { BarberProfile } from "@/components/barber-profile"
 import { BarberStats } from "@/components/barber-stats"
 import { AIAssistant } from "@/components/ai-assistant"
 import { NotificationsSystem } from "@/components/notifications-system"
+import { BarberReports } from "@/components/barber-reports"
 
 export default function BarberDashboard() {
   const [activeSection, setActiveSection] = useState("schedule")
@@ -24,13 +25,17 @@ export default function BarberDashboard() {
       title: "Meus Clientes",
       description: "Histórico e informações dos seus clientes",
     },
-    profile: {
-      title: "Meu Perfil",
-      description: "Gerencie suas informações e especialidades",
+    reports: {
+      title: "Relatórios",
+      description: "Acompanhe seus ganhos e performance financeira",
     },
     stats: {
       title: "Estatísticas",
       description: "Acompanhe seu desempenho e métricas",
+    },
+    profile: {
+      title: "Meu Perfil",
+      description: "Gerencie suas informações e especialidades",
     },
   }
 
@@ -40,10 +45,12 @@ export default function BarberDashboard() {
         return <ScheduleSection />
       case "clients":
         return <BarberClients />
-      case "profile":
-        return <BarberProfile />
+      case "reports":
+        return <BarberReports />
       case "stats":
         return <BarberStats />
+      case "profile":
+        return <BarberProfile />
       default:
         return <ScheduleSection />
     }

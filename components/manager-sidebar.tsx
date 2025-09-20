@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, CreditCard } from "lucide-react"
+import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 
@@ -20,10 +20,6 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
   useEffect(() => {
     setIsClient(true)
     const userEmail = localStorage.getItem("userEmail")
-    const storedPlan = localStorage.getItem("userPlan")
-
-    console.log("[v0] Sidebar - Email:", userEmail)
-    console.log("[v0] Sidebar - Stored Plan:", storedPlan)
 
     if (userEmail) {
       let plan = "Profissional"
@@ -39,19 +35,18 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
 
       setCurrentPlan(plan)
       setBarbershopName(barbershop)
-
-      console.log("[v0] Sidebar - Detected Plan:", plan)
-      console.log("[v0] Sidebar - Barbershop Name:", barbershop)
     }
   }, [])
 
   const menuItems = [
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
     { id: "appointments", label: "Agendamentos", icon: Calendar },
+    { id: "clients", label: "Clientes", icon: Users },
     { id: "barbers", label: "Barbeiros", icon: Users },
     { id: "services", label: "Serviços", icon: Scissors },
     { id: "products", label: "Produtos", icon: Package },
-    { id: "reports", label: "Relatórios", icon: BarChart3 },
+    { id: "financial", label: "Financeiro", icon: BarChart3 },
+    { id: "ai", label: "Assistente IA", icon: Bot, premium: true },
     { id: "settings", label: "Configurações", icon: Settings },
   ]
 
@@ -61,6 +56,18 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
     localStorage.removeItem("isLoggedIn")
     localStorage.removeItem("userPlan")
     router.push("/")
+  }
+
+  const handleSectionChange = (sectionId: string) => {
+    const section = menuItems.find((item) => item.id === sectionId)
+
+    if (section?.premium && currentPlan !== "Premium") {
+      // Mostrar modal de upgrade ou mensagem
+      alert("Esta funcionalidade está disponível apenas no plano Premium. Faça upgrade para acessar o Assistente IA.")
+      return
+    }
+
+    onSectionChange(sectionId)
   }
 
   if (!isClient) {
@@ -104,19 +111,25 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
+            const isLocked = item.premium && currentPlan !== "Premium"
+
             return (
               <li key={item.id}>
                 <Button
                   variant={activeSection === item.id ? "default" : "ghost"}
-                  className={`w-full justify-start ${
+                  className={`w-full justify-start relative ${
                     activeSection === item.id
                       ? "bg-amber-600 hover:bg-amber-700 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
+                      : isLocked
+                        ? "text-gray-400 hover:bg-gray-50 cursor-not-allowed"
+                        : "text-gray-700 hover:bg-gray-100"
                   }`}
-                  onClick={() => onSectionChange(item.id)}
+                  onClick={() => handleSectionChange(item.id)}
+                  disabled={isLocked}
                 >
                   <IconComponent className="h-4 w-4 mr-3" />
                   {item.label}
+                  {isLocked && <Badge className="ml-auto bg-amber-100 text-amber-800 text-xs">Premium</Badge>}
                 </Button>
               </li>
             )
@@ -139,10 +152,6 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
           <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600">
             <Bell className="h-4 w-4 mr-2" />
             Notificações
-          </Button>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Faturamento
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start text-red-600" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
