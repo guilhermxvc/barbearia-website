@@ -1,0 +1,218 @@
+import { pgTable, text, timestamp, integer, uuid, boolean, decimal, json, varchar } from 'drizzle-orm/pg-core';
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+import { z } from 'zod';
+
+// Enums
+export const userTypeEnum = ['manager', 'barber', 'client'] as const;
+export const subscriptionPlanEnum = ['basico', 'profissional', 'premium'] as const;
+export const appointmentStatusEnum = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+
+// Users table
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  password: text('password').notNull(),
+  name: text('name').notNull(),
+  phone: text('phone'),
+  userType: text('user_type', { enum: userTypeEnum }).notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Barbershops table
+export const barbershops = pgTable('barbershops', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerId: uuid('owner_id').references(() => users.id).notNull(),
+  name: text('name').notNull(),
+  address: text('address'),
+  phone: text('phone'),
+  email: text('email'),
+  subscriptionPlan: text('subscription_plan', { enum: subscriptionPlanEnum }).default('basico'),
+  businessHours: json('business_hours'), // Formato: { segunda: { open: '08:00', close: '18:00' } }
+  code: varchar('code', { length: 10 }).notNull().unique(), // Código único para barbeiros se vincularem
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Barbers table
+export const barbers = pgTable('barbers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id),
+  specialties: json('specialties'), // Array de especialidades
+  commissionRate: decimal('commission_rate', { precision: 5, scale: 2 }).default('40.00'), // Porcentagem de comissão
+  isApproved: boolean('is_approved').default(false),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Clients table
+export const clients = pgTable('clients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  preferences: json('preferences'), // Preferências de serviços, barbeiros
+  totalVisits: integer('total_visits').default(0),
+  totalSpent: decimal('total_spent', { precision: 10, scale: 2 }).default('0.00'),
+  lastVisit: timestamp('last_visit'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Services table
+export const services = pgTable('services', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  price: decimal('price', { precision: 8, scale: 2 }).notNull(),
+  duration: integer('duration').notNull(), // Duração em minutos
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Products table (para gestão de estoque)
+export const products = pgTable('products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  price: decimal('price', { precision: 8, scale: 2 }).notNull(),
+  cost: decimal('cost', { precision: 8, scale: 2 }),
+  stockQuantity: integer('stock_quantity').default(0),
+  minStockLevel: integer('min_stock_level').default(5),
+  category: text('category'),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Appointments table
+export const appointments = pgTable('appointments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  clientId: uuid('client_id').references(() => clients.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  serviceId: uuid('service_id').references(() => services.id).notNull(),
+  scheduledAt: timestamp('scheduled_at').notNull(),
+  duration: integer('duration').notNull(), // Duração em minutos
+  status: text('status', { enum: appointmentStatusEnum }).default('pending'),
+  notes: text('notes'),
+  totalPrice: decimal('total_price', { precision: 8, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Sales table (para vendas de produtos e serviços)
+export const sales = pgTable('sales', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  clientId: uuid('client_id').references(() => clients.id),
+  barberId: uuid('barber_id').references(() => barbers.id),
+  appointmentId: uuid('appointment_id').references(() => appointments.id),
+  items: json('items'), // Array de produtos/serviços vendidos
+  totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+  discount: decimal('discount', { precision: 8, scale: 2 }).default('0.00'),
+  paymentMethod: text('payment_method'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Commission tracking table
+export const commissions = pgTable('commissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  saleId: uuid('sale_id').references(() => sales.id).notNull(),
+  amount: decimal('amount', { precision: 8, scale: 2 }).notNull(),
+  rate: decimal('rate', { precision: 5, scale: 2 }).notNull(),
+  isPaid: boolean('is_paid').default(false),
+  paidAt: timestamp('paid_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Notifications table
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  type: text('type'), // 'appointment', 'reminder', 'promotion', etc
+  isRead: boolean('is_read').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Barber requests table (para solicitações de vinculação)
+export const barberRequests = pgTable('barber_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  status: text('status').default('pending'), // 'pending', 'approved', 'rejected'
+  message: text('message'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Zod schemas for validation
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+
+export const insertBarbershopSchema = createInsertSchema(barbershops);
+export const selectBarbershopSchema = createSelectSchema(barbershops);
+
+export const insertBarberSchema = createInsertSchema(barbers);
+export const selectBarberSchema = createSelectSchema(barbers);
+
+export const insertClientSchema = createInsertSchema(clients);
+export const selectClientSchema = createSelectSchema(clients);
+
+export const insertServiceSchema = createInsertSchema(services);
+export const selectServiceSchema = createSelectSchema(services);
+
+export const insertProductSchema = createInsertSchema(products);
+export const selectProductSchema = createSelectSchema(products);
+
+export const insertAppointmentSchema = createInsertSchema(appointments);
+export const selectAppointmentSchema = createSelectSchema(appointments);
+
+export const insertSaleSchema = createInsertSchema(sales);
+export const selectSaleSchema = createSelectSchema(sales);
+
+export const insertNotificationSchema = createInsertSchema(notifications);
+export const selectNotificationSchema = createSelectSchema(notifications);
+
+export const insertBarberRequestSchema = createInsertSchema(barberRequests);
+export const selectBarberRequestSchema = createSelectSchema(barberRequests);
+
+// Types
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+export type Barbershop = typeof barbershops.$inferSelect;
+export type NewBarbershop = typeof barbershops.$inferInsert;
+
+export type Barber = typeof barbers.$inferSelect;
+export type NewBarber = typeof barbers.$inferInsert;
+
+export type Client = typeof clients.$inferSelect;
+export type NewClient = typeof clients.$inferInsert;
+
+export type Service = typeof services.$inferSelect;
+export type NewService = typeof services.$inferInsert;
+
+export type Product = typeof products.$inferSelect;
+export type NewProduct = typeof products.$inferInsert;
+
+export type Appointment = typeof appointments.$inferSelect;
+export type NewAppointment = typeof appointments.$inferInsert;
+
+export type Sale = typeof sales.$inferSelect;
+export type NewSale = typeof sales.$inferInsert;
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+
+export type BarberRequest = typeof barberRequests.$inferSelect;
+export type NewBarberRequest = typeof barberRequests.$inferInsert;

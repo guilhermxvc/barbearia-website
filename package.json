@@ -6,7 +6,10 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -38,6 +41,7 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "@supabase/ssr": "0.7.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "latest",
@@ -48,6 +52,9 @@
     "cors": "latest",
     "date-fns": "4.1.0",
     "dotenv": "latest",
+    "drizzle-kit": "^0.31.4",
+    "drizzle-orm": "^0.44.5",
+    "drizzle-zod": "^0.8.3",
     "embla-carousel-react": "8.5.1",
     "express": "latest",
     "express-rate-limit": "latest",
@@ -60,6 +67,7 @@
     "morgan": "latest",
     "next": "14.2.16",
     "next-themes": "latest",
+    "postgres": "^3.4.7",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",
