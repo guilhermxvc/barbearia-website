@@ -20,7 +20,7 @@ const createAppointmentSchema = insertAppointmentSchema.omit({
 });
 
 // GET /api/appointments - Listar agendamentos
-export const GET = withAuth()(async (req) => {
+export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const barbershopId = searchParams.get('barbershopId');
@@ -31,16 +31,86 @@ export const GET = withAuth()(async (req) => {
 
     let whereConditions: any = [];
 
-    if (barbershopId) {
+    // Aplicar controle de acesso baseado no tipo de usuário
+    const userRole = req.user!.userType;
+
+    if (userRole === 'client') {
+      // Cliente só pode ver seus próprios agendamentos
+      const client = await db.query.clients.findFirst({
+        where: eq(clients.userId, req.user!.id),
+      });
+
+      if (!client) {
+        return NextResponse.json(
+          { error: 'Perfil de cliente não encontrado' },
+          { status: 404 }
+        );
+      }
+
+      // Forçar clientId para o cliente logado, ignorar outros filtros
+      whereConditions.push(eq(appointments.clientId, client.id));
+    } else if (userRole === 'barber') {
+      // Barbeiro pode ver agendamentos da sua barbearia
+      const barber = await db.query.barbers.findFirst({
+        where: eq(barbers.userId, req.user!.id),
+      });
+
+      if (!barber) {
+        return NextResponse.json(
+          { error: 'Perfil de barbeiro não encontrado' },
+          { status: 404 }
+        );
+      }
+
+      whereConditions.push(eq(appointments.barbershopId, barber.barbershopId));
+
+      // Se barberId fornecido, verificar se é o próprio barbeiro ou da mesma barbearia
+      if (barberId) {
+        whereConditions.push(eq(appointments.barberId, barberId));
+      }
+    } else if (userRole === 'manager') {
+      // Manager pode ver agendamentos da sua barbearia
+      if (!barbershopId) {
+        return NextResponse.json(
+          { error: 'ID da barbearia é obrigatório para managers' },
+          { status: 400 }
+        );
+      }
+
+      const barbershop = await db.query.barbershops.findFirst({
+        where: eq(barbershops.id, barbershopId),
+      });
+
+      if (!barbershop || barbershop.ownerId !== req.user!.id) {
+        return NextResponse.json(
+          { error: 'Acesso negado' },
+          { status: 403 }
+        );
+      }
+
       whereConditions.push(eq(appointments.barbershopId, barbershopId));
+
+      if (barberId) {
+        whereConditions.push(eq(appointments.barberId, barberId));
+      }
+
+      if (clientId) {
+        whereConditions.push(eq(appointments.clientId, clientId));
+      }
+    } else {
+      // Tipo de usuário não autorizado
+      return NextResponse.json(
+        { error: 'Tipo de usuário não autorizado' },
+        { status: 403 }
+      );
     }
 
-    if (barberId) {
-      whereConditions.push(eq(appointments.barberId, barberId));
-    }
-
-    if (clientId) {
-      whereConditions.push(eq(appointments.clientId, clientId));
+    // Verificação defensiva: garantir que há pelo menos uma condição aplicada
+    if (whereConditions.length === 0) {
+      return NextResponse.json(
+        { error: 'Acesso negado - condições insuficientes' },
+        { status: 403 }
+      );
     }
 
     if (status) {

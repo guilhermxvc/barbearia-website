@@ -6,7 +6,7 @@ import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
 // GET /api/sales - Listar vendas
-export const GET = withAuth()(async (req) => {
+export const GET = withAuth(['manager', 'barber'])(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const barbershopId = searchParams.get('barbershopId');
@@ -14,11 +14,46 @@ export const GET = withAuth()(async (req) => {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    let whereConditions: any = [];
-
-    if (barbershopId) {
-      whereConditions.push(eq(sales.barbershopId, barbershopId));
+    if (!barbershopId) {
+      return NextResponse.json(
+        { error: 'ID da barbearia é obrigatório' },
+        { status: 400 }
+      );
     }
+
+    // Verificar autorização baseada no tipo de usuário
+    const userRole = req.user!.userType;
+    
+    if (userRole === 'manager') {
+      // Manager deve ser o dono da barbearia
+      const barbershop = await db.query.barbershops.findFirst({
+        where: eq(barbershops.id, barbershopId),
+      });
+
+      if (!barbershop || barbershop.ownerId !== req.user!.id) {
+        return NextResponse.json(
+          { error: 'Acesso negado' },
+          { status: 403 }
+        );
+      }
+    } else if (userRole === 'barber') {
+      // Barbeiro só pode ver vendas da sua barbearia
+      const barber = await db.query.barbers.findFirst({
+        where: and(
+          eq(barbers.userId, req.user!.id),
+          eq(barbers.barbershopId, barbershopId)
+        ),
+      });
+
+      if (!barber) {
+        return NextResponse.json(
+          { error: 'Acesso negado' },
+          { status: 403 }
+        );
+      }
+    }
+
+    let whereConditions: any = [eq(sales.barbershopId, barbershopId)];
 
     if (barberId) {
       whereConditions.push(eq(sales.barberId, barberId));
@@ -35,7 +70,7 @@ export const GET = withAuth()(async (req) => {
     const salesList = await db
       .select()
       .from(sales)
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .where(and(...whereConditions))
       .orderBy(desc(sales.createdAt));
 
     return NextResponse.json({
