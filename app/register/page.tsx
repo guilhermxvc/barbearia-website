@@ -61,7 +61,7 @@ export default function RegisterPage() {
   const plans = {
     basico: {
       name: "Básico",
-      price: "R$ 29",
+      price: "R$ 39",
       description: "Ideal para barbearias iniciantes",
       features: [
         "Até 2 barbeiros",
@@ -72,7 +72,7 @@ export default function RegisterPage() {
     },
     profissional: {
       name: "Profissional",
-      price: "R$ 59",
+      price: "R$ 79",
       description: "Para barbearias em crescimento",
       features: [
         "Até 5 barbeiros",
@@ -85,7 +85,7 @@ export default function RegisterPage() {
     },
     premium: {
       name: "Premium",
-      price: "R$ 99",
+      price: "R$ 129",
       description: "Para barbearias estabelecidas",
       features: [
         "Barbeiros ilimitados",
@@ -161,10 +161,21 @@ export default function RegisterPage() {
     return null
   }
 
+  // Componente de cabeçalho compartilhado
+  const renderBackToHomeHeader = () => (
+    <div className="text-center mb-8">
+      <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
+        <Scissors className="h-6 w-6" />
+        <span className="text-lg font-semibold">Voltar ao início</span>
+      </Link>
+    </div>
+  )
+
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
         <div className="w-full max-w-5xl">
+          {renderBackToHomeHeader()}
           {renderProgressSteps()}
 
           <div className="text-center mb-8">
@@ -172,98 +183,96 @@ export default function RegisterPage() {
             <p className="text-gray-600">Escolha o tipo de conta que deseja criar</p>
           </div>
 
-          <div className="flex justify-center">
-            <div className="grid md:grid-cols-3 gap-6 mb-8 max-w-4xl">
-              {/* Dono de Barbearia */}
-              <Card
-                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
-                  userType === "barbearia" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
-                }`}
-                onClick={() => setUserType("barbearia")}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <Building2 className="h-8 w-8 text-amber-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-8">
+            {/* Dono de Barbearia */}
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 h-full ${
+                userType === "barbearia" ? "border-amber-500 bg-amber-50 shadow-lg" : "border-gray-200 hover:border-amber-300"
+              }`}
+              onClick={() => setUserType("barbearia")}
+            >
+              <CardContent className="p-6 text-center h-full flex flex-col">
+                <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                  <Building2 className="h-8 w-8 text-amber-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Dono de Barbearia</h3>
+                <p className="text-sm text-gray-600 mb-4 flex-grow">Quero gerenciar minha barbearia e equipe de barbeiros</p>
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Gestão completa da barbearia</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Dono de Barbearia</h3>
-                  <p className="text-sm text-gray-600 mb-4">Quero gerenciar minha barbearia e equipe de barbeiros</p>
-                  <div className="space-y-2 text-left">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Gestão completa da barbearia</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Cadastro de barbeiros</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Relatórios financeiros</span>
-                    </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Cadastro de barbeiros</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Relatórios financeiros</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Barbeiro */}
-              <Card
-                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
-                  userType === "barbeiro" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
-                }`}
-                onClick={() => setUserType("barbeiro")}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                    <UserCheck className="h-8 w-8 text-blue-600" />
+            {/* Barbeiro */}
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 h-full ${
+                userType === "barbeiro" ? "border-amber-500 bg-amber-50 shadow-lg" : "border-gray-200 hover:border-amber-300"
+              }`}
+              onClick={() => setUserType("barbeiro")}
+            >
+              <CardContent className="p-6 text-center h-full flex flex-col">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <UserCheck className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Barbeiro</h3>
+                <p className="text-sm text-gray-600 mb-4 flex-grow">Quero gerenciar meus agendamentos e clientes</p>
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Agenda pessoal</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Barbeiro</h3>
-                  <p className="text-sm text-gray-600 mb-4">Quero gerenciar meus agendamentos e clientes</p>
-                  <div className="space-y-2 text-left">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Agenda pessoal</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Controle de horários</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Histórico de clientes</span>
-                    </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Controle de horários</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Histórico de clientes</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Cliente */}
-              <Card
-                className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
-                  userType === "cliente" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
-                }`}
-                onClick={() => setUserType("cliente")}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                    <User className="h-8 w-8 text-green-600" />
+            {/* Cliente */}
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 h-full md:col-span-2 lg:col-span-1 md:mx-auto lg:mx-0 md:max-w-sm lg:max-w-none ${
+                userType === "cliente" ? "border-amber-500 bg-amber-50 shadow-lg" : "border-gray-200 hover:border-amber-300"
+              }`}
+              onClick={() => setUserType("cliente")}
+            >
+              <CardContent className="p-6 text-center h-full flex flex-col">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <User className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Cliente</h3>
+                <p className="text-sm text-gray-600 mb-4 flex-grow">Quero agendar cortes e encontrar barbearias</p>
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Agendamento fácil</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Cliente</h3>
-                  <p className="text-sm text-gray-600 mb-4">Quero agendar cortes e encontrar barbearias</p>
-                  <div className="space-y-2 text-left">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Agendamento fácil</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Buscar barbearias</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span>Histórico de cortes</span>
-                    </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Buscar barbearias</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Histórico de cortes</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="flex justify-center">
@@ -293,6 +302,7 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
         <div className="container mx-auto max-w-6xl">
+          {renderBackToHomeHeader()}
           {renderProgressSteps()}
 
           <div className="text-center mb-8">
@@ -354,6 +364,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
       <div className="container mx-auto max-w-6xl">
+        {renderBackToHomeHeader()}
         {renderProgressSteps()}
 
         <div className="grid lg:grid-cols-3 gap-8">

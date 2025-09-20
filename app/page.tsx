@@ -73,15 +73,18 @@ export default function HomePage() {
               <span className="text-2xl font-bold text-gray-900">BarberPro</span>
             </div>
             <nav className="hidden md:flex items-center space-x-8">
+              <a href="#sobre" className="text-gray-700 hover:text-amber-600 transition-colors">
+                Sobre
+              </a>
+              <a href="#funcionalidades" className="text-gray-700 hover:text-amber-600 transition-colors">
+                Funcionalidades
+              </a>
               <a href="#precos" className="text-gray-700 hover:text-amber-600 transition-colors">
                 Preços
               </a>
-              <Link href="/register" className="text-gray-700 hover:text-amber-600 transition-colors">
-                Criar Conta
-              </Link>
-              <Link href="/login" className="text-gray-700 hover:text-amber-600 transition-colors">
-                Entrar
-              </Link>
+              <a href="#contato" className="text-gray-700 hover:text-amber-600 transition-colors">
+                Contato
+              </a>
             </nav>
             <div className="flex items-center space-x-4">
               <Link href="/login">
@@ -100,7 +103,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-24 pb-16 overflow-hidden">
+      <section id="sobre" className="relative pt-24 pb-16 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100"></div>
         <div className="relative container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -200,7 +203,13 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {plans.map((plan, index) => {
               const IconComponent = plan.icon
-              const planKey = plan.name.toLowerCase().replace('ã', 'a') // básico -> basico
+              // Mapeamento correto dos nomes dos planos para as chaves
+              const planMapping: { [key: string]: string } = {
+                "Básico": "basico",
+                "Profissional": "profissional", 
+                "Premium": "premium"
+              }
+              const planKey = planMapping[plan.name] || plan.name.toLowerCase()
               return (
                 <Card
                   key={index}
@@ -314,7 +323,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id="recursos" className="py-20 bg-white">
+      <section id="funcionalidades" className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
@@ -426,7 +435,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-amber-600">
+      <section id="contato" className="py-16 bg-amber-600">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">Pronto para modernizar sua barbearia?</h2>
           <p className="text-xl text-amber-100 mb-8">
