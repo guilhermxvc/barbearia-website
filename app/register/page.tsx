@@ -281,28 +281,17 @@ export default function RegisterPage() {
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-5xl mx-auto">
+        <div className="w-full max-w-5xl">
+          {renderProgressSteps()}
 
-        <div className="relative flex items-center justify-center min-h-screen p-4">
-          <div className="w-full max-w-6xl mx-auto">
-            {/* Header Navigation */}
-            <div className="text-center mb-8">
-              <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
-                <Scissors className="h-6 w-6" />
-                <span className="text-lg font-semibold">Voltar ao início</span>
-              </Link>
-            </div>
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Criar Conta</h1>
+            <p className="text-gray-600">Escolha o tipo de conta que deseja criar</p>
+          </div>
 
-            {renderProgressSteps()}
-
-            <div className="text-center mb-12">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Criar Conta</h1>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">Escolha o tipo de conta que deseja criar para começar sua jornada</p>
-            </div>
-
-            <div className="flex justify-center">
-              <div className="grid sm:grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-5xl w-full">
-                {/* Dono de Barbearia */}
+          <div className="flex justify-center">
+            <div className="grid md:grid-cols-3 gap-6 mb-8 max-w-4xl">
+              {/* Dono de Barbearia */}
               <Card
                 className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
                   userType === "barbearia" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"

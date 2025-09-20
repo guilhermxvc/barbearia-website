@@ -73,18 +73,15 @@ export default function HomePage() {
               <span className="text-2xl font-bold text-gray-900">BarberPro</span>
             </div>
             <nav className="hidden md:flex items-center space-x-8">
-              <a href="#recursos" className="text-gray-700 hover:text-amber-600 transition-colors">
-                Recursos
-              </a>
               <a href="#precos" className="text-gray-700 hover:text-amber-600 transition-colors">
                 Preços
               </a>
-              <a href="#sobre" className="text-gray-700 hover:text-amber-600 transition-colors">
-                Sobre
-              </a>
-              <a href="#contato" className="text-gray-700 hover:text-amber-600 transition-colors">
-                Contato
-              </a>
+              <Link href="/register" className="text-gray-700 hover:text-amber-600 transition-colors">
+                Criar Conta
+              </Link>
+              <Link href="/login" className="text-gray-700 hover:text-amber-600 transition-colors">
+                Entrar
+              </Link>
             </nav>
             <div className="flex items-center space-x-4">
               <Link href="/login">
