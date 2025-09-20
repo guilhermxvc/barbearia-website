@@ -1,52 +1,31 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Building2, User, Scissors, Check, ArrowLeft, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import { useSearchParams, useRouter } from "next/navigation"
-import { authApi } from "@/lib/api/auth"
+import { Building2, User, UserCheck, Scissors, Check, ArrowLeft, Crown } from "lucide-react"
+
+type UserType = "barbearia" | "barbeiro" | "cliente" | null
+type PlanType = "basico" | "profissional" | "premium"
 
 export default function RegisterPage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-
+  const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
-  const [userType, setUserType] = useState<"barbearia" | "barbeiro" | "cliente" | null>(null)
-  const [selectedPlan, setSelectedPlan] = useState<"basico" | "profissional" | "premium">("profissional")
+  const [userType, setUserType] = useState<UserType>(null)
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>("basico")
   const [isClient, setIsClient] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [codeValidation, setCodeValidation] = useState<{ isValid: boolean; barbershopName: string; message: string }>({
-    isValid: false,
-    barbershopName: "",
-    message: "",
-  })
-
-  useEffect(() => {
-    setIsClient(true)
-    const planFromUrl = searchParams.get("plan")
-    const stepFromUrl = searchParams.get("step")
-    
-    if (planFromUrl && ["basico", "profissional", "premium"].includes(planFromUrl)) {
-      setSelectedPlan(planFromUrl as "basico" | "profissional" | "premium")
-    }
-    
-    // Se step=3 é especificado, ir direto para o pagamento (último passo do registro de barbearia)
-    if (stepFromUrl === "3" && planFromUrl) {
-      setUserType("barbearia")
-      setStep(3) // Ir direto para o passo de pagamento
-    }
-  }, [searchParams])
 
   const [formData, setFormData] = useState({
     nome: "",
+    sobrenome: "",
     email: "",
     senha: "",
     confirmarSenha: "",
@@ -56,196 +35,96 @@ export default function RegisterPage() {
     cidade: "",
     estado: "",
     cep: "",
-    cnpj: "",
-    codigoBarbearia: "",
-    especialidades: [] as string[],
+    especialidades: "",
     experiencia: "",
-    portfolio: "",
-    numeroCartao: "",
-    nomeCartao: "",
-    validadeCartao: "",
-    cvv: "",
+    barbershopName: "",
+    message: "",
     aceitarTermos: false,
   })
 
-  const validateBarbershopCode = (code: string) => {
-    const validCodes = {
-      BB123ABC: { name: "Barbearia Básica", plan: "basico" },
-      BB456DEF: { name: "Barbearia Profissional", plan: "profissional" },
-      BB789GHI: { name: "Barbearia Premium", plan: "premium" },
+  useEffect(() => {
+    setIsClient(true)
+    const planFromUrl = searchParams.get("plan")
+    const stepFromUrl = searchParams.get("step")
+    
+    if (planFromUrl && ["basico", "profissional", "premium"].includes(planFromUrl)) {
+      setSelectedPlan(planFromUrl as PlanType)
     }
-
-    if (code.length < 6) {
-      setCodeValidation({
-        isValid: false,
-        barbershopName: "",
-        message: "",
-      })
-      return
+    
+    // Se step=3 é especificado, ir direto para o pagamento (último passo do registro de barbearia)
+    if (stepFromUrl === "3" && planFromUrl) {
+      setUserType("barbearia")
+      setStep(3) // Ir direto para o passo de pagamento
     }
-
-    const barbershop = validCodes[code as keyof typeof validCodes]
-
-    if (barbershop) {
-      setCodeValidation({
-        isValid: true,
-        barbershopName: barbershop.name,
-        message: `Código válido! Você será vinculado à ${barbershop.name}`,
-      })
-    } else {
-      setCodeValidation({
-        isValid: false,
-        barbershopName: "",
-        message: "Código inválido. Verifique com o gerente da barbearia.",
-      })
-    }
-  }
+  }, [searchParams])
 
   const plans = {
     basico: {
-      name: "Plano Básico",
-      price: "R$ 99",
-      description: "Ideal para barbearias pequenas",
-      features: ["Agendamento online", "Gestão básica de clientes", "Até 3 barbeiros", "Suporte por email"],
+      name: "Básico",
+      price: "R$ 29",
+      description: "Ideal para barbearias iniciantes",
+      features: [
+        "Até 2 barbeiros",
+        "Agendamento básico",
+        "Relatórios simples",
+        "Suporte por email",
+      ],
     },
     profissional: {
-      name: "Plano Profissional",
-      price: "R$ 125",
+      name: "Profissional",
+      price: "R$ 59",
       description: "Para barbearias em crescimento",
       features: [
-        "Todas as funcionalidades básicas",
-        "Gestão de estoque",
-        "Relatórios avançados",
-        "Marketing integrado",
-        "Até 10 barbeiros",
+        "Até 5 barbeiros",
+        "Agendamento avançado",
+        "Relatórios detalhados",
+        "Suporte prioritário",
+        "Integração WhatsApp",
       ],
       popular: true,
     },
     premium: {
-      name: "Plano Premium",
-      price: "R$ 199",
-      description: "Solução completa com IA",
+      name: "Premium",
+      price: "R$ 99",
+      description: "Para barbearias estabelecidas",
       features: [
-        "Todas as funcionalidades profissionais",
-        "IA avançada integrada",
-        "Integrações personalizadas",
         "Barbeiros ilimitados",
+        "Todas as funcionalidades",
+        "Relatórios avançados",
         "Suporte 24/7",
+        "API personalizada",
       ],
     },
   }
 
-  const currentPlan = plans[selectedPlan]
-
-  const handlePlanSelect = (planKey: "basico" | "profissional" | "premium") => {
-    console.log("Selecionando plano:", planKey)
-    setSelectedPlan(planKey)
-  }
-
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-
-    if (field === "codigoBarbearia") {
-      validateBarbershopCode(value)
-    }
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
-
-    // Validações
-    if (formData.senha !== formData.confirmarSenha) {
-      setError("As senhas não coincidem")
-      setIsLoading(false)
-      return
-    }
-
-    if (userType === "barbeiro" && !codeValidation.isValid) {
-      setError("Por favor, insira um código de barbearia válido.")
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.aceitarTermos) {
-      setError("Você deve aceitar os termos de uso e política de privacidade")
-      setIsLoading(false)
-      return
-    }
 
     try {
-      // Mapear tipo de usuário
-      let apiUserType: 'manager' | 'barber' | 'client'
-      switch (userType) {
-        case 'barbearia':
-          apiUserType = 'manager'
-          break
-        case 'barbeiro':
-          apiUserType = 'barber'
-          break
-        case 'cliente':
-          apiUserType = 'client'
-          break
-        default:
-          throw new Error('Tipo de usuário inválido')
-      }
-
-      // Preparar dados para a API
-      const registerData = {
-        email: formData.email,
-        password: formData.senha,
-        name: formData.nome,
-        phone: formData.telefone,
-        userType: apiUserType,
-        ...(userType === 'barbearia' && {
-          barbershopName: formData.nomeBarbearia,
-          barbershopAddress: `${formData.endereco}, ${formData.cidade}, ${formData.estado} - ${formData.cep}`,
-          barbershopPhone: formData.telefone,
-          subscriptionPlan: selectedPlan,
-        }),
-        ...(userType === 'barbeiro' && {
-          barbershopCode: formData.codigoBarbearia,
-          specialties: formData.especialidades,
-        }),
-      }
-
-      const response = await authApi.register(registerData)
-
-      if (response.success && response.data) {
-        // Sucesso - redirecionar para dashboard
-        const dashboardRoute = getDashboardRoute(apiUserType)
-        router.push(dashboardRoute)
+      // Simular registro
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Redirecionar baseado no tipo de usuário
+      if (userType === "barbearia") {
+        router.push("/dashboard/manager")
+      } else if (userType === "barbeiro") {
+        router.push("/dashboard/barber")
       } else {
-        setError(response.error || "Erro ao criar conta")
+        router.push("/dashboard/client")
       }
-    } catch (err) {
-      setError("Erro de conexão. Tente novamente.")
-      console.error("Register error:", err)
+    } catch (error) {
+      console.error("Erro no registro:", error)
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const getDashboardRoute = (userType: string) => {
-    switch (userType) {
-      case "manager":
-        return "/dashboard/manager"
-      case "barber":
-        return "/dashboard/barber" 
-      case "client":
-        return "/dashboard/client"
-      default:
-        return "/dashboard/client"
-    }
-  }
-
-  if (!isClient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
-        <div className="text-amber-600">Carregando...</div>
-      </div>
-    )
   }
 
   const renderProgressSteps = () => (
@@ -277,6 +156,10 @@ export default function RegisterPage() {
       </div>
     </div>
   )
+
+  if (!isClient) {
+    return null
+  }
 
   if (step === 1) {
     return (
@@ -329,11 +212,11 @@ export default function RegisterPage() {
                 onClick={() => setUserType("barbeiro")}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <Scissors className="h-8 w-8 text-amber-600" />
+                  <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                    <UserCheck className="h-8 w-8 text-blue-600" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Barbeiro</h3>
-                  <p className="text-sm text-gray-600 mb-4">Quero trabalhar em uma barbearia parceira</p>
+                  <p className="text-sm text-gray-600 mb-4">Quero gerenciar meus agendamentos e clientes</p>
                   <div className="space-y-2 text-left">
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
@@ -341,7 +224,7 @@ export default function RegisterPage() {
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
-                      <span>Controle de comissões</span>
+                      <span>Controle de horários</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
@@ -359,11 +242,11 @@ export default function RegisterPage() {
                 onClick={() => setUserType("cliente")}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <User className="h-8 w-8 text-amber-600" />
+                  <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <User className="h-8 w-8 text-green-600" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Sou Cliente</h3>
-                  <p className="text-sm text-gray-600 mb-4">Quero agendar serviços em barbearias</p>
+                  <p className="text-sm text-gray-600 mb-4">Quero agendar cortes e encontrar barbearias</p>
                   <div className="space-y-2 text-left">
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
@@ -371,11 +254,11 @@ export default function RegisterPage() {
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
-                      <span>Histórico de serviços</span>
+                      <span>Buscar barbearias</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-700">
                       <Check className="h-4 w-4 text-green-600" />
-                      <span>Assistente IA</span>
+                      <span>Histórico de cortes</span>
                     </div>
                   </div>
                 </CardContent>
@@ -408,29 +291,14 @@ export default function RegisterPage() {
 
   if (step === 2 && userType === "barbearia") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 relative">
-        {/* Background decorative elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-4 -left-4 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
-          <div className="absolute -bottom-8 right-20 w-72 h-72 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-4000"></div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+        <div className="container mx-auto max-w-6xl">
+          {renderProgressSteps()}
 
-        <div className="relative flex items-center justify-center min-h-screen p-4">
-          <div className="container mx-auto max-w-7xl">
-            {/* Header Navigation */}
-            <div className="text-center mb-8">
-              <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
-                <Scissors className="h-6 w-6" />
-                <span className="text-lg font-semibold">Voltar ao início</span>
-              </Link>
-            </div>
-
-            {renderProgressSteps()}
-
-            <div className="text-center mb-12">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Escolha seu Plano</h1>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">Selecione o plano ideal para sua barbearia e comece com 30 dias grátis</p>
-            </div>
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Escolha seu Plano</h1>
+            <p className="text-gray-600">Selecione o plano ideal para sua barbearia</p>
+          </div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             {Object.entries(plans).map(([key, plan]) => (
@@ -439,9 +307,9 @@ export default function RegisterPage() {
                 className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 relative ${
                   selectedPlan === key ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
                 }`}
-                onClick={() => setSelectedPlan(key as "basico" | "profissional" | "premium")}
+                onClick={() => setSelectedPlan(key as PlanType)}
               >
-                {plan.popular && (
+                {"popular" in plan && plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-amber-600 text-white px-3 py-1">Mais Popular</Badge>
                   </div>
@@ -510,7 +378,68 @@ export default function RegisterPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Dados da Barbearia */}
+                  {/* Dados básicos */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="nome">Nome</Label>
+                      <Input
+                        id="nome"
+                        value={formData.nome}
+                        onChange={(e) => handleInputChange("nome", e.target.value)}
+                        placeholder="Seu nome"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sobrenome">Sobrenome</Label>
+                      <Input
+                        id="sobrenome"
+                        value={formData.sobrenome}
+                        onChange={(e) => handleInputChange("sobrenome", e.target.value)}
+                        placeholder="Seu sobrenome"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      placeholder="seu@email.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="senha">Senha</Label>
+                      <Input
+                        id="senha"
+                        type="password"
+                        value={formData.senha}
+                        onChange={(e) => handleInputChange("senha", e.target.value)}
+                        placeholder="Mínimo 8 caracteres"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
+                      <Input
+                        id="confirmarSenha"
+                        type="password"
+                        value={formData.confirmarSenha}
+                        onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
+                        placeholder="Confirme sua senha"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dados específicos do tipo */}
                   {userType === "barbearia" && (
                     <div className="space-y-4">
                       <div>
@@ -523,314 +452,16 @@ export default function RegisterPage() {
                           required
                         />
                       </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nome">Nome</Label>
-                          <Input
-                            id="nome"
-                            value={formData.nome}
-                            onChange={(e) => handleInputChange("nome", e.target.value)}
-                            placeholder="Seu nome"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="sobrenome">Sobrenome</Label>
-                          <Input id="sobrenome" placeholder="Seu sobrenome" required />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          placeholder="seu@email.com"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="telefone">Telefone</Label>
-                        <Input
-                          id="telefone"
-                          value={formData.telefone}
-                          onChange={(e) => handleInputChange("telefone", e.target.value)}
-                          placeholder="(11) 99999-9999"
-                          required
-                        />
-                      </div>
-
                       <div>
                         <Label htmlFor="endereco">Endereço</Label>
                         <Input
                           id="endereco"
                           value={formData.endereco}
                           onChange={(e) => handleInputChange("endereco", e.target.value)}
-                          placeholder="Endereço completo da barbearia"
+                          placeholder="Endereço completo"
                           required
                         />
                       </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="cidade">Cidade</Label>
-                          <Input
-                            id="cidade"
-                            value={formData.cidade}
-                            onChange={(e) => handleInputChange("cidade", e.target.value)}
-                            placeholder="Cidade"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="estado">Estado</Label>
-                          <Input
-                            id="estado"
-                            value={formData.estado}
-                            onChange={(e) => handleInputChange("estado", e.target.value)}
-                            placeholder="Estado"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="senha">Senha</Label>
-                        <Input
-                          id="senha"
-                          type="password"
-                          value={formData.senha}
-                          onChange={(e) => handleInputChange("senha", e.target.value)}
-                          placeholder="Sua senha"
-                          required
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {userType === "barbeiro" && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Dados Profissionais</h3>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nome">Nome Completo</Label>
-                          <Input
-                            id="nome"
-                            value={formData.nome}
-                            onChange={(e) => handleInputChange("nome", e.target.value)}
-                            placeholder="Seu nome completo"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="telefone">Telefone</Label>
-                          <Input
-                            id="telefone"
-                            value={formData.telefone}
-                            onChange={(e) => handleInputChange("telefone", e.target.value)}
-                            placeholder="(11) 99999-9999"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          placeholder="seu@email.com"
-                          required
-                        />
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="senha">Senha</Label>
-                          <Input
-                            id="senha"
-                            type="password"
-                            value={formData.senha}
-                            onChange={(e) => handleInputChange("senha", e.target.value)}
-                            placeholder="Sua senha"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
-                          <Input
-                            id="confirmarSenha"
-                            type="password"
-                            value={formData.confirmarSenha}
-                            onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
-                            placeholder="Confirme sua senha"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="experiencia">Tempo de Experiência</Label>
-                        <Input
-                          id="experiencia"
-                          value={formData.experiencia}
-                          onChange={(e) => handleInputChange("experiencia", e.target.value)}
-                          placeholder="Ex: 5 anos"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="portfolio">Portfolio/Instagram (opcional)</Label>
-                        <Input
-                          id="portfolio"
-                          value={formData.portfolio}
-                          onChange={(e) => handleInputChange("portfolio", e.target.value)}
-                          placeholder="@seu_instagram ou link do portfolio"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="codigoBarbearia">Código da Barbearia *</Label>
-                        <Input
-                          id="codigoBarbearia"
-                          value={formData.codigoBarbearia}
-                          onChange={(e) => handleInputChange("codigoBarbearia", e.target.value)}
-                          placeholder="Ex: BB123ABC"
-                          className={`${formData.codigoBarbearia.length > 0 ? (codeValidation.isValid ? "border-green-500 focus:border-green-500" : "border-red-500 focus:border-red-500") : ""}`}
-                          required
-                        />
-
-                        {formData.codigoBarbearia.length > 0 && (
-                          <div
-                            className={`mt-2 p-3 rounded-lg flex items-start space-x-2 ${codeValidation.isValid ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}
-                          >
-                            <AlertCircle
-                              className={`h-4 w-4 mt-0.5 ${codeValidation.isValid ? "text-green-600" : "text-red-600"}`}
-                            />
-                            <div>
-                              <p
-                                className={`text-sm font-medium ${codeValidation.isValid ? "text-green-800" : "text-red-800"}`}
-                              >
-                                {codeValidation.message}
-                              </p>
-                              {codeValidation.isValid && (
-                                <p className="text-xs text-green-700 mt-1">
-                                  Sua solicitação será enviada para aprovação do gerente.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                          <h4 className="text-sm font-medium text-amber-900 mb-1">Como obter o código?</h4>
-                          <ul className="text-xs text-amber-800 space-y-1">
-                            <li>• Solicite o código ao gerente/proprietário da barbearia</li>
-                            <li>• O código é único para cada barbearia</li>
-                            <li>• Formato: 2 letras + 6 caracteres (Ex: BB123ABC)</li>
-                          </ul>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label>Especialidades</Label>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          {["Corte Clássico", "Barba", "Degradê", "Desenhos", "Coloração", "Tratamentos"].map((esp) => (
-                            <div key={esp} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={esp}
-                                checked={formData.especialidades.includes(esp)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    handleInputChange("especialidades", [...formData.especialidades, esp])
-                                  } else {
-                                    handleInputChange(
-                                      "especialidades",
-                                      formData.especialidades.filter((e) => e !== esp),
-                                    )
-                                  }
-                                }}
-                              />
-                              <Label htmlFor={esp} className="text-sm">
-                                {esp}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {userType === "cliente" && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Dados Pessoais</h3>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nome">Nome Completo</Label>
-                          <Input
-                            id="nome"
-                            value={formData.nome}
-                            onChange={(e) => handleInputChange("nome", e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="telefone">Telefone</Label>
-                          <Input
-                            id="telefone"
-                            value={formData.telefone}
-                            onChange={(e) => handleInputChange("telefone", e.target.value)}
-                            placeholder="(11) 99999-9999"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="senha">Senha</Label>
-                          <Input
-                            id="senha"
-                            type="password"
-                            value={formData.senha}
-                            onChange={(e) => handleInputChange("senha", e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
-                          <Input
-                            id="confirmarSenha"
-                            type="password"
-                            value={formData.confirmarSenha}
-                            onChange={(e) => handleInputChange("confirmarSenha", e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded">
-                      {error}
                     </div>
                   )}
 
