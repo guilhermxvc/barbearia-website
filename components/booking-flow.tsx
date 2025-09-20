@@ -38,18 +38,43 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
     { date: "2024-01-18", day: "Quinta", slots: ["08:30", "09:00", "10:30", "11:00", "14:30", "16:00"] },
   ]
 
-  const handleBooking = () => {
-    const bookingData = {
-      barbershop: barbershop.name,
-      service: selectedService,
-      barber: selectedBarber,
-      dateTime: selectedDateTime,
-      notes,
-      total: selectedService.price,
+  const handleBooking = async () => {
+    if (!selectedService || !selectedBarber || !selectedDateTime) {
+      alert("Por favor, complete todos os passos do agendamento")
+      return
     }
-    console.log("Agendamento:", bookingData)
-    alert("Agendamento realizado com sucesso!")
-    onBack()
+
+    try {
+      const clientId = localStorage.getItem('clientId')
+      if (!clientId) {
+        alert("Erro: Cliente não identificado. Faça login novamente.")
+        return
+      }
+
+      const scheduledAt = new Date(`${selectedDateTime.date}T${selectedDateTime.time}:00`)
+      
+      const appointmentData = {
+        barbershopId: barbershop.id,
+        barberId: selectedBarber.id,
+        serviceId: selectedService.id,
+        scheduledAt: scheduledAt.toISOString(),
+        duration: selectedService.duration,
+        totalPrice: selectedService.price.toString(),
+        notes: notes || undefined,
+      }
+
+      const response = await appointmentsApi.create(appointmentData)
+      
+      if (response.success) {
+        alert("Agendamento realizado com sucesso!")
+        onBack()
+      } else {
+        alert(response.error || "Erro ao criar agendamento")
+      }
+    } catch (error) {
+      console.error("Booking error:", error)
+      alert("Erro ao processar agendamento. Tente novamente.")
+    }
   }
 
   return (

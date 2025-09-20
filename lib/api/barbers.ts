@@ -77,7 +77,7 @@ export const barbersApi = {
 
   // Listar solicitações de barbeiros
   async getRequests(barbershopId: string): Promise<{ success: boolean; data?: BarberRequest[]; error?: string }> {
-    const response = await apiClient.post<{ requests: BarberRequest[] }>('/barbers', { barbershopId });
+    const response = await apiClient.get<{ requests: BarberRequest[] }>(`/barbers/requests?barbershopId=${barbershopId}`);
     
     if (response.success && response.data) {
       return {
