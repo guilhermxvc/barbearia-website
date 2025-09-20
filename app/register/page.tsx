@@ -32,8 +32,16 @@ export default function RegisterPage() {
   useEffect(() => {
     setIsClient(true)
     const planFromUrl = searchParams.get("plan")
+    const stepFromUrl = searchParams.get("step")
+    
     if (planFromUrl && ["basico", "profissional", "premium"].includes(planFromUrl)) {
       setSelectedPlan(planFromUrl as "basico" | "profissional" | "premium")
+    }
+    
+    // Se step=3 é especificado, ir direto para o pagamento (último passo do registro de barbearia)
+    if (stepFromUrl === "3" && planFromUrl) {
+      setUserType("barbearia")
+      setStep(3) // Ir direto para o passo de pagamento
     }
   }, [searchParams])
 
@@ -273,17 +281,28 @@ export default function RegisterPage() {
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-5xl">
-          {renderProgressSteps()}
+        <div className="w-full max-w-5xl mx-auto">
 
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Criar Conta</h1>
-            <p className="text-gray-600">Escolha o tipo de conta que deseja criar</p>
-          </div>
+        <div className="relative flex items-center justify-center min-h-screen p-4">
+          <div className="w-full max-w-6xl mx-auto">
+            {/* Header Navigation */}
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
+                <Scissors className="h-6 w-6" />
+                <span className="text-lg font-semibold">Voltar ao início</span>
+              </Link>
+            </div>
 
-          <div className="flex justify-center">
-            <div className="grid md:grid-cols-3 gap-6 mb-8 max-w-4xl">
-              {/* Dono de Barbearia */}
+            {renderProgressSteps()}
+
+            <div className="text-center mb-12">
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Criar Conta</h1>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">Escolha o tipo de conta que deseja criar para começar sua jornada</p>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="grid sm:grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-5xl w-full">
+                {/* Dono de Barbearia */}
               <Card
                 className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${
                   userType === "barbearia" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-amber-300"
@@ -400,14 +419,29 @@ export default function RegisterPage() {
 
   if (step === 2 && userType === "barbearia") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-        <div className="container mx-auto max-w-6xl">
-          {renderProgressSteps()}
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 relative">
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-4 -left-4 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
+          <div className="absolute -bottom-8 right-20 w-72 h-72 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-4000"></div>
+        </div>
 
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Escolha seu Plano</h1>
-            <p className="text-gray-600">Selecione o plano ideal para sua barbearia</p>
-          </div>
+        <div className="relative flex items-center justify-center min-h-screen p-4">
+          <div className="container mx-auto max-w-7xl">
+            {/* Header Navigation */}
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
+                <Scissors className="h-6 w-6" />
+                <span className="text-lg font-semibold">Voltar ao início</span>
+              </Link>
+            </div>
+
+            {renderProgressSteps()}
+
+            <div className="text-center mb-12">
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Escolha seu Plano</h1>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">Selecione o plano ideal para sua barbearia e comece com 30 dias grátis</p>
+            </div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             {Object.entries(plans).map(([key, plan]) => (

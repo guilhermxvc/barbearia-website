@@ -87,15 +87,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="bg-white/80 border-amber-200 backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 bg-amber-100 rounded-full w-fit">
-              <Scissors className="h-8 w-8 text-amber-600" />
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 flex items-center justify-center p-4 relative">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-4 -left-4 w-72 h-72 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -top-4 -right-4 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-amber-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative w-full max-w-md mx-auto">
+        {/* Header Navigation */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center space-x-2 text-gray-700 hover:text-amber-600 transition-colors">
+            <Scissors className="h-6 w-6" />
+            <span className="text-lg font-semibold">Voltar ao início</span>
+          </Link>
+        </div>
+
+        <Card className="bg-white/95 border border-amber-200/50 backdrop-blur-sm shadow-2xl">
+          <CardHeader className="text-center pb-6">
+            <div className="mx-auto mb-6 p-4 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl w-fit shadow-lg">
+              <Scissors className="h-10 w-10 text-amber-600" />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">Entrar na sua conta</CardTitle>
-            <CardDescription className="text-gray-600">Acesse sua conta BarberPro</CardDescription>
+            <CardTitle className="text-3xl font-bold text-gray-900 mb-2">Entrar na sua conta</CardTitle>
+            <CardDescription className="text-gray-600 text-lg">Acesse sua conta BarberPro</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
