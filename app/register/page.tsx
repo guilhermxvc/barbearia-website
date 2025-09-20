@@ -10,15 +10,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Building2, User, Scissors, Check, ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { authApi } from "@/lib/api/auth"
 
 export default function RegisterPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const [step, setStep] = useState(1)
   const [userType, setUserType] = useState<"barbearia" | "barbeiro" | "cliente" | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<"basico" | "profissional" | "premium">("profissional")
   const [isClient, setIsClient] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const [codeValidation, setCodeValidation] = useState<{ isValid: boolean; barbershopName: string; message: string }>({
     isValid: false,
     barbershopName: "",
@@ -140,18 +144,91 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
+    setError("")
 
-    if (userType === "barbeiro" && !codeValidation.isValid) {
-      alert("Por favor, insira um código de barbearia válido.")
+    // Validações
+    if (formData.senha !== formData.confirmarSenha) {
+      setError("As senhas não coincidem")
+      setIsLoading(false)
       return
     }
 
-    console.log("Dados do cadastro:", { ...formData, selectedPlan })
+    if (userType === "barbeiro" && !codeValidation.isValid) {
+      setError("Por favor, insira um código de barbearia válido.")
+      setIsLoading(false)
+      return
+    }
 
-    if (userType === "barbeiro") {
-      alert(`Solicitação enviada! Aguarde a aprovação da ${codeValidation.barbershopName}.`)
-    } else {
-      alert("Cadastro realizado com sucesso! Redirecionando para o dashboard...")
+    if (!formData.aceitarTermos) {
+      setError("Você deve aceitar os termos de uso e política de privacidade")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Mapear tipo de usuário
+      let apiUserType: 'manager' | 'barber' | 'client'
+      switch (userType) {
+        case 'barbearia':
+          apiUserType = 'manager'
+          break
+        case 'barbeiro':
+          apiUserType = 'barber'
+          break
+        case 'cliente':
+          apiUserType = 'client'
+          break
+        default:
+          throw new Error('Tipo de usuário inválido')
+      }
+
+      // Preparar dados para a API
+      const registerData = {
+        email: formData.email,
+        password: formData.senha,
+        name: formData.nome,
+        phone: formData.telefone,
+        userType: apiUserType,
+        ...(userType === 'barbearia' && {
+          barbershopName: formData.nomeBarbearia,
+          barbershopAddress: `${formData.endereco}, ${formData.cidade}, ${formData.estado} - ${formData.cep}`,
+          barbershopPhone: formData.telefone,
+          subscriptionPlan: selectedPlan,
+        }),
+        ...(userType === 'barbeiro' && {
+          barbershopCode: formData.codigoBarbearia,
+          specialties: formData.especialidades,
+        }),
+      }
+
+      const response = await authApi.register(registerData)
+
+      if (response.success && response.data) {
+        // Sucesso - redirecionar para dashboard
+        const dashboardRoute = getDashboardRoute(apiUserType)
+        router.push(dashboardRoute)
+      } else {
+        setError(response.error || "Erro ao criar conta")
+      }
+    } catch (err) {
+      setError("Erro de conexão. Tente novamente.")
+      console.error("Register error:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getDashboardRoute = (userType: string) => {
+    switch (userType) {
+      case "manager":
+        return "/dashboard/manager"
+      case "barber":
+        return "/dashboard/barber" 
+      case "client":
+        return "/dashboard/client"
+      default:
+        return "/dashboard/client"
     }
   }
 
@@ -728,6 +805,12 @@ export default function RegisterPage() {
                     </div>
                   )}
 
+                  {error && (
+                    <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded">
+                      {error}
+                    </div>
+                  )}
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="termos"
@@ -757,8 +840,12 @@ export default function RegisterPage() {
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Voltar
                     </Button>
-                    <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
-                      Finalizar Cadastro
+                    <Button 
+                      type="submit" 
+                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Criando conta..." : "Finalizar Cadastro"}
                     </Button>
                   </div>
                 </form>

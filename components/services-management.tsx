@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { servicesApi } from "@/lib/api/services"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,13 +22,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit, Trash2, Scissors, Clock, DollarSign, Eye, Search } from "lucide-react"
 
 interface Service {
-  id: number
+  id: string
   name: string
   description: string
-  price: number
+  price: string
   duration: number
   category: string
-  active: boolean
+  isActive: boolean
+  barbershopId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export function ServicesManagement() {
@@ -38,67 +42,62 @@ export function ServicesManagement() {
   const [categoryFilter, setCategoryFilter] = useState("todos")
   const [statusFilter, setStatusFilter] = useState("todos")
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
-  const mockServices: Service[] = [
-    {
-      id: 1,
-      name: "Corte Clássico",
-      description: "Corte tradicional masculino com acabamento profissional",
-      price: 25,
-      duration: 30,
-      category: "Corte",
-      active: true,
-    },
-    {
-      id: 2,
-      name: "Barba Completa",
-      description: "Aparar, modelar e finalizar a barba com produtos premium",
-      price: 20,
-      duration: 25,
-      category: "Barba",
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Combo Corte + Barba",
-      description: "Serviço completo de corte e barba com desconto especial",
-      price: 40,
-      duration: 50,
-      category: "Combo",
-      active: true,
-    },
-    {
-      id: 4,
-      name: "Degradê Moderno",
-      description: "Corte degradê com técnicas modernas e acabamento impecável",
-      price: 35,
-      duration: 40,
-      category: "Corte",
-      active: true,
-    },
-    {
-      id: 5,
-      name: "Desenho na Lateral",
-      description: "Desenhos personalizados nas laterais do cabelo",
-      price: 15,
-      duration: 20,
-      category: "Especial",
-      active: false,
-    },
-  ]
 
   useEffect(() => {
     loadServices()
   }, [])
 
+  const handleDeleteService = async (serviceId: string) => {
+    try {
+      setDeleting(serviceId)
+      const response = await servicesApi.delete(serviceId)
+      
+      if (response.success) {
+        // Recarregar lista de serviços
+        loadServices()
+      } else {
+        console.error("Erro ao excluir serviço:", response.error)
+        alert("Erro ao excluir serviço. Tente novamente.")
+      }
+    } catch (error) {
+      console.error("Erro ao excluir serviço:", error)
+      alert("Erro de conexão. Tente novamente.")
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   const loadServices = async () => {
     try {
       setLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setServices(mockServices)
+      
+      // Buscar ID da barbearia do localStorage
+      const barbershopId = localStorage.getItem('barbershopId')
+      
+      if (barbershopId) {
+        const response = await servicesApi.list(barbershopId)
+        
+        if (response.success && response.data) {
+          // Mapear os dados da API para a interface local
+          const mappedServices = response.data.services.map(service => ({
+            ...service,
+            category: "Corte", // Adicionar categoria padrão já que não temos no schema
+          }))
+          setServices(mappedServices)
+        } else {
+          console.error("Erro ao carregar serviços:", response.error)
+          setServices([])
+        }
+      } else {
+        // Usuário não tem barbershopId - mostrar estado vazio
+        console.warn("barbershopId não encontrado no localStorage")
+        setServices([])
+      }
     } catch (error) {
       console.error("Erro ao carregar serviços:", error)
-      setServices(mockServices)
+      setServices([]) // Mostrar estado vazio em vez de mock
     } finally {
       setLoading(false)
     }
@@ -120,21 +119,21 @@ export function ServicesManagement() {
   const filteredServices = services.filter((service) => {
     const matchesSearch =
       service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.description.toLowerCase().includes(searchTerm.toLowerCase())
+      service.description?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === "todos" || service.category === categoryFilter
     const matchesStatus =
-      statusFilter === "todos" ||
-      (statusFilter === "ativo" && service.active) ||
-      (statusFilter === "inativo" && !service.active)
+      statusFilter === "todos" || 
+      (statusFilter === "ativo" && service.isActive) ||
+      (statusFilter === "inativo" && !service.isActive)
 
     return matchesSearch && matchesCategory && matchesStatus
   })
 
   const serviceStats = {
     total: services.length,
-    active: services.filter((s) => s.active).length,
-    inactive: services.filter((s) => !s.active).length,
-    avgPrice: services.length > 0 ? services.reduce((sum, s) => sum + s.price, 0) / services.length : 0,
+    active: services.filter((s) => s.isActive).length,
+    inactive: services.filter((s) => !s.isActive).length,
+    avgPrice: services.length > 0 ? services.reduce((sum, s) => sum + parseFloat(s.price || '0'), 0) / services.length : 0,
   }
 
   if (loading) {
@@ -280,7 +279,7 @@ export function ServicesManagement() {
             {filteredServices.map((service) => (
               <Card
                 key={service.id}
-                className={`transition-all hover:shadow-md ${!service.active ? "opacity-60" : ""}`}
+                className={`transition-all hover:shadow-md ${!service.isActive ? "opacity-60" : ""}`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -292,15 +291,15 @@ export function ServicesManagement() {
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">{service.name}</h3>
                           <Badge className={getCategoryColor(service.category)}>{service.category}</Badge>
-                          <Badge variant={service.active ? "default" : "secondary"}>
-                            {service.active ? "Ativo" : "Inativo"}
+                          <Badge variant={service.isActive ? "default" : "secondary"}>
+                            {service.isActive ? "Ativo" : "Inativo"}
                           </Badge>
                         </div>
                         <p className="text-gray-600 mb-3">{service.description}</p>
                         <div className="flex items-center gap-6">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-green-600" />
-                            <span className="font-semibold text-green-600">R$ {service.price.toFixed(2)}</span>
+                            <span className="font-semibold text-green-600">R$ {parseFloat(service.price || '0').toFixed(2)}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-blue-600" />
@@ -337,7 +336,17 @@ export function ServicesManagement() {
                           <ServiceForm service={service} onClose={() => {}} onSave={loadServices} />
                         </DialogContent>
                       </Dialog>
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 bg-transparent">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-600 hover:text-red-700 bg-transparent"
+                        onClick={() => {
+                          if (confirm("Tem certeza que deseja excluir este serviço?")) {
+                            handleDeleteService(service.id)
+                          }
+                        }}
+                        disabled={deleting === service.id}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -367,7 +376,7 @@ function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose:
     price: service?.price || 0,
     duration: service?.duration || 30,
     category: service?.category || "",
-    active: service?.active ?? true,
+    active: service?.isActive ?? true,
   })
 
   const categories = ["Corte", "Barba", "Combo", "Especial", "Tratamento"]
@@ -491,7 +500,7 @@ function ServiceDetails({ service }: { service: Service }) {
       <div className="grid grid-cols-3 gap-4">
         <div>
           <Label className="text-sm font-medium text-gray-600">Preço</Label>
-          <p className="text-lg font-semibold text-green-600">R$ {service.price.toFixed(2)}</p>
+          <p className="text-lg font-semibold text-green-600">R$ {parseFloat(service.price || '0').toFixed(2)}</p>
         </div>
         <div>
           <Label className="text-sm font-medium text-gray-600">Duração</Label>
@@ -499,8 +508,8 @@ function ServiceDetails({ service }: { service: Service }) {
         </div>
         <div>
           <Label className="text-sm font-medium text-gray-600">Status</Label>
-          <Badge variant={service.active ? "default" : "secondary"} className="mt-1">
-            {service.active ? "Ativo" : "Inativo"}
+          <Badge variant={service.isActive ? "default" : "secondary"} className="mt-1">
+            {service.isActive ? "Ativo" : "Inativo"}
           </Badge>
         </div>
       </div>

@@ -10,15 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Scissors, Eye, EyeOff, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { authApi } from "@/lib/api/auth"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: "",
-    senha: "",
+    password: "",
     lembrarMe: false,
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleInputChange = (field: string, value: any) => {
@@ -61,25 +63,27 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // Simulação de login
-    setTimeout(() => {
-      console.log("Login:", formData)
+    try {
+      const response = await authApi.login({
+        email: formData.email,
+        password: formData.password,
+      })
 
-      const userType = getUserType(formData.email)
-      const userPlan = getUserPlan(formData.email)
-      const dashboardRoute = getDashboardRoute(userType)
-
-      if (userType === "manager") {
-        localStorage.setItem("userPlan", userPlan)
+      if (response.success && response.data) {
+        const userType = response.data.user.userType
+        const dashboardRoute = getDashboardRoute(userType)
+        router.push(dashboardRoute)
+      } else {
+        setError(response.error || "Erro ao fazer login")
       }
-      localStorage.setItem("userType", userType)
-      localStorage.setItem("userEmail", formData.email)
-
-      router.push(dashboardRoute)
-
+    } catch (err) {
+      setError("Erro de conexão. Tente novamente.")
+      console.error("Login error:", err)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -111,15 +115,15 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <Label htmlFor="senha" className="text-gray-700">
+                <Label htmlFor="password" className="text-gray-700">
                   Senha
                 </Label>
                 <div className="relative">
                   <Input
-                    id="senha"
+                    id="password"
                     type={showPassword ? "text" : "password"}
-                    value={formData.senha}
-                    onChange={(e) => handleInputChange("senha", e.target.value)}
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
                     className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-amber-500"
                     required
                   />
@@ -138,6 +142,12 @@ export default function LoginPage() {
                   </Button>
                 </div>
               </div>
+
+              {error && (
+                <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded">
+                  {error}
+                </div>
+              )}
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
