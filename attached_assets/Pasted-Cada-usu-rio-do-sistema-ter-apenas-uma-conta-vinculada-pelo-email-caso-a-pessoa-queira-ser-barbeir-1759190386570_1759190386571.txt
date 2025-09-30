@@ -1,0 +1,40 @@
+Cada usuário do sistema terá apenas uma conta vinculada pelo email, caso a pessoa queira ser barbeiro e cliente, terá que usar dois emails, ou seja, verificar antes se o email a cadastrar já existe no banco.
+Seria bom ter uma tabela geral de usuários, informando se aquele user é um cliente, barbeiro ou barbearia, para não precisar consultar em três tabelas se o email existe. (Uma alternativa)
+É importante que tenha uma tabela de planos, tendo em conta que a barbearia terá uma permissão diferente referente ao plano pago, que no entanto são básico, profissinal e premium, e caso queira acrescentar mais planos ficaria melhor para manutenção.
+
+Fluxo do sistema
+
+Clientes:
+- Visualizar as barbearias que estão cadastradas no sistema
+- Poder pesquisar a barbearia por nome ou as mais próximas a sua localização
+- Agendar o horário de acordo com as especificações da barbearia selecionada (serviços, barbeiros e horarios)
+- Histórico de agendamento e visualização de agendamentos próximos
+- Estatisticas gerais como está implementado no código
+- Histórico de conversas com a IA ou ChatBot (será uma melhoria, não sabemos se vai ser IA ou Chatbot)
+
+Barbeiro:
+- Visualizar os agendamentos que marcaram com você
+- Visualizar os cliente que você tem e que cortaram com você
+- Estatisticas gerais como está implementado no código
+- Feedbacks dos clientes para gerar uma nota pessoal
+- Vinculo com o código da barbearia
+- Histórico de conversas com a IA ou ChatBot (será uma melhoria, não sabemos se vai ser IA ou Chatbot)
+
+Barbearia:
+- Vincular no plano escolhido inicialmente
+- Gerar código aleatório de 6 digitos (XX-XXXX) para os barbeiro poderem se vincular a barbearia
+- Visualizar os barbeiros vinculados e as novas solicitações, respeitando as permissões do plano cadastrado
+- Visualizar os agendamentos de todos os barbeiros vinculados a barbearia
+- Visualizar o histórico de clientes que passaram pela barbearia
+- Poder gerir os serviços que serão disponibilizados para os clientes
+- Manusear as porcentagens que os barbeiros receberão de comissão referente aos serviços disponibilizados
+- Visualizar o histórico de vendas, que seria os serviços feitos pelos barbeiros e os produtos vendidos (caso o plano permita o gerenciamento de estoque)
+- Visualizar o quanto pagar para cada barbeiro vinculado a barbearia no final do mês
+
+Acréscimos no plano profissional:
+- Gerir o estoque da barbearia de produtos, podendo adicionar e dar baixa nos produtos
+
+Acréscimos no plano premium:
+- Histórico de conversas com a IA ou ChatBot (será uma melhoria, não sabemos se vai ser IA ou Chatbot)
+
+A barbearia terá funcionalidades diferentes de acordo com o plano escolhido pelo usuário. O plano básico terá essas funcionalidades, o prossifinal terá as funcionalidades do plano básico e os acrescimos e o plano premium terá as funcionalidades do profissional e do básico, além dos acrescimos.
