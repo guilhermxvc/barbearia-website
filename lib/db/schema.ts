@@ -6,8 +6,24 @@ import { z } from 'zod';
 export const userTypeEnum = ['manager', 'barber', 'client'] as const;
 export const subscriptionPlanEnum = ['basico', 'profissional', 'premium'] as const;
 export const appointmentStatusEnum = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+export const requestStatusEnum = ['pending', 'approved', 'rejected'] as const;
 
-// Users table
+// Subscription Plans table (separada para fácil manutenção)
+export const subscriptionPlans = pgTable('subscription_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name', { enum: subscriptionPlanEnum }).notNull().unique(),
+  displayName: text('display_name').notNull(),
+  price: decimal('price', { precision: 8, scale: 2 }).notNull(),
+  maxBarbers: integer('max_barbers').default(1),
+  hasInventoryManagement: boolean('has_inventory_management').default(false),
+  hasAIChatbot: boolean('has_ai_chatbot').default(false),
+  features: json('features'), // Lista de funcionalidades
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Users table (tabela geral unificada)
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
@@ -28,9 +44,12 @@ export const barbershops = pgTable('barbershops', {
   address: text('address'),
   phone: text('phone'),
   email: text('email'),
+  latitude: decimal('latitude', { precision: 10, scale: 8 }), // Para busca por localização
+  longitude: decimal('longitude', { precision: 11, scale: 8 }),
+  subscriptionPlanId: uuid('subscription_plan_id').references(() => subscriptionPlans.id),
   subscriptionPlan: text('subscription_plan', { enum: subscriptionPlanEnum }).default('basico'),
   businessHours: json('business_hours'), // Formato: { segunda: { open: '08:00', close: '18:00' } }
-  code: varchar('code', { length: 10 }).notNull().unique(), // Código único para barbeiros se vincularem
+  code: varchar('code', { length: 7 }).notNull().unique(), // Formato XX-XXXX (7 caracteres com hífen)
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -43,6 +62,8 @@ export const barbers = pgTable('barbers', {
   barbershopId: uuid('barbershop_id').references(() => barbershops.id),
   specialties: json('specialties'), // Array de especialidades
   commissionRate: decimal('commission_rate', { precision: 5, scale: 2 }).default('40.00'), // Porcentagem de comissão
+  rating: decimal('rating', { precision: 3, scale: 2 }).default('0.00'), // Nota média dos feedbacks
+  totalRatings: integer('total_ratings').default(0), // Total de avaliações recebidas
   isApproved: boolean('is_approved').default(false),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
@@ -149,10 +170,46 @@ export const barberRequests = pgTable('barber_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
   userId: uuid('user_id').references(() => users.id).notNull(),
-  status: text('status').default('pending'), // 'pending', 'approved', 'rejected'
+  status: text('status', { enum: requestStatusEnum }).default('pending'),
   message: text('message'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Feedbacks table (avaliações dos clientes para barbeiros)
+export const feedbacks = pgTable('feedbacks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  appointmentId: uuid('appointment_id').references(() => appointments.id).notNull(),
+  clientId: uuid('client_id').references(() => clients.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  rating: integer('rating').notNull(), // 1-5 estrelas
+  comment: text('comment'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// AI Chat History table (histórico de conversas com IA/ChatBot)
+export const aiChatHistory = pgTable('ai_chat_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id), // Null se for cliente/barbeiro
+  sessionId: uuid('session_id').notNull(), // ID da sessão de conversa
+  role: text('role').notNull(), // 'user' ou 'assistant'
+  message: text('message').notNull(),
+  metadata: json('metadata'), // Dados adicionais da conversa
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Stock Movements table (movimentações de estoque)
+export const stockMovements = pgTable('stock_movements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id').references(() => products.id).notNull(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  quantity: integer('quantity').notNull(), // Positivo = entrada, Negativo = saída
+  type: text('type').notNull(), // 'purchase', 'sale', 'adjustment', 'loss'
+  reason: text('reason'),
+  userId: uuid('user_id').references(() => users.id), // Quem fez a movimentação
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 // Zod schemas for validation
@@ -186,6 +243,18 @@ export const selectNotificationSchema = createSelectSchema(notifications);
 export const insertBarberRequestSchema = createInsertSchema(barberRequests);
 export const selectBarberRequestSchema = createSelectSchema(barberRequests);
 
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans);
+export const selectSubscriptionPlanSchema = createSelectSchema(subscriptionPlans);
+
+export const insertFeedbackSchema = createInsertSchema(feedbacks);
+export const selectFeedbackSchema = createSelectSchema(feedbacks);
+
+export const insertAiChatHistorySchema = createInsertSchema(aiChatHistory);
+export const selectAiChatHistorySchema = createSelectSchema(aiChatHistory);
+
+export const insertStockMovementSchema = createInsertSchema(stockMovements);
+export const selectStockMovementSchema = createSelectSchema(stockMovements);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -216,3 +285,15 @@ export type NewNotification = typeof notifications.$inferInsert;
 
 export type BarberRequest = typeof barberRequests.$inferSelect;
 export type NewBarberRequest = typeof barberRequests.$inferInsert;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type NewSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+export type Feedback = typeof feedbacks.$inferSelect;
+export type NewFeedback = typeof feedbacks.$inferInsert;
+
+export type AiChatHistory = typeof aiChatHistory.$inferSelect;
+export type NewAiChatHistory = typeof aiChatHistory.$inferInsert;
+
+export type StockMovement = typeof stockMovements.$inferSelect;
+export type NewStockMovement = typeof stockMovements.$inferInsert;

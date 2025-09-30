@@ -24,7 +24,12 @@ const registerSchema = z.object({
 });
 
 function generateBarbershopCode(): string {
-  return 'BB' + Math.random().toString(36).substr(2, 6).toUpperCase();
+  // Formato XX-XXXX (2 letras + hífen + 4 números)
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const letter1 = letters.charAt(Math.floor(Math.random() * letters.length));
+  const letter2 = letters.charAt(Math.floor(Math.random() * letters.length));
+  const numbers = Math.floor(1000 + Math.random() * 9000); // Gera número entre 1000-9999
+  return `${letter1}${letter2}-${numbers}`;
 }
 
 export async function POST(request: NextRequest) {
