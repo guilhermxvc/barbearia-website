@@ -51,7 +51,76 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await hashPassword(data.password);
 
-    // Criar usuário
+    // Para managers, usar transação com retry para garantir atomicidade
+    if (data.userType === 'manager') {
+      const maxRetries = 5;
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const code = generateBarbershopCode();
+          
+          const result = await db.transaction(async (tx) => {
+            // Criar usuário
+            const [newUser] = await tx
+              .insert(users)
+              .values({
+                email: data.email,
+                password: hashedPassword,
+                name: data.name,
+                phone: data.phone,
+                userType: data.userType,
+              })
+              .returning();
+
+            // Criar barbearia
+            const [newBarbershop] = await tx
+              .insert(barbershops)
+              .values({
+                ownerId: newUser.id,
+                name: data.barbershopName || `${data.name}'s Barbershop`,
+                address: data.barbershopAddress,
+                phone: data.barbershopPhone,
+                email: data.email,
+                subscriptionPlan: data.subscriptionPlan || 'basico',
+                code,
+              })
+              .returning();
+
+            return { newUser, newBarbershop };
+          });
+
+          // Sucesso - gerar token e retornar
+          const token = generateToken(result.newUser);
+          return NextResponse.json({
+            success: true,
+            token,
+            user: {
+              id: result.newUser.id,
+              email: result.newUser.email,
+              name: result.newUser.name,
+              userType: result.newUser.userType,
+            },
+            barbershopId: result.newBarbershop.id,
+          });
+        } catch (error: any) {
+          // Se for erro de código duplicado e ainda há tentativas, continuar
+          if (error.code === '23505' && error.constraint === 'barbershops_code_unique' && attempt < maxRetries - 1) {
+            continue;
+          }
+          // Se não for erro de código duplicado ou acabaram as tentativas
+          if (error.code === '23505' && error.constraint === 'barbershops_code_unique') {
+            return NextResponse.json(
+              { error: 'Não foi possível gerar um código único para a barbearia. Tente novamente.' },
+              { status: 503 }
+            );
+          }
+          // Outros erros
+          throw error;
+        }
+      }
+    }
+
+    // Para barbers e clients (sem necessidade de transação complexa)
     const [newUser] = await db
       .insert(users)
       .values({
@@ -64,24 +133,6 @@ export async function POST(request: NextRequest) {
       .returning();
 
     let barbershopId: string | undefined;
-
-    // Se for manager, criar barbearia
-    if (data.userType === 'manager') {
-      const [newBarbershop] = await db
-        .insert(barbershops)
-        .values({
-          ownerId: newUser.id,
-          name: data.barbershopName || `${data.name}'s Barbershop`,
-          address: data.barbershopAddress,
-          phone: data.barbershopPhone,
-          email: data.email,
-          subscriptionPlan: data.subscriptionPlan || 'basico',
-          code: generateBarbershopCode(),
-        })
-        .returning();
-
-      barbershopId = newBarbershop.id;
-    }
 
     // Se for barber, criar perfil de barbeiro
     if (data.userType === 'barber') {
