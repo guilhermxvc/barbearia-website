@@ -10,8 +10,8 @@ This is a comprehensive Next.js barbershop management system application that wa
 - **UI Components**: Radix UI + Shadcn/ui
 - **Type Safety**: TypeScript with strict configuration
 - **Analytics**: Vercel Analytics integrated
-- **Database**: PostgreSQL (Replit managed) ready for integration
-- **Authentication**: Supabase integration configured
+- **Database**: PostgreSQL/NeonDB (Replit managed) fully integrated
+- **Authentication**: JWT-based authentication with bcrypt
 
 ## Recent Major Updates (September 20, 2025)
 

@@ -20,7 +20,7 @@ export function BarberReports() {
 
   const checkBarberStatus = async () => {
     try {
-      // Mock check - replace with real Supabase query
+      // Mock check - replace with real API query
       const mockBarberData = {
         id: 1,
         name: "Carlos Silva",
