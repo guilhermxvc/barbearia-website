@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
           // Sucesso - gerar token e retornar
           const token = generateToken(result.newUser);
           return NextResponse.json({
-            success: true,
             token,
             user: {
               id: result.newUser.id,
@@ -172,7 +171,6 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true,
       token,
       user: {
         id: newUser.id,
