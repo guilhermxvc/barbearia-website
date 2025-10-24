@@ -297,27 +297,84 @@ function OverviewSection({ userPlan }: { userPlan: string }) {
 }
 
 function SettingsSection({ userPlan }: { userPlan: string }) {
-  const [showPlanChange, setShowPlanChange] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState(userPlan)
-  const [barbershopCode, setBarbershopCode] = useState("")
+  const { user, refreshProfile } = useAuth()
+  const barbershop = user?.barbershop
+  
+  const [formData, setFormData] = useState({
+    name: barbershop?.name || '',
+    phone: barbershop?.phone || '',
+    address: barbershop?.address || '',
+    email: barbershop?.email || '',
+  })
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   useEffect(() => {
-    let code = localStorage.getItem("barbershopCode")
-    if (!code) {
-      code = generateBarbershopCode()
-      localStorage.setItem("barbershopCode", code)
+    if (barbershop) {
+      setFormData({
+        name: barbershop.name || '',
+        phone: barbershop.phone || '',
+        address: barbershop.address || '',
+        email: barbershop.email || '',
+      })
     }
-    setBarbershopCode(code)
-  }, [])
+  }, [barbershop])
 
-  const generateBarbershopCode = () => {
-    return "BB" + Math.random().toString(36).substr(2, 6).toUpperCase()
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const regenerateCode = () => {
-    const newCode = generateBarbershopCode()
-    setBarbershopCode(newCode)
-    localStorage.setItem("barbershopCode", newCode)
+  const handleSave = async () => {
+    if (!barbershop?.id) return
+    
+    setIsSaving(true)
+    setSaveSuccess(false)
+    
+    try {
+      const response = await fetch(`/api/barbershops/${barbershop.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        setSaveSuccess(true)
+        await refreshProfile()
+        setTimeout(() => setSaveSuccess(false), 3000)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handlePlanChange = async (newPlan: string) => {
+    if (newPlan === userPlan || !barbershop?.id) return
+
+    const confirmMessage = `Tem certeza que deseja mudar para o plano ${newPlan}?`
+
+    if (confirm(confirmMessage)) {
+      try {
+        const response = await fetch(`/api/barbershops/${barbershop.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+          body: JSON.stringify({ subscriptionPlan: newPlan.toLowerCase() }),
+        })
+
+        if (response.ok) {
+          await refreshProfile()
+        }
+      } catch (error) {
+        console.error('Erro ao mudar plano:', error)
+      }
+    }
   }
 
   const getPlanInfo = () => {
@@ -327,29 +384,6 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
       Premium: { name: "Premium", price: "R$ 199" },
     }
     return plans[userPlan as keyof typeof plans] || plans.Profissional
-  }
-
-  const handlePlanChange = (newPlan: string) => {
-    if (newPlan === userPlan) return
-
-    const confirmMessage = `Tem certeza que deseja ${getPlanUpgradeText(userPlan, newPlan)} para o plano ${getPlanName(newPlan)}?`
-
-    if (confirm(confirmMessage)) {
-      localStorage.setItem("userPlan", newPlan)
-      window.location.reload()
-    }
-  }
-
-  const getPlanUpgradeText = (currentPlan: string, newPlan: string) => {
-    const planOrder = { Básico: 1, Profissional: 2, Premium: 3 }
-    const current = planOrder[currentPlan as keyof typeof planOrder]
-    const target = planOrder[newPlan as keyof typeof planOrder]
-    return target > current ? "fazer upgrade" : "fazer downgrade"
-  }
-
-  const getPlanName = (plan: string) => {
-    const names = { Básico: "Básico", Profissional: "Profissional", Premium: "Premium" }
-    return names[plan as keyof typeof names]
   }
 
   const planInfo = getPlanInfo()
@@ -365,29 +399,49 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Nome da Barbearia</label>
-              <input type="text" className="w-full mt-1 p-2 border rounded-md" defaultValue="Barbearia Premium" />
+              <input 
+                type="text" 
+                className="w-full mt-1 p-2 border rounded-md" 
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Telefone</label>
-              <input type="text" className="w-full mt-1 p-2 border rounded-md" defaultValue="(11) 99999-9999" />
+              <input 
+                type="text" 
+                className="w-full mt-1 p-2 border rounded-md" 
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+              />
             </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium">Endereço</label>
-            <input
-              type="text"
-              className="w-full mt-1 p-2 border rounded-md"
-              defaultValue="Rua das Flores, 123 - Centro"
-            />
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Horário de Funcionamento</label>
-              <select className="w-full mt-1 p-2 border rounded-md">
-                <option>Segunda a Sábado: 8h às 18h</option>
-                <option>Segunda a Sexta: 8h às 18h</option>
-                <option>Personalizado</option>
-              </select>
+              <label className="text-sm font-medium">Endereço</label>
+              <input
+                type="text"
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">E-mail</label>
+              <input
+                type="email"
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Código da Barbearia</label>
+              <div className="mt-1 p-2 border rounded-md bg-gray-100 font-mono font-semibold text-amber-700">
+                {barbershop?.code || 'N/A'}
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Plano Atual</label>
@@ -397,44 +451,20 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
               </div>
             </div>
           </div>
-          <Button className="bg-amber-600 hover:bg-amber-700">Salvar Alterações</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Código da Barbearia</CardTitle>
-          <CardDescription>Código único para vinculação de barbeiros à sua barbearia</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-amber-800">Código Atual</label>
-                <div className="text-2xl font-bold text-amber-900 mt-1 font-mono">{barbershopCode}</div>
-                <p className="text-sm text-amber-700 mt-1">
-                  Compartilhe este código com barbeiros que desejam se vincular à sua barbearia
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={regenerateCode}
-                className="border-amber-300 text-amber-700 hover:bg-amber-100 bg-transparent"
-              >
-                Gerar Novo Código
-              </Button>
+          
+          {saveSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md">
+              ✓ Alterações salvas com sucesso!
             </div>
-          </div>
-
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">Como funciona:</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Barbeiros usam este código ao criar suas contas</li>
-              <li>• Você receberá solicitações de vinculação para aprovar</li>
-              <li>• Apenas barbeiros aprovados terão acesso ao sistema</li>
-              <li>• Você pode gerar um novo código a qualquer momento</li>
-            </ul>
-          </div>
+          )}
+          
+          <Button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
         </CardContent>
       </Card>
 

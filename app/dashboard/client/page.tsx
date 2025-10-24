@@ -85,8 +85,8 @@ export default function ClientDashboard() {
         <div className="p-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{sectionTitles[activeSection]?.title || "Dashboard"}</h1>
-              <p className="text-gray-600">{sectionTitles[activeSection]?.description || "Gerencie sua conta"}</p>
+              <h1 className="text-3xl font-bold text-gray-900">{sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}</h1>
+              <p className="text-gray-600">{sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}</p>
             </div>
             <NotificationsSystem userType="client" />
           </div>

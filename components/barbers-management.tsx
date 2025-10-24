@@ -10,6 +10,7 @@ import { barbersApi, Barber, BarberRequest } from "@/lib/api/barbers"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface BarbersManagementProps {
   userPlan: string
@@ -17,6 +18,9 @@ interface BarbersManagementProps {
 }
 
 export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementProps) {
+  const { user } = useAuth()
+  const barbershopId = user?.barbershop?.id
+  
   const [pendingRequests, setPendingRequests] = useState<BarberRequest[]>([])
   const [currentBarbers, setCurrentBarbers] = useState<Barber[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,21 +29,21 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
 
   // Carregar dados
   useEffect(() => {
-    loadData()
-  }, [])
+    if (barbershopId) {
+      loadData()
+    }
+  }, [barbershopId])
 
   const loadData = async () => {
+    if (!barbershopId) {
+      setError("ID da barbearia não encontrado")
+      return
+    }
+    
     setLoading(true)
     setError("")
     
     try {
-      const barbershopId = localStorage.getItem('barbershopId')
-      
-      if (!barbershopId) {
-        setError("ID da barbearia não encontrado")
-        return
-      }
-
       // Carregar barbeiros ativos
       const barbersResponse = await barbersApi.getAll(barbershopId)
       if (barbersResponse.success && barbersResponse.data) {

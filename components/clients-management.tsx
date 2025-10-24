@@ -24,8 +24,12 @@ import {
   Users
 } from "lucide-react"
 import { clientsApi, Client } from "@/lib/api/clients"
+import { useAuth } from "@/contexts/AuthContext"
 
 export function ClientsManagement() {
+  const { user } = useAuth()
+  const barbershopId = user?.barbershop?.id
+  
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -35,21 +39,21 @@ export function ClientsManagement() {
   const [showCreateForm, setShowCreateForm] = useState(false)
 
   useEffect(() => {
-    loadClients()
-  }, [])
+    if (barbershopId) {
+      loadClients()
+    }
+  }, [barbershopId])
 
   const loadClients = async () => {
+    if (!barbershopId) {
+      setError("ID da barbearia não encontrado")
+      return
+    }
+    
     setLoading(true)
     setError("")
     
     try {
-      const barbershopId = localStorage.getItem('barbershopId')
-      
-      if (!barbershopId) {
-        setError("ID da barbearia não encontrado")
-        return
-      }
-
       const response = await clientsApi.getAll(barbershopId, searchTerm || undefined)
       
       if (response.success && response.data) {
@@ -66,14 +70,13 @@ export function ClientsManagement() {
   }
 
   const handleCreateClient = async (clientData: { name: string; email: string; phone?: string }) => {
+    if (!barbershopId) {
+      setError("ID da barbearia não encontrado")
+      return
+    }
+    
     try {
       setLoading(true)
-      
-      const barbershopId = localStorage.getItem('barbershopId')
-      if (!barbershopId) {
-        setError("ID da barbearia não encontrado")
-        return
-      }
 
       const response = await clientsApi.create({
         barbershopId,
