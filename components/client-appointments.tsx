@@ -1,79 +1,71 @@
 "use client"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, User, Star, Phone } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { appointmentsApi, Appointment } from "@/lib/api/appointments"
+import { format } from "date-fns"
 
 export function ClientAppointments() {
-  const upcomingAppointments = [
-    {
-      id: 1,
-      barbershop: "Barbearia Premium",
-      address: "Rua das Flores, 123",
-      service: "Corte Clássico",
-      barber: "Carlos Silva",
-      date: "2024-01-18",
-      time: "14:30",
-      price: 25,
-      status: "confirmado",
-      phone: "(11) 99999-1111",
-    },
-    {
-      id: 2,
-      barbershop: "Barbearia Moderna",
-      address: "Av. Principal, 456",
-      service: "Combo Corte + Barba",
-      barber: "João Santos",
-      date: "2024-01-22",
-      time: "10:00",
-      price: 40,
-      status: "confirmado",
-      phone: "(11) 99999-2222",
-    },
-  ]
+  const { user } = useAuth()
+  const clientId = user?.client?.id
+  
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const pastAppointments = [
-    {
-      id: 3,
-      barbershop: "Barbearia Premium",
-      address: "Rua das Flores, 123",
-      service: "Barba Completa",
-      barber: "Carlos Silva",
-      date: "2024-01-10",
-      time: "15:00",
-      price: 20,
-      status: "concluido",
-      rating: 5,
-      review: "Excelente atendimento! Carlos é muito profissional.",
-    },
-    {
-      id: 4,
-      barbershop: "Barbearia Clássica",
-      address: "Rua Antiga, 789",
-      service: "Corte Tradicional",
-      barber: "Pedro Costa",
-      date: "2024-01-05",
-      time: "16:30",
-      price: 22,
-      status: "concluido",
-      rating: 4,
-      review: "Bom serviço, ambiente agradável.",
-    },
-    {
-      id: 5,
-      barbershop: "Barbearia Moderna",
-      address: "Av. Principal, 456",
-      service: "Degradê Moderno",
-      barber: "João Santos",
-      date: "2023-12-28",
-      time: "11:00",
-      price: 35,
-      status: "concluido",
-      rating: 5,
-      review: "Adorei o resultado! João entende muito do que faz.",
-    },
-  ]
+  useEffect(() => {
+    if (clientId) {
+      loadAppointments()
+    }
+  }, [clientId])
+
+  const loadAppointments = async () => {
+    if (!clientId) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await appointmentsApi.list({ clientId })
+      
+      if (response.success && response.data) {
+        setAppointments(response.data.appointments)
+      } else {
+        setError(response.error || "Erro ao carregar agendamentos")
+      }
+    } catch (err) {
+      setError("Erro ao carregar agendamentos")
+      console.error("Load appointments error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const now = new Date()
+  const upcomingAppointments = appointments.filter(apt => new Date(apt.scheduledAt) >= now)
+  const pastAppointments = appointments.filter(apt => new Date(apt.scheduledAt) < now)
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!confirm("Tem certeza que deseja cancelar este agendamento?")) return
+
+    try {
+      const response = await appointmentsApi.updateStatus(appointmentId, "cancelled")
+      
+      if (response.success) {
+        loadAppointments()
+      } else {
+        alert("Erro ao cancelar agendamento")
+      }
+    } catch (err) {
+      alert("Erro ao cancelar agendamento")
+      console.error("Cancel appointment error:", err)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -97,7 +89,13 @@ export function ClientAppointments() {
         </TabsList>
 
         <TabsContent value="upcoming" className="space-y-4">
-          {upcomingAppointments.map((appointment) => (
+          {loading ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-gray-600">Carregando agendamentos...</p>
+              </CardContent>
+            </Card>
+          ) : upcomingAppointments.map((appointment) => (
             <Card key={appointment.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -106,35 +104,42 @@ export function ClientAppointments() {
                       <Calendar className="h-8 w-8 text-amber-600" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-1">{appointment.barbershop}</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                        {appointment.barbershop?.name || "Barbearia"}
+                      </h3>
                       <div className="space-y-1 text-sm text-gray-600">
                         <div className="flex items-center">
-                          <MapPin className="h-4 w-4 mr-2" />
-                          {appointment.address}
-                        </div>
-                        <div className="flex items-center">
                           <User className="h-4 w-4 mr-2" />
-                          {appointment.barber} - {appointment.service}
+                          {appointment.barber.name} - {appointment.service.name}
                         </div>
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-2" />
-                          {new Date(appointment.date).toLocaleDateString("pt-BR")} às {appointment.time}
+                          {format(new Date(appointment.scheduledAt), "dd/MM/yyyy 'às' HH:mm")}
                         </div>
-                        <div className="flex items-center">
-                          <Phone className="h-4 w-4 mr-2" />
-                          {appointment.phone}
-                        </div>
+                        {appointment.client.phone && (
+                          <div className="flex items-center">
+                            <Phone className="h-4 w-4 mr-2" />
+                            {appointment.client.phone}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                    <p className="text-lg font-semibold text-green-600 mt-2">R$ {appointment.price}</p>
+                    <p className="text-lg font-semibold text-green-600 mt-2">
+                      R$ {parseFloat(appointment.totalPrice).toFixed(2)}
+                    </p>
                     <div className="flex space-x-2 mt-4">
                       <Button size="sm" variant="outline">
                         Reagendar
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:text-red-700 bg-transparent"
+                        onClick={() => handleCancelAppointment(appointment.id)}
+                      >
                         Cancelar
                       </Button>
                     </div>
@@ -157,7 +162,13 @@ export function ClientAppointments() {
         </TabsContent>
 
         <TabsContent value="past" className="space-y-4">
-          {pastAppointments.map((appointment) => (
+          {loading ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-gray-600">Carregando histórico...</p>
+              </CardContent>
+            </Card>
+          ) : pastAppointments.map((appointment) => (
             <Card key={appointment.id}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -166,44 +177,31 @@ export function ClientAppointments() {
                       <Calendar className="h-8 w-8 text-gray-600" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-1">{appointment.barbershop}</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                        {appointment.barbershop?.name || "Barbearia"}
+                      </h3>
                       <div className="space-y-1 text-sm text-gray-600">
                         <div className="flex items-center">
-                          <MapPin className="h-4 w-4 mr-2" />
-                          {appointment.address}
-                        </div>
-                        <div className="flex items-center">
                           <User className="h-4 w-4 mr-2" />
-                          {appointment.barber} - {appointment.service}
+                          {appointment.barber.name} - {appointment.service.name}
                         </div>
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-2" />
-                          {new Date(appointment.date).toLocaleDateString("pt-BR")} às {appointment.time}
+                          {format(new Date(appointment.scheduledAt), "dd/MM/yyyy 'às' HH:mm")}
                         </div>
                       </div>
-                      {appointment.review && (
+                      {appointment.notes && (
                         <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <div className="flex items-center mb-1">
-                            <div className="flex items-center">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-4 w-4 ${
-                                    i < appointment.rating! ? "text-yellow-400 fill-current" : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="ml-2 text-sm text-gray-600">Sua avaliação</span>
-                          </div>
-                          <p className="text-sm text-blue-800">{appointment.review}</p>
+                          <p className="text-sm text-blue-800">{appointment.notes}</p>
                         </div>
                       )}
                     </div>
                   </div>
                   <div className="text-right">
                     <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                    <p className="text-lg font-semibold text-gray-600 mt-2">R$ {appointment.price}</p>
+                    <p className="text-lg font-semibold text-gray-600 mt-2">
+                      R$ {parseFloat(appointment.totalPrice).toFixed(2)}
+                    </p>
                     <div className="flex space-x-2 mt-4">
                       <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
                         Agendar Novamente

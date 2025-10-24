@@ -1,11 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Clock, DollarSign, User, Check } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { appointmentsApi } from "@/lib/api/appointments"
+import { servicesApi } from "@/lib/api/services"
+import { barbersApi } from "@/lib/api/barbers"
 
 interface BookingFlowProps {
   barbershop: any
@@ -13,24 +17,46 @@ interface BookingFlowProps {
 }
 
 export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
+  const { user } = useAuth()
+  const clientId = user?.client?.id
+  
   const [step, setStep] = useState(1)
   const [selectedService, setSelectedService] = useState<any>(null)
   const [selectedBarber, setSelectedBarber] = useState<any>(null)
   const [selectedDateTime, setSelectedDateTime] = useState<any>(null)
   const [notes, setNotes] = useState("")
+  const [services, setServices] = useState<any[]>([])
+  const [barbers, setBarbers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const services = [
-    { id: 1, name: "Corte Clássico", price: 25, duration: 30, description: "Corte tradicional masculino" },
-    { id: 2, name: "Barba Completa", price: 20, duration: 25, description: "Aparar e modelar a barba" },
-    { id: 3, name: "Combo Corte + Barba", price: 40, duration: 50, description: "Serviço completo com desconto" },
-    { id: 4, name: "Degradê Moderno", price: 35, duration: 40, description: "Corte degradê com técnicas modernas" },
-  ]
+  useEffect(() => {
+    if (barbershop?.id) {
+      loadData()
+    }
+  }, [barbershop?.id])
 
-  const barbers = [
-    { id: 1, name: "Carlos Silva", rating: 4.9, specialties: ["Corte Clássico", "Barba"], experience: "8 anos" },
-    { id: 2, name: "João Santos", rating: 4.7, specialties: ["Degradê", "Desenhos"], experience: "5 anos" },
-    { id: 3, name: "Pedro Costa", rating: 4.8, specialties: ["Barba", "Tratamentos"], experience: "6 anos" },
-  ]
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      
+      const [servicesRes, barbersRes] = await Promise.all([
+        servicesApi.list(barbershop.id),
+        barbersApi.getAll(barbershop.id)
+      ])
+      
+      if (servicesRes.success && servicesRes.data) {
+        setServices(servicesRes.data.services)
+      }
+      
+      if (barbersRes.success && barbersRes.data) {
+        setBarbers(barbersRes.data)
+      }
+    } catch (error) {
+      console.error("Load data error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const availableSlots = [
     { date: "2024-01-16", day: "Hoje", slots: ["14:00", "14:30", "15:00", "16:30"] },
@@ -44,17 +70,17 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       return
     }
 
-    try {
-      const clientId = localStorage.getItem('clientId')
-      if (!clientId) {
-        alert("Erro: Cliente não identificado. Faça login novamente.")
-        return
-      }
+    if (!clientId) {
+      alert("Erro: Cliente não identificado. Faça login novamente.")
+      return
+    }
 
+    try {
       const scheduledAt = new Date(`${selectedDateTime.date}T${selectedDateTime.time}:00`)
       
       const appointmentData = {
         barbershopId: barbershop.id,
+        clientId,
         barberId: selectedBarber.id,
         serviceId: selectedService.id,
         scheduledAt: scheduledAt.toISOString(),

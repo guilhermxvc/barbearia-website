@@ -28,6 +28,7 @@ export interface Appointment {
 
 export interface CreateAppointmentRequest {
   barbershopId: string;
+  clientId: string;
   barberId: string;
   serviceId: string;
   scheduledAt: string;
