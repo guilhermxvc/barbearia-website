@@ -21,12 +21,7 @@ export const GET = withAuth()(async (req) => {
     const servicesList = await db
       .select()
       .from(services)
-      .where(
-        and(
-          eq(services.barbershopId, barbershopId),
-          eq(services.isActive, true)
-        )
-      );
+      .where(eq(services.barbershopId, barbershopId));
 
     return NextResponse.json({
       success: true,

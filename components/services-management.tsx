@@ -20,11 +20,12 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Scissors, Clock, DollarSign, Eye, Search } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface Service {
   id: string
   name: string
-  description: string
+  description?: string
   price: string
   duration: number
   category: string
@@ -35,6 +36,9 @@ interface Service {
 }
 
 export function ServicesManagement() {
+  const { user } = useAuth()
+  const barbershopId = user?.barbershop?.id
+  
   const [services, setServices] = useState<Service[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
@@ -46,8 +50,10 @@ export function ServicesManagement() {
 
 
   useEffect(() => {
-    loadServices()
-  }, [])
+    if (barbershopId) {
+      loadServices()
+    }
+  }, [barbershopId])
 
   const handleDeleteService = async (serviceId: string) => {
     try {
@@ -55,7 +61,6 @@ export function ServicesManagement() {
       const response = await servicesApi.delete(serviceId)
       
       if (response.success) {
-        // Recarregar lista de serviços
         loadServices()
       } else {
         console.error("Erro ao excluir serviço:", response.error)
@@ -70,34 +75,30 @@ export function ServicesManagement() {
   }
 
   const loadServices = async () => {
+    if (!barbershopId) {
+      setServices([])
+      setLoading(false)
+      return
+    }
+    
     try {
       setLoading(true)
       
-      // Buscar ID da barbearia do localStorage
-      const barbershopId = localStorage.getItem('barbershopId')
+      const response = await servicesApi.list(barbershopId)
       
-      if (barbershopId) {
-        const response = await servicesApi.list(barbershopId)
-        
-        if (response.success && response.data) {
-          // Mapear os dados da API para a interface local
-          const mappedServices = response.data.services.map(service => ({
-            ...service,
-            category: "Corte", // Adicionar categoria padrão já que não temos no schema
-          }))
-          setServices(mappedServices)
-        } else {
-          console.error("Erro ao carregar serviços:", response.error)
-          setServices([])
-        }
+      if (response.success && response.data) {
+        const mappedServices = response.data.services.map(service => ({
+          ...service,
+          category: "Corte",
+        }))
+        setServices(mappedServices)
       } else {
-        // Usuário não tem barbershopId - mostrar estado vazio
-        console.warn("barbershopId não encontrado no localStorage")
+        console.error("Erro ao carregar serviços:", response.error)
         setServices([])
       }
     } catch (error) {
       console.error("Erro ao carregar serviços:", error)
-      setServices([]) // Mostrar estado vazio em vez de mock
+      setServices([])
     } finally {
       setLoading(false)
     }
@@ -232,7 +233,7 @@ export function ServicesManagement() {
                   <DialogTitle>Adicionar Novo Serviço</DialogTitle>
                   <DialogDescription>Preencha os dados do novo serviço</DialogDescription>
                 </DialogHeader>
-                <ServiceForm onClose={() => setShowAddForm(false)} onSave={loadServices} />
+                <ServiceForm barbershopId={barbershopId} onClose={() => setShowAddForm(false)} onSave={loadServices} />
               </DialogContent>
             </Dialog>
           </div>
@@ -333,7 +334,7 @@ export function ServicesManagement() {
                             <DialogTitle>Editar Serviço</DialogTitle>
                             <DialogDescription>Modifique os dados do serviço</DialogDescription>
                           </DialogHeader>
-                          <ServiceForm service={service} onClose={() => setEditingService(null)} onSave={loadServices} />
+                          <ServiceForm barbershopId={barbershopId} service={service} onClose={() => setEditingService(null)} onSave={loadServices} />
                         </DialogContent>
                       </Dialog>
                       <Button 
@@ -369,7 +370,7 @@ export function ServicesManagement() {
   )
 }
 
-function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose: () => void; onSave: () => void }) {
+function ServiceForm({ barbershopId, service, onClose, onSave }: { barbershopId?: string; service?: Service; onClose: () => void; onSave: () => void }) {
   const [formData, setFormData] = useState({
     name: service?.name || "",
     description: service?.description || "",
@@ -389,8 +390,6 @@ function ServiceForm({ service, onClose, onSave }: { service?: Service; onClose:
     setError("")
 
     try {
-      const barbershopId = localStorage.getItem('barbershopId')
-      
       if (!barbershopId) {
         setError("Erro: ID da barbearia não encontrado")
         return
