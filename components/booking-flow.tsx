@@ -208,14 +208,15 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
                       <h3 className="font-semibold text-gray-900">{barber.name}</h3>
                       <p className="text-sm text-gray-600">Experiência: {barber.experience}</p>
                       <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-sm text-yellow-600">★ {barber.rating}</span>
-                        <div className="flex space-x-1">
-                          {barber.specialties.map((specialty, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {specialty}
-                            </Badge>
-                          ))}
-                        </div>
+                        {barber.specialties && barber.specialties.length > 0 && (
+                          <div className="flex space-x-1">
+                            {barber.specialties.map((specialty: string, index: number) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {specialty}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
