@@ -1,0 +1,10 @@
+export { authApi } from './auth';
+export { apiClient } from './client';
+export { barbershopsApi } from './barbershops';
+export { barbersApi } from './barbers';
+export { clientsApi } from './clients';
+export { appointmentsApi } from './appointments';
+export { servicesApi } from './services';
+export { productsApi } from './products';
+export { reportsApi } from './reports';
+export { notificationsApi } from './notifications';

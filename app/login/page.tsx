@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Scissors, Eye, EyeOff, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { authApi } from "@/lib/api/auth"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -22,29 +22,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const getUserPlan = (email: string) => {
-    if (email.includes("basico")) {
-      return "basico"
-    } else if (email.includes("premium")) {
-      return "premium"
-    } else {
-      return "profissional" // plano padrão
-    }
-  }
-
-  const getUserType = (email: string) => {
-    if (email.includes("manager") || email.includes("barbearia")) {
-      return "manager"
-    } else if (email.includes("barbeiro")) {
-      return "barber"
-    } else {
-      return "client"
-    }
   }
 
   const getDashboardRoute = (userType: string) => {
@@ -66,17 +47,15 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await authApi.login({
-        email: formData.email,
-        password: formData.password,
-      })
+      const response = await login(formData.email, formData.password)
 
-      if (response.success && response.data) {
-        const userType = response.data.user.userType
-        const dashboardRoute = getDashboardRoute(userType)
-        router.push(dashboardRoute)
+      if (response.success) {
+        // Redirecionar será feito automaticamente pelos dashboards
+        // baseado no userType do AuthContext
+        router.push('/dashboard/manager')
+        router.refresh()
       } else {
-        setError(response.error || "Erro ao fazer login")
+        setError(response.error || "Email ou senha incorretos")
       }
     } catch (err) {
       setError("Erro de conexão. Tente novamente.")

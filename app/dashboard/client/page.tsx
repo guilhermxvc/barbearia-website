@@ -1,20 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { MapPin, Search, Star } from "lucide-react"
+import { MapPin, Search, Star, Loader2 } from "lucide-react"
 import { ClientSidebar } from "@/components/client-sidebar"
 import { BookingFlow } from "@/components/booking-flow"
 import { ClientAppointments } from "@/components/client-appointments"
 import { ClientProfile } from "@/components/client-profile"
 import { AIAssistant } from "@/components/ai-assistant"
 import { NotificationsSystem } from "@/components/notifications-system"
+import { useAuth } from "@/contexts/AuthContext"
+import { useRouter } from "next/navigation"
 
 export default function ClientDashboard() {
+  const { user, isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [activeSection, setActiveSection] = useState("search")
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+    if (!isLoading && user && user.userType !== 'client') {
+      router.push(`/dashboard/${user.userType}`)
+    }
+  }, [isLoading, isAuthenticated, user, router])
 
   const sectionTitles = {
     search: {
@@ -50,6 +63,21 @@ export default function ClientDashboard() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-amber-600 mx-auto mb-4" />
+          <p className="text-gray-600">Carregando dados...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated || !user) {
+    return null
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <ClientSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
@@ -65,7 +93,7 @@ export default function ClientDashboard() {
           {renderContent()}
         </div>
       </main>
-      <AIAssistant userType="client" userName="João" />
+      <AIAssistant userType="client" userName={user.name} />
     </div>
   )
 }

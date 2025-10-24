@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, TrendingUp, Star, Lock } from "lucide-react"
+import { Calendar, TrendingUp, Star, Lock, Loader2 } from "lucide-react"
 import { ManagerSidebar } from "@/components/manager-sidebar"
 import { OverviewCards } from "@/components/overview-cards"
 import { RecentAppointments } from "@/components/recent-appointments"
@@ -15,15 +15,29 @@ import { AIAssistantPremium } from "@/components/ai-assistant-premium"
 import { NotificationsSystem } from "@/components/notifications-system"
 import { ClientsManagement } from "@/components/clients-management"
 import { FinancialManagement } from "@/components/financial-management"
+import { useAuth } from "@/contexts/AuthContext"
+import { useRouter } from "next/navigation"
 
 export default function ManagerDashboard() {
+  const { user, isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [activeSection, setActiveSection] = useState("overview")
-  const [userPlan, setUserPlan] = useState("Profissional")
-  const [isClient, setIsClient] = useState(false)
+
+  // Verificar autenticação
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+    
+    if (!isLoading && user && user.userType !== 'manager') {
+      // Redirecionar para dashboard correto baseado no tipo de usuário
+      router.push(`/dashboard/${user.userType}`)
+    }
+  }, [isLoading, isAuthenticated, user, router])
 
   const sectionTitles = {
     overview: {
-      title: "Dashboard da Barbearia",
+      title: `Dashboard - ${user?.barbershop?.name || 'Barbearia'}`,
       description: "Visão geral da sua barbearia",
     },
     appointments: {
@@ -60,22 +74,17 @@ export default function ManagerDashboard() {
     },
   }
 
-  useEffect(() => {
-    setIsClient(true)
-    const userEmail = localStorage.getItem("userEmail")
+  // Função para normalizar nome do plano
+  const normalizePlanName = (plan?: string) => {
+    if (!plan) return "Profissional"
+    
+    const normalizedPlan = plan.toLowerCase()
+    if (normalizedPlan.includes('basico') || normalizedPlan.includes('básico')) return "Básico"
+    if (normalizedPlan.includes('premium')) return "Premium"
+    return "Profissional"
+  }
 
-    if (userEmail) {
-      let plan = "Profissional"
-
-      if (userEmail.includes("basico")) {
-        plan = "Básico"
-      } else if (userEmail.includes("premium")) {
-        plan = "Premium"
-      }
-
-      setUserPlan(plan)
-    }
-  }, [])
+  const userPlan = normalizePlanName(user?.barbershop?.subscriptionPlan)
 
   const isFeatureAvailable = (feature: string) => {
     const planFeatures = {
@@ -124,6 +133,23 @@ export default function ManagerDashboard() {
     }
   }
 
+  // Mostrar loading enquanto carrega dados
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-amber-600 mx-auto mb-4" />
+          <p className="text-gray-600">Carregando dados da barbearia...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Se não estiver autenticado ou não tiver dados do usuário, não renderizar nada
+  if (!isAuthenticated || !user) {
+    return null
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <ManagerSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
@@ -138,7 +164,15 @@ export default function ManagerDashboard() {
                 {sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua barbearia"}
               </p>
             </div>
-            <NotificationsSystem userType="manager" />
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Plano Atual</p>
+                <Badge variant={userPlan === "Premium" ? "default" : "secondary"} className="font-semibold">
+                  {userPlan}
+                </Badge>
+              </div>
+              <NotificationsSystem userType="manager" />
+            </div>
           </div>
           {renderContent()}
         </div>
