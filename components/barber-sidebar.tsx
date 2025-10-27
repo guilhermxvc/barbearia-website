@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, User, BarChart3, LogOut, Bell, Settings, Scissors } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface BarberSidebarProps {
   activeSection: string
@@ -12,6 +13,7 @@ interface BarberSidebarProps {
 
 export function BarberSidebar({ activeSection, onSectionChange }: BarberSidebarProps) {
   const router = useRouter()
+  const { user, logout } = useAuth()
 
   const menuItems = [
     { id: "schedule", label: "Minha Agenda", icon: Calendar },
@@ -21,12 +23,13 @@ export function BarberSidebar({ activeSection, onSectionChange }: BarberSidebarP
     { id: "profile", label: "Meu Perfil", icon: User },
   ]
 
-  const handleLogout = () => {
-    localStorage.removeItem("userType")
-    localStorage.removeItem("userEmail")
-    localStorage.removeItem("isLoggedIn")
+  const handleLogout = async () => {
+    await logout()
     router.push("/")
   }
+
+  const barberName = user?.barber ? `${user.firstName} ${user.lastName}` : "Barbeiro"
+  const barbershopName = user?.barber?.barbershop?.name || "Barbearia"
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
@@ -35,12 +38,12 @@ export function BarberSidebar({ activeSection, onSectionChange }: BarberSidebarP
         <div className="flex items-center space-x-2">
           <Scissors className="h-8 w-8 text-amber-600" />
           <div>
-            <h2 className="font-bold text-gray-900">Carlos Silva</h2>
+            <h2 className="font-bold text-gray-900">{barberName}</h2>
             <Badge className="bg-blue-600 text-xs">Barbeiro</Badge>
           </div>
         </div>
         <div className="mt-3 text-sm text-gray-600">
-          <p>Barbearia Premium</p>
+          <p>{barbershopName}</p>
           <div className="flex items-center mt-1">
             <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
             <span>Online</span>
