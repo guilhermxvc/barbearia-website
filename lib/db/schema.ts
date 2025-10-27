@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, integer, uuid, boolean, decimal, json, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+import { relations } from 'drizzle-orm';
 import { z } from 'zod';
 
 // Enums
@@ -297,3 +298,85 @@ export type NewAiChatHistory = typeof aiChatHistory.$inferInsert;
 
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type NewStockMovement = typeof stockMovements.$inferInsert;
+
+// Relations
+export const usersRelations = relations(users, ({ one, many }) => ({
+  barbershop: one(barbershops, {
+    fields: [users.id],
+    references: [barbershops.ownerId],
+  }),
+  barber: one(barbers, {
+    fields: [users.id],
+    references: [barbers.userId],
+  }),
+  client: one(clients, {
+    fields: [users.id],
+    references: [clients.userId],
+  }),
+  notifications: many(notifications),
+}));
+
+export const barbershopsRelations = relations(barbershops, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [barbershops.ownerId],
+    references: [users.id],
+  }),
+  barbers: many(barbers),
+  services: many(services),
+  products: many(products),
+  appointments: many(appointments),
+  sales: many(sales),
+  commissions: many(commissions),
+}));
+
+export const barbersRelations = relations(barbers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [barbers.userId],
+    references: [users.id],
+  }),
+  barbershop: one(barbershops, {
+    fields: [barbers.barbershopId],
+    references: [barbershops.id],
+  }),
+  appointments: many(appointments),
+  sales: many(sales),
+  commissions: many(commissions),
+  feedbacks: many(feedbacks),
+}));
+
+export const clientsRelations = relations(clients, ({ one, many }) => ({
+  user: one(users, {
+    fields: [clients.userId],
+    references: [users.id],
+  }),
+  appointments: many(appointments),
+  sales: many(sales),
+  feedbacks: many(feedbacks),
+}));
+
+export const servicesRelations = relations(services, ({ one, many }) => ({
+  barbershop: one(barbershops, {
+    fields: [services.barbershopId],
+    references: [barbershops.id],
+  }),
+  appointments: many(appointments),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  barbershop: one(barbershops, {
+    fields: [appointments.barbershopId],
+    references: [barbershops.id],
+  }),
+  client: one(clients, {
+    fields: [appointments.clientId],
+    references: [clients.id],
+  }),
+  barber: one(barbers, {
+    fields: [appointments.barberId],
+    references: [barbers.id],
+  }),
+  service: one(services, {
+    fields: [appointments.serviceId],
+    references: [services.id],
+  }),
+}));
