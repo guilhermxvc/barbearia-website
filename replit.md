@@ -61,6 +61,14 @@ This is a comprehensive Next.js barbershop management system application that wa
 - ✅ Lista dinâmica mostrando: nome, endereço, telefone, serviços, barbeiros, plano
 - ✅ Cálculo de faixa de preço baseado em serviços reais
 - ✅ Seção de favoritos desabilitada (implementação futura)
+- ✅ **TODOS os componentes reescritos para carregar dados reais:**
+  - ✅ **ClientSidebar**: Removido "João Cliente" hardcoded, usa AuthContext
+  - ✅ **ClientProfile**: Removido todos dados mock (João Cliente, estatísticas fake, próximos agendamentos fictícios)
+  - ✅ **ClientAppointments**: JÁ estava correto, carrega appointments reais via API
+- ✅ **API Response Shape**: ClientProfile usa `response.data?.appointments` (shape correto)
+- ✅ **Estatísticas Reais**: Calcula total gasto e agendamentos completados de dados reais
+- ✅ **Próximos Agendamentos**: Carregados do banco com estado vazio se não houver
+- ✅ **Profile Updates**: Atualiza telefone via API com mensagem para recarregar
 
 **5. API de Barbershops (app/api/barbershops/route.ts):**
 - ✅ REMOVIDOS campos mock: rating, reviewCount, distance, openNow, nextAvailable
