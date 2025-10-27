@@ -17,25 +17,47 @@ This is a comprehensive Next.js barbershop management system application that wa
 
 ### ✅ Authentication System Fixed (October 27, 2025)
 
-#### Critical Bug Fix - Registration Form
-**Problema Identificado:**
-- O formulário de registro estava simulando o cadastro com `setTimeout` ao invés de chamar a API real
-- Isso causava a impressão de que os dados não estavam sendo salvos no banco de dados
-- O código backend de registro já estava funcionando corretamente
+#### Critical Bug Fix - Registration Form & Drizzle Relations
+**Problemas Identificados:**
+1. O formulário de registro estava simulando o cadastro com `setTimeout` ao invés de chamar a API real
+2. Barbers e clients não conseguiam carregar dados do banco após registro/login
+3. Erro "Cannot read properties of undefined (reading 'referencedTable')" ao usar `.with()` do Drizzle
+4. Design da página de registro estava incompleto e faltavam campos necessários
 
 **Correções Aplicadas:**
-- ✅ Substituído simulação por chamada real à API via `registerUser()` do AuthContext
-- ✅ Adicionada validação de senhas (senha === confirmarSenha)
-- ✅ Implementado feedback visual de erros no formulário
-- ✅ Mensagens de sucesso/erro com toast notifications
-- ✅ Corrigido redirect do login para usar tipo de usuário correto (manager/barber/client)
-- ✅ Preparação correta dos dados para cada tipo de usuário
+
+**1. Drizzle Relations (lib/db/schema.ts):**
+- ✅ Adicionadas definições explícitas de relações usando `relations()`
+- ✅ Configuradas relações bidirecionais: users ↔ barbershops, users ↔ barbers, users ↔ clients
+- ✅ Resolvido erro de `.with()` que impedia carregamento de dados relacionados
+- ✅ Agora barbers e clients carregam corretamente do banco de dados
+
+**2. Página de Registro (app/register/page.tsx):**
+- ✅ Design COMPLETAMENTE redesenhado com visual moderno e profissional
+- ✅ Multi-step flow melhorado:
+  - Step 1: Seleção de tipo de conta (Manager/Barber/Client) com cards modernos
+  - Step 2: Seleção de plano (apenas Manager) com comparação visual
+  - Step 3: Formulário completo com TODOS os campos necessários
+- ✅ Campos completos para cada tipo:
+  - **Manager**: nome, sobrenome, email, telefone, senha, nome barbearia, endereço, plano
+  - **Barber**: nome, sobrenome, email, telefone, senha, código barbearia (opcional), especialidades (opcional)
+  - **Client**: nome, sobrenome, email, telefone, senha
+- ✅ Validações robustas: senhas, campos obrigatórios, termos de uso
+- ✅ Design alinhado com homepage: gradientes amber/orange, ícones modernos, cards com sombras
+- ✅ Feedback visual completo: toast notifications, mensagens de erro inline
+- ✅ Delay de 500ms antes do redirect para garantir carregamento de dados do AuthContext
+
+**3. Redirect após Registro:**
+- ✅ Corrigido para usar tipo correto (manager/barber/client) em vez de userType
+- ✅ Preparação correta dos dados para cada tipo de usuário na API
 
 **Status Atual:**
 - ✅ **Registro**: Cria usuários no banco de dados (users + barbershops/barbers/clients)
 - ✅ **Login**: Carrega dados específicos do usuário do banco de dados
 - ✅ **Multi-tenant**: Cada usuário vê apenas seus próprios dados (isolamento por barbershopId)
 - ✅ **AuthContext**: Gerencia autenticação e sessão corretamente
+- ✅ **Drizzle Relations**: Todos os `.with()` funcionando corretamente
+- ✅ **Design**: Página de registro moderna, profissional e completa
 
 ### ✅ Full Database Integration (October 24, 2025)
 
