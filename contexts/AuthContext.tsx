@@ -43,7 +43,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; userType?: string }>;
   register: (data: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Buscar perfil completo
         await loadUserProfile();
         
-        return { success: true };
+        return { success: true, userType: userData.userType };
       }
       
       return {

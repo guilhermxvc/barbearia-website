@@ -14,6 +14,9 @@ import { NotificationsSystem } from "@/components/notifications-system"
 import { BarberReports } from "@/components/barber-reports"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
+import { apiClient } from "@/lib/api"
+import { format, isToday } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -105,62 +108,95 @@ export default function BarberDashboard() {
 }
 
 function ScheduleSection() {
-  const todayAppointments = [
-    {
-      id: 1,
-      client: "Carlos Silva",
-      service: "Corte Clássico",
-      time: "09:00",
-      duration: 30,
-      status: "confirmado",
-      phone: "(11) 99999-1111",
-      notes: "Cliente prefere conversa moderada",
-    },
-    {
-      id: 2,
-      client: "Pedro Santos",
-      service: "Combo Corte + Barba",
-      time: "09:30",
-      duration: 50,
-      status: "em-andamento",
-      phone: "(11) 99999-2222",
-      notes: "Primeira vez na barbearia",
-    },
-    {
-      id: 3,
-      client: "João Costa",
-      service: "Barba Completa",
-      time: "10:30",
-      duration: 25,
-      status: "confirmado",
-      phone: "(11) 99999-3333",
-      notes: "Cliente regular, gosta de óleo de barba premium",
-    },
-    {
-      id: 4,
-      client: "Lucas Oliveira",
-      service: "Degradê Moderno",
-      time: "11:00",
-      duration: 40,
-      status: "confirmado",
-      phone: "(11) 99999-4444",
-      notes: "",
-    },
-  ]
+  const { user } = useAuth()
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    loadAppointments()
+  }, [user])
+
+  const loadAppointments = async () => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      if (!user?.barber?.id) {
+        setError("Perfil de barbeiro não encontrado")
+        return
+      }
+
+      // Buscar todos os agendamentos do barbeiro
+      const response = await apiClient.get(`/api/appointments?barberId=${user.barber.id}`)
+
+      if (response.success && response.appointments) {
+        setAppointments(response.appointments)
+      } else {
+        setError("Erro ao carregar agendamentos")
+      }
+    } catch (error) {
+      console.error("Erro ao carregar agendamentos:", error)
+      setError("Erro ao carregar agendamentos")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Filtrar agendamentos de hoje
+  const todayAppointments = appointments.filter(apt => 
+    isToday(new Date(apt.scheduledAt)) && apt.status !== 'cancelled'
+  )
+
+  // Calcular estatísticas
+  const confirmedToday = todayAppointments.filter(apt => apt.status === 'confirmed' || apt.status === 'in_progress')
+  const totalRevenue = todayAppointments.reduce((sum, apt) => sum + (Number(apt.totalPrice) || 0), 0)
+  const nextAppointment = todayAppointments
+    .filter(apt => new Date(apt.scheduledAt) > new Date())
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0]
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmado":
+      case "confirmed":
         return "bg-green-100 text-green-800"
-      case "em-andamento":
+      case "in_progress":
         return "bg-blue-100 text-blue-800"
-      case "concluido":
+      case "completed":
         return "bg-gray-100 text-gray-800"
-      case "cancelado":
+      case "cancelled":
         return "bg-red-100 text-red-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      confirmed: "Confirmado",
+      in_progress: "Em Andamento",
+      completed: "Concluído",
+      cancelled: "Cancelado",
+      pending: "Pendente",
+    }
+    return labels[status] || status
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+        {error}
+      </div>
+    )
   }
 
   return (
@@ -171,7 +207,7 @@ function ScheduleSection() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Agendamentos Hoje</p>
-                <p className="text-2xl font-bold text-gray-900">8</p>
+                <p className="text-2xl font-bold text-gray-900">{confirmedToday.length}</p>
               </div>
               <Calendar className="h-8 w-8 text-amber-600" />
             </div>
@@ -183,7 +219,9 @@ function ScheduleSection() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Próximo Cliente</p>
-                <p className="text-lg font-semibold text-gray-900">09:00</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {nextAppointment ? format(new Date(nextAppointment.scheduledAt), 'HH:mm', { locale: ptBR }) : '--:--'}
+                </p>
               </div>
               <Clock className="h-8 w-8 text-blue-600" />
             </div>
@@ -195,7 +233,9 @@ function ScheduleSection() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Faturamento Hoje</p>
-                <p className="text-2xl font-bold text-green-600">R$ 280</p>
+                <p className="text-2xl font-bold text-green-600">
+                  R$ {totalRevenue.toFixed(2)}
+                </p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-600" />
             </div>
@@ -206,10 +246,9 @@ function ScheduleSection() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avaliação</p>
+                <p className="text-sm text-gray-600">Total Agendamentos</p>
                 <div className="flex items-center">
-                  <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                  <p className="text-lg font-semibold text-gray-900 ml-1">4.9</p>
+                  <p className="text-lg font-semibold text-gray-900">{appointments.length}</p>
                 </div>
               </div>
               <Star className="h-8 w-8 text-yellow-400" />
@@ -222,64 +261,92 @@ function ScheduleSection() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Agenda de Hoje</span>
-            <Badge className="bg-amber-600">8 agendamentos</Badge>
+            <Badge className="bg-amber-600">{confirmedToday.length} agendamentos</Badge>
           </CardTitle>
-          <CardDescription>Seus agendamentos para hoje, 15 de Janeiro de 2024</CardDescription>
+          <CardDescription>
+            Seus agendamentos para hoje, {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {todayAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-amber-600">{appointment.time}</p>
-                    <p className="text-xs text-gray-500">{appointment.duration}min</p>
+          {todayAppointments.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum agendamento para hoje</h3>
+              <p className="text-gray-600">Você não tem agendamentos marcados para hoje.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {todayAppointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-amber-600">
+                        {format(new Date(appointment.scheduledAt), 'HH:mm', { locale: ptBR })}
+                      </p>
+                      <p className="text-xs text-gray-500">{appointment.duration}min</p>
+                    </div>
+                    <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                      <User className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{appointment.client.name}</h4>
+                      <p className="text-sm text-gray-600">{appointment.service.name}</p>
+                      {appointment.client.phone && (
+                        <p className="text-xs text-gray-500">{appointment.client.phone}</p>
+                      )}
+                      {appointment.notes && (
+                        <p className="text-xs text-blue-600 mt-1">{appointment.notes}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                    <User className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{appointment.client}</h4>
-                    <p className="text-sm text-gray-600">{appointment.service}</p>
-                    <p className="text-xs text-gray-500">{appointment.phone}</p>
-                    {appointment.notes && <p className="text-xs text-blue-600 mt-1">{appointment.notes}</p>}
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right mr-3">
+                      <p className="text-sm font-semibold text-gray-900">
+                        R$ {Number(appointment.totalPrice).toFixed(2)}
+                      </p>
+                    </div>
+                    <Badge className={getStatusColor(appointment.status)}>
+                      {getStatusLabel(appointment.status)}
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Badge className={getStatusColor(appointment.status)}>{appointment.status.replace("-", " ")}</Badge>
-                  <div className="flex space-x-1">
-                    <Button size="sm" variant="outline">
-                      Iniciar
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      Contato
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Horários Livres Hoje</CardTitle>
-          <CardDescription>Horários disponíveis para novos agendamentos</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {["12:00", "12:30", "14:00", "14:30", "15:00", "16:30", "17:00"].map((time) => (
-              <Badge key={time} variant="outline" className="px-3 py-1">
-                {time}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {appointments.length > todayAppointments.length && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos Agendamentos</CardTitle>
+            <CardDescription>Agendamentos futuros</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {appointments
+                .filter(apt => !isToday(new Date(apt.scheduledAt)) && new Date(apt.scheduledAt) > new Date())
+                .slice(0, 5)
+                .map((appointment) => (
+                  <div key={appointment.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
+                    <div>
+                      <p className="font-medium text-gray-900">{appointment.client.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {format(new Date(appointment.scheduledAt), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <Badge className={getStatusColor(appointment.status)}>
+                      {getStatusLabel(appointment.status)}
+                    </Badge>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
