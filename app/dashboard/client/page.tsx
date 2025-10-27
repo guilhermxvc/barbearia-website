@@ -14,6 +14,7 @@ import { AIAssistant } from "@/components/ai-assistant"
 import { NotificationsSystem } from "@/components/notifications-system"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
+import { apiClient } from "@/lib/api"
 
 export default function ClientDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -101,48 +102,33 @@ export default function ClientDashboard() {
 function SearchSection() {
   const [searchLocation, setSearchLocation] = useState("")
   const [selectedBarbershop, setSelectedBarbershop] = useState<any>(null)
+  const [barbershops, setBarbershops] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const nearbyBarbershops = [
-    {
-      id: 1,
-      name: "Barbearia Premium",
-      address: "Rua das Flores, 123 - Centro",
-      distance: "0.5 km",
-      rating: 4.9,
-      reviewCount: 156,
-      image: "/modern-barbershop.png",
-      services: ["Corte Clássico", "Barba", "Combo"],
-      priceRange: "R$ 25 - R$ 45",
-      openNow: true,
-      nextAvailable: "09:30",
-    },
-    {
-      id: 2,
-      name: "Barbearia Moderna",
-      address: "Av. Principal, 456 - Vila Nova",
-      distance: "1.2 km",
-      rating: 4.7,
-      reviewCount: 89,
-      image: "/stylish-barbershop.png",
-      services: ["Degradê", "Desenhos", "Coloração"],
-      priceRange: "R$ 30 - R$ 60",
-      openNow: true,
-      nextAvailable: "10:00",
-    },
-    {
-      id: 3,
-      name: "Barbearia Clássica",
-      address: "Rua Antiga, 789 - Centro Histórico",
-      distance: "2.1 km",
-      rating: 4.8,
-      reviewCount: 234,
-      image: "/placeholder-21zig.png",
-      services: ["Corte Tradicional", "Barba", "Relaxamento"],
-      priceRange: "R$ 20 - R$ 40",
-      openNow: false,
-      nextAvailable: "14:00",
-    },
-  ]
+  useEffect(() => {
+    loadBarbershops()
+  }, [])
+
+  const loadBarbershops = async () => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      const response = await apiClient.get('/api/barbershops')
+
+      if (response.success && response.barbershops) {
+        setBarbershops(response.barbershops)
+      } else {
+        setError("Erro ao carregar barbearias")
+      }
+    } catch (error) {
+      console.error("Erro ao carregar barbearias:", error)
+      setError("Erro ao carregar barbearias")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (selectedBarbershop) {
     return <BookingFlow barbershop={selectedBarbershop} onBack={() => setSelectedBarbershop(null)} />
@@ -193,21 +179,38 @@ function SearchSection() {
       </div>
 
       {/* Lista de Barbearias */}
-      <div className="grid gap-6">
-        {nearbyBarbershops.map((barbershop) => (
-          <Card key={barbershop.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="p-0">
-              <div className="flex">
-                <img
-                  src={barbershop.image || "/placeholder.svg"}
-                  alt={barbershop.name}
-                  className="w-48 h-32 object-cover rounded-l-lg"
-                />
-                <div className="flex-1 p-6">
+      {isLoading ? (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+        </div>
+      ) : error ? (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          {error}
+        </div>
+      ) : barbershops.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma barbearia encontrada</h3>
+            <p className="text-gray-600">
+              Não encontramos barbearias cadastradas no momento. Volte mais tarde!
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {barbershops.map((barbershop) => {
+            const priceRange = barbershop.services.length > 0
+              ? `R$ ${Math.min(...barbershop.services.map((s: any) => Number(s.price)))} - R$ ${Math.max(...barbershop.services.map((s: any) => Number(s.price)))}`
+              : 'Preços sob consulta'
+
+            return (
+              <Card key={barbershop.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6">
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-xl font-semibold text-gray-900 mb-1">{barbershop.name}</h3>
-                      <p className="text-gray-600 text-sm mb-2">{barbershop.address}</p>
+                      <p className="text-gray-600 text-sm mb-2">{barbershop.address || 'Endereço não informado'}</p>
                       <div className="flex items-center space-x-4 mb-3">
                         <div className="flex items-center">
                           <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -215,17 +218,30 @@ function SearchSection() {
                           <span className="ml-1 text-sm text-gray-500">({barbershop.reviewCount})</span>
                         </div>
                         <span className="text-sm text-gray-500">{barbershop.distance}</span>
-                        <span className="text-sm text-gray-500">{barbershop.priceRange}</span>
+                        <span className="text-sm text-gray-500">{priceRange}</span>
                       </div>
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {barbershop.services.slice(0, 3).map((service, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {service}
+                        {barbershop.services.slice(0, 3).map((service: any) => (
+                          <Badge key={service.id} variant="outline" className="text-xs">
+                            {service.name}
                           </Badge>
                         ))}
+                        {barbershop.services.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{barbershop.services.length - 3} serviços
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline" className="text-xs">
+                          {barbershop.barbers.length} {barbershop.barbers.length === 1 ? 'barbeiro' : 'barbeiros'}
+                        </Badge>
+                        <Badge className={`text-xs ${barbershop.subscriptionPlan === 'premium' ? 'bg-purple-100 text-purple-800' : barbershop.subscriptionPlan === 'profissional' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                          Plano {barbershop.subscriptionPlan}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-4">
                       <div className="flex items-center mb-2">
                         {barbershop.openNow ? (
                           <Badge className="bg-green-100 text-green-800">Aberto</Badge>
@@ -242,38 +258,17 @@ function SearchSection() {
                       </Button>
                     </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
 function FavoritesSection() {
-  const favoriteBarbershops = [
-    {
-      id: 1,
-      name: "Barbearia Premium",
-      lastVisit: "2024-01-10",
-      totalVisits: 8,
-      favoriteBarber: "Carlos Silva",
-      favoriteService: "Corte Clássico",
-      rating: 5,
-    },
-    {
-      id: 2,
-      name: "Barbearia Moderna",
-      lastVisit: "2023-12-15",
-      totalVisits: 3,
-      favoriteBarber: "João Santos",
-      favoriteService: "Degradê Moderno",
-      rating: 4,
-    },
-  ]
-
   return (
     <div className="space-y-6">
       <div>
@@ -281,52 +276,16 @@ function FavoritesSection() {
         <p className="text-gray-600">Suas barbearias mais visitadas e preferidas</p>
       </div>
 
-      <div className="grid gap-6">
-        {favoriteBarbershops.map((barbershop) => (
-          <Card key={barbershop.id}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{barbershop.name}</h3>
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <p>Última visita: {new Date(barbershop.lastVisit).toLocaleDateString("pt-BR")}</p>
-                    <p>Total de visitas: {barbershop.totalVisits}</p>
-                    <p>Barbeiro preferido: {barbershop.favoriteBarber}</p>
-                    <p>Serviço preferido: {barbershop.favoriteService}</p>
-                  </div>
-                  <div className="flex items-center mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${
-                          i < barbershop.rating ? "text-yellow-400 fill-current" : "text-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="outline">Ver Detalhes</Button>
-                  <Button className="bg-amber-600 hover:bg-amber-700">Agendar Novamente</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {favoriteBarbershops.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma barbearia favorita ainda</h3>
-            <p className="text-gray-600 mb-4">
-              Comece agendando seus primeiros serviços para criar sua lista de favoritos.
-            </p>
-            <Button className="bg-amber-600 hover:bg-amber-700">Encontrar Barbearias</Button>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardContent className="p-12 text-center">
+          <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Funcionalidade em breve</h3>
+          <p className="text-gray-600 mb-4">
+            Em breve você poderá salvar suas barbearias favoritas e ter acesso rápido a elas.
+          </p>
+          <Button className="bg-amber-600 hover:bg-amber-700">Encontrar Barbearias</Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
