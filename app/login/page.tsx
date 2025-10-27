@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Scissors, Eye, EyeOff, Sparkles } from "lucide-react"
+import { Scissors, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
@@ -168,14 +168,7 @@ export default function LoginPage() {
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold"
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="h-4 w-4 animate-spin" />
-                    <span>Entrando...</span>
-                  </div>
-                ) : (
-                  "Entrar"
-                )}
+                {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
 
@@ -186,39 +179,6 @@ export default function LoginPage() {
                   Criar conta
                 </Link>
               </p>
-            </div>
-
-            <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <h4 className="text-sm font-semibold text-amber-800 mb-2 flex items-center">
-                <Sparkles className="h-4 w-4 mr-2 text-amber-600" />
-                Contas de demonstração:
-              </h4>
-              <div className="space-y-3 text-xs text-gray-700">
-                <div className="border-b border-amber-200 pb-2">
-                  <div className="font-semibold text-amber-800 mb-1">Barbearias (Managers):</div>
-                  <div>
-                    <strong className="text-amber-600">Plano Básico:</strong> manager.basico@barberpro.com / 123456
-                  </div>
-                  <div>
-                    <strong className="text-amber-600">Plano Profissional:</strong> manager@barberpro.com / 123456
-                  </div>
-                  <div>
-                    <strong className="text-amber-600">Plano Premium:</strong> manager.premium@barberpro.com / 123456
-                  </div>
-                </div>
-                <div className="border-b border-amber-200 pb-2">
-                  <div className="font-semibold text-amber-800 mb-1">Funcionários:</div>
-                  <div>
-                    <strong className="text-orange-600">Barbeiro:</strong> barbeiro@barberpro.com / 123456
-                  </div>
-                </div>
-                <div>
-                  <div className="font-semibold text-amber-800 mb-1">Clientes:</div>
-                  <div>
-                    <strong className="text-gray-600">Cliente:</strong> cliente@barberpro.com / 123456
-                  </div>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
