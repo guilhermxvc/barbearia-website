@@ -22,7 +22,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, user } = useAuth()
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -50,9 +50,12 @@ export default function LoginPage() {
       const response = await login(formData.email, formData.password)
 
       if (response.success) {
-        // Redirecionar será feito automaticamente pelos dashboards
-        // baseado no userType do AuthContext
-        router.push('/dashboard/manager')
+        // Aguardar um momento para o AuthContext carregar o perfil
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Redirecionar baseado no tipo de usuário
+        const dashboardRoute = getDashboardRoute(user?.userType || 'client')
+        router.push(dashboardRoute)
         router.refresh()
       } else {
         setError(response.error || "Email ou senha incorretos")

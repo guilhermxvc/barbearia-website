@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Building2, User, UserCheck, Scissors, Check, ArrowLeft, Crown } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 type UserType = "barbearia" | "barbeiro" | "cliente" | null
 type PlanType = "basico" | "profissional" | "premium"
@@ -17,11 +19,13 @@ type PlanType = "basico" | "profissional" | "premium"
 export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { register: registerUser } = useAuth()
   const [step, setStep] = useState(1)
   const [userType, setUserType] = useState<UserType>(null)
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("basico")
   const [isClient, setIsClient] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -107,21 +111,62 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
-      // Simular registro
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Redirecionar baseado no tipo de usuário
+      // Validar senhas
+      if (formData.senha !== formData.confirmarSenha) {
+        setError("As senhas não coincidem")
+        toast.error("As senhas não coincidem")
+        setIsLoading(false)
+        return
+      }
+
+      // Preparar dados de acordo com o tipo de usuário
+      const registrationData: any = {
+        email: formData.email,
+        password: formData.senha,
+        name: `${formData.nome} ${formData.sobrenome}`.trim(),
+        phone: formData.telefone,
+        userType: userType === "barbearia" ? "manager" : userType === "barbeiro" ? "barber" : "client"
+      }
+
+      // Dados específicos para manager
       if (userType === "barbearia") {
-        router.push("/dashboard/manager")
-      } else if (userType === "barbeiro") {
-        router.push("/dashboard/barber")
+        registrationData.barbershopName = formData.nomeBarbearia || formData.barbershopName
+        registrationData.barbershopAddress = formData.endereco
+        registrationData.barbershopPhone = formData.telefone
+        registrationData.subscriptionPlan = selectedPlan
+      }
+
+      // Dados específicos para barber
+      if (userType === "barbeiro") {
+        registrationData.barbershopCode = formData.message
+        registrationData.specialties = formData.especialidades ? formData.especialidades.split(',').map(s => s.trim()) : []
+      }
+
+      // Chamar a API de registro
+      const result = await registerUser(registrationData)
+      
+      if (result.success) {
+        toast.success("Cadastro realizado com sucesso!")
+        
+        // Redirecionar baseado no tipo de usuário
+        if (userType === "barbearia") {
+          router.push("/dashboard/manager")
+        } else if (userType === "barbeiro") {
+          router.push("/dashboard/barber")
+        } else {
+          router.push("/dashboard/client")
+        }
       } else {
-        router.push("/dashboard/client")
+        setError(result.error || "Erro ao fazer cadastro")
+        toast.error(result.error || "Erro ao fazer cadastro")
       }
     } catch (error) {
       console.error("Erro no registro:", error)
+      setError("Erro ao conectar com o servidor")
+      toast.error("Erro ao conectar com o servidor")
     } finally {
       setIsLoading(false)
     }
@@ -494,6 +539,12 @@ export default function RegisterPage() {
                       </Link>
                     </Label>
                   </div>
+
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
+                      {error}
+                    </div>
+                  )}
 
                   <div className="flex space-x-4">
                     <Button
