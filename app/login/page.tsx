@@ -49,12 +49,12 @@ export default function LoginPage() {
     try {
       const response = await login(formData.email, formData.password)
 
-      if (response.success) {
+      if (response.success && response.user) {
         // Aguardar um momento para o AuthContext carregar o perfil
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise(resolve => setTimeout(resolve, 500))
         
-        // Redirecionar baseado no tipo de usuário
-        const dashboardRoute = getDashboardRoute(user?.userType || 'client')
+        // Redirecionar baseado no tipo de usuário retornado pela API
+        const dashboardRoute = getDashboardRoute(response.user.userType)
         router.push(dashboardRoute)
         router.refresh()
       } else {
