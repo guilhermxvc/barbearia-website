@@ -15,6 +15,28 @@ This is a comprehensive Next.js barbershop management system application that wa
 
 ## Recent Major Updates
 
+### ✅ Authentication System Fixed (October 27, 2025)
+
+#### Critical Bug Fix - Registration Form
+**Problema Identificado:**
+- O formulário de registro estava simulando o cadastro com `setTimeout` ao invés de chamar a API real
+- Isso causava a impressão de que os dados não estavam sendo salvos no banco de dados
+- O código backend de registro já estava funcionando corretamente
+
+**Correções Aplicadas:**
+- ✅ Substituído simulação por chamada real à API via `registerUser()` do AuthContext
+- ✅ Adicionada validação de senhas (senha === confirmarSenha)
+- ✅ Implementado feedback visual de erros no formulário
+- ✅ Mensagens de sucesso/erro com toast notifications
+- ✅ Corrigido redirect do login para usar tipo de usuário correto (manager/barber/client)
+- ✅ Preparação correta dos dados para cada tipo de usuário
+
+**Status Atual:**
+- ✅ **Registro**: Cria usuários no banco de dados (users + barbershops/barbers/clients)
+- ✅ **Login**: Carrega dados específicos do usuário do banco de dados
+- ✅ **Multi-tenant**: Cada usuário vê apenas seus próprios dados (isolamento por barbershopId)
+- ✅ **AuthContext**: Gerencia autenticação e sessão corretamente
+
 ### ✅ Full Database Integration (October 24, 2025)
 
 #### Complete CRUD Implementation
