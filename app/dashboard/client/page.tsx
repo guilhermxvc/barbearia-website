@@ -212,12 +212,9 @@ function SearchSection() {
                       <h3 className="text-xl font-semibold text-gray-900 mb-1">{barbershop.name}</h3>
                       <p className="text-gray-600 text-sm mb-2">{barbershop.address || 'Endereço não informado'}</p>
                       <div className="flex items-center space-x-4 mb-3">
-                        <div className="flex items-center">
-                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                          <span className="ml-1 text-sm font-medium">{barbershop.rating}</span>
-                          <span className="ml-1 text-sm text-gray-500">({barbershop.reviewCount})</span>
-                        </div>
-                        <span className="text-sm text-gray-500">{barbershop.distance}</span>
+                        {barbershop.phone && (
+                          <span className="text-sm text-gray-500">{barbershop.phone}</span>
+                        )}
                         <span className="text-sm text-gray-500">{priceRange}</span>
                       </div>
                       <div className="flex flex-wrap gap-2 mb-3">
@@ -242,14 +239,6 @@ function SearchSection() {
                       </div>
                     </div>
                     <div className="text-right ml-4">
-                      <div className="flex items-center mb-2">
-                        {barbershop.openNow ? (
-                          <Badge className="bg-green-100 text-green-800">Aberto</Badge>
-                        ) : (
-                          <Badge className="bg-red-100 text-red-800">Fechado</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">Próximo horário: {barbershop.nextAvailable}</p>
                       <Button
                         onClick={() => setSelectedBarbershop(barbershop)}
                         className="bg-amber-600 hover:bg-amber-700"

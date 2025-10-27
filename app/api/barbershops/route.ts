@@ -55,11 +55,8 @@ export const GET = withAuth(['client'])(async (req) => {
           ...barbershop,
           services: barbershopServices,
           barbers: barbershopBarbers,
-          rating: 4.8, // Mock rating - implementar sistema de avaliações depois
-          reviewCount: Math.floor(Math.random() * 200) + 50,
-          distance: `${(Math.random() * 5).toFixed(1)} km`, // Mock distance
-          openNow: true, // Mock - implementar lógica de horário depois
-          nextAvailable: '09:30', // Mock - implementar agenda real depois
+          // Campos calculados removidos - serão implementados em versões futuras
+          // rating, reviewCount, distance, openNow, nextAvailable
         };
       })
     );

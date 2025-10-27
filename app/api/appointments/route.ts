@@ -50,7 +50,7 @@ export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
       // Forçar clientId para o cliente logado, ignorar outros filtros
       whereConditions.push(eq(appointments.clientId, client.id));
     } else if (userRole === 'barber') {
-      // Barbeiro pode ver agendamentos da sua barbearia
+      // Barbeiro pode ver APENAS seus próprios agendamentos
       const barber = await db.query.barbers.findFirst({
         where: eq(barbers.userId, req.user!.id),
       });
@@ -62,12 +62,9 @@ export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
         );
       }
 
+      // Forçar filtro por barbeiro específico (isolamento multi-tenant)
+      whereConditions.push(eq(appointments.barberId, barber.id));
       whereConditions.push(eq(appointments.barbershopId, barber.barbershopId));
-
-      // Se barberId fornecido, verificar se é o próprio barbeiro ou da mesma barbearia
-      if (barberId) {
-        whereConditions.push(eq(appointments.barberId, barberId));
-      }
     } else if (userRole === 'manager') {
       // Manager pode ver agendamentos da sua barbearia
       if (!barbershopId) {
