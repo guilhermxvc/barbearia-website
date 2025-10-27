@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Calendar, User, Heart, LogOut, Bell, Settings, MapPin } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface ClientSidebarProps {
   activeSection: string
@@ -12,6 +13,7 @@ interface ClientSidebarProps {
 
 export function ClientSidebar({ activeSection, onSectionChange }: ClientSidebarProps) {
   const router = useRouter()
+  const { user, logout } = useAuth()
 
   const menuItems = [
     { id: "search", label: "Encontrar Barbearias", icon: Search },
@@ -20,12 +22,12 @@ export function ClientSidebar({ activeSection, onSectionChange }: ClientSidebarP
     { id: "profile", label: "Meu Perfil", icon: User },
   ]
 
-  const handleLogout = () => {
-    localStorage.removeItem("userType")
-    localStorage.removeItem("userEmail")
-    localStorage.removeItem("isLoggedIn")
+  const handleLogout = async () => {
+    await logout()
     router.push("/")
   }
+
+  const clientName = user ? `${user.firstName} ${user.lastName}` : "Cliente"
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
@@ -34,12 +36,12 @@ export function ClientSidebar({ activeSection, onSectionChange }: ClientSidebarP
         <div className="flex items-center space-x-2">
           <MapPin className="h-8 w-8 text-amber-600" />
           <div>
-            <h2 className="font-bold text-gray-900">João Cliente</h2>
+            <h2 className="font-bold text-gray-900">{clientName}</h2>
             <Badge className="bg-purple-600 text-xs">Cliente</Badge>
           </div>
         </div>
         <div className="mt-3 text-sm text-gray-600">
-          <p>São Paulo, SP</p>
+          <p>{user?.email || "Email não informado"}</p>
           <div className="flex items-center mt-1">
             <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
             <span>Ativo</span>
@@ -78,7 +80,6 @@ export function ClientSidebar({ activeSection, onSectionChange }: ClientSidebarP
           <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600">
             <Bell className="h-4 w-4 mr-2" />
             Notificações
-            <Badge className="ml-auto bg-blue-500 text-white text-xs">2</Badge>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600">
             <Settings className="h-4 w-4 mr-2" />

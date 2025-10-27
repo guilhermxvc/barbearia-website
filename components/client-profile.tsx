@@ -1,51 +1,110 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { User, MapPin, Calendar, Star } from "lucide-react"
+import { User, Calendar, Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { apiClient } from "@/lib/api"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 export function ClientProfile() {
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [appointments, setAppointments] = useState<any[]>([])
   const [profileData, setProfileData] = useState({
-    name: "João Cliente",
-    email: "joao@email.com",
-    phone: "(11) 99999-0000",
-    address: "Rua das Palmeiras, 456 - Vila Nova",
-    city: "São Paulo",
-    preferences: {
-      favoriteServices: ["Corte Clássico", "Barba"],
-      preferredTime: "Manhã",
-      notifications: true,
-    },
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
   })
 
-  const stats = {
-    totalAppointments: 15,
-    totalSpent: 420,
-    favoriteBarbershop: "Barbearia Premium",
-    memberSince: "2023-06-15",
-    averageRating: 4.8,
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+      })
+      loadAppointments()
+    }
+  }, [user])
+
+  const loadAppointments = async () => {
+    if (!user?.client?.id) return
+
+    try {
+      const response = await apiClient.get(`/appointments?clientId=${user.client.id}`)
+
+      if (response.success && response.data?.appointments) {
+        setAppointments(response.data.appointments)
+      }
+    } catch (error) {
+      console.error("Erro ao carregar agendamentos:", error)
+    }
   }
 
-  const handleSave = () => {
-    setIsEditing(false)
-    console.log("Dados salvos:", profileData)
+  const handleSave = async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.put(`/clients/${user?.client?.id}`, {
+        phone: profileData.phone,
+      })
+
+      if (response.success) {
+        setIsEditing(false)
+        alert("Perfil atualizado com sucesso! Recarregue a página para ver as alterações.")
+      } else {
+        alert("Erro ao atualizar perfil")
+      }
+    } catch (error) {
+      console.error("Erro ao salvar perfil:", error)
+      alert("Erro ao salvar perfil")
+    } finally {
+      setLoading(false)
+    }
   }
+
+  if (!user?.client) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+      </div>
+    )
+  }
+
+  const completedAppointments = appointments.filter((a) => a.status === "completed")
+  const totalSpent = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
+  const upcomingAppointments = appointments.filter(
+    (a) => new Date(a.scheduledAt) > new Date() && a.status !== "cancelled"
+  )
+
+  const memberSince = user.createdAt ? new Date(user.createdAt) : new Date()
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div></div>
-        <Button
-          onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          className={isEditing ? "bg-green-600 hover:bg-green-700" : "bg-amber-600 hover:bg-amber-700"}
-        >
-          {isEditing ? "Salvar" : "Editar Perfil"}
-        </Button>
+        {!isEditing ? (
+          <Button onClick={() => setIsEditing(true)} className="bg-amber-600 hover:bg-amber-700">
+            Editar Perfil
+          </Button>
+        ) : (
+          <div className="space-x-2">
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -62,35 +121,30 @@ export function ClientProfile() {
                   <User className="h-10 w-10 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{profileData.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {profileData.firstName} {profileData.lastName}
+                  </h3>
                   <p className="text-gray-600">
-                    Cliente desde {new Date(stats.memberSince).toLocaleDateString("pt-BR")}
+                    Cliente desde {format(memberSince, "dd/MM/yyyy", { locale: ptBR })}
                   </p>
-                  <div className="flex items-center mt-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="ml-1 text-sm font-medium">{stats.averageRating}</span>
-                    <span className="ml-2 text-sm text-gray-500">avaliação média dada</span>
-                  </div>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">Nome Completo</Label>
+                  <Label htmlFor="firstName">Nome</Label>
                   <Input
-                    id="name"
-                    value={profileData.name}
-                    onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                    disabled={!isEditing}
+                    id="firstName"
+                    value={profileData.firstName}
+                    disabled
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone">Telefone</Label>
+                  <Label htmlFor="lastName">Sobrenome</Label>
                   <Input
-                    id="phone"
-                    value={profileData.phone}
-                    onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                    disabled={!isEditing}
+                    id="lastName"
+                    value={profileData.lastName}
+                    disabled
                   />
                 </div>
               </div>
@@ -100,87 +154,19 @@ export function ClientProfile() {
                 <Input
                   id="email"
                   value={profileData.email}
-                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                  disabled={!isEditing}
+                  disabled
                 />
               </div>
 
               <div>
-                <Label htmlFor="address">Endereço</Label>
+                <Label htmlFor="phone">Telefone</Label>
                 <Input
-                  id="address"
-                  value={profileData.address}
-                  onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                  id="phone"
+                  value={profileData.phone}
+                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                   disabled={!isEditing}
+                  placeholder="(00) 00000-0000"
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="city">Cidade</Label>
-                <Input
-                  id="city"
-                  value={profileData.city}
-                  onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Preferências */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Preferências</CardTitle>
-              <CardDescription>Configure suas preferências de agendamento</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Serviços Favoritos</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {profileData.preferences.favoriteServices.map((service, index) => (
-                    <Badge key={index} variant="outline">
-                      {service}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="preferredTime">Horário Preferido</Label>
-                <select
-                  id="preferredTime"
-                  className="w-full mt-1 p-2 border rounded-md"
-                  disabled={!isEditing}
-                  value={profileData.preferences.preferredTime}
-                  onChange={(e) =>
-                    setProfileData({
-                      ...profileData,
-                      preferences: { ...profileData.preferences, preferredTime: e.target.value },
-                    })
-                  }
-                >
-                  <option value="Manhã">Manhã (8h - 12h)</option>
-                  <option value="Tarde">Tarde (12h - 18h)</option>
-                  <option value="Noite">Noite (18h - 20h)</option>
-                  <option value="Qualquer">Qualquer horário</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={profileData.preferences.notifications}
-                    onChange={(e) =>
-                      setProfileData({
-                        ...profileData,
-                        preferences: { ...profileData.preferences, notifications: e.target.checked },
-                      })
-                    }
-                    disabled={!isEditing}
-                  />
-                  <span className="text-sm">Receber notificações de lembretes e promoções</span>
-                </label>
               </div>
             </CardContent>
           </Card>
@@ -197,41 +183,16 @@ export function ClientProfile() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">{stats.totalAppointments}</p>
+                <p className="text-2xl font-bold text-purple-600">{completedAppointments.length}</p>
                 <p className="text-sm text-gray-600">Agendamentos Realizados</p>
               </div>
               <div className="text-center p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">R$ {stats.totalSpent}</p>
+                <p className="text-2xl font-bold text-green-600">R$ {totalSpent.toFixed(2)}</p>
                 <p className="text-sm text-gray-600">Total Investido</p>
               </div>
               <div className="text-center p-3 bg-amber-50 rounded-lg">
-                <p className="text-lg font-bold text-amber-600">{stats.favoriteBarbershop}</p>
-                <p className="text-sm text-gray-600">Barbearia Favorita</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                Localização
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Cidade:</span>
-                  <span className="font-medium">{profileData.city}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Barbearias próximas:</span>
-                  <span className="font-medium">12 encontradas</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Raio de busca:</span>
-                  <span className="font-medium">5 km</span>
-                </div>
+                <p className="text-2xl font-bold text-amber-600">{appointments.length}</p>
+                <p className="text-sm text-gray-600">Total de Agendamentos</p>
               </div>
             </CardContent>
           </Card>
@@ -241,18 +202,28 @@ export function ClientProfile() {
               <CardTitle>Próximos Agendamentos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="font-medium text-green-800">Barbearia Premium</p>
-                  <p className="text-sm text-green-600">18/01 às 14:30</p>
-                  <p className="text-sm text-green-600">Corte Clássico</p>
+              {upcomingAppointments.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm">Nenhum agendamento futuro</p>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="font-medium text-blue-800">Barbearia Moderna</p>
-                  <p className="text-sm text-blue-600">22/01 às 10:00</p>
-                  <p className="text-sm text-blue-600">Combo Corte + Barba</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingAppointments.slice(0, 2).map((appointment) => (
+                    <div key={appointment.id} className="p-3 bg-green-50 rounded-lg">
+                      <p className="font-medium text-green-800">
+                        {appointment.barbershop?.name || "Barbearia"}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        {format(new Date(appointment.scheduledAt), "dd/MM 'às' HH:mm", {
+                          locale: ptBR,
+                        })}
+                      </p>
+                      <p className="text-sm text-green-600">{appointment.service?.name || "Serviço"}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
