@@ -128,7 +128,7 @@ function ScheduleSection() {
       }
 
       // Buscar todos os agendamentos do barbeiro
-      const response = await apiClient.get(`/api/appointments?barberId=${user.barber.id}`)
+      const response = await apiClient.get(`/appointments?barberId=${user.barber.id}`)
 
       if (response.success && response.appointments) {
         setAppointments(response.appointments)

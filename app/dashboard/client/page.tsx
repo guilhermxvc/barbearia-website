@@ -115,7 +115,7 @@ function SearchSection() {
       setIsLoading(true)
       setError("")
 
-      const response = await apiClient.get('/api/barbershops')
+      const response = await apiClient.get('/barbershops')
 
       if (response.success && response.barbershops) {
         setBarbershops(response.barbershops)
