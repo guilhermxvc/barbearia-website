@@ -118,7 +118,8 @@ export default function RegisterPage() {
       const registrationData: any = {
         email: formData.email,
         password: formData.senha,
-        name: `${formData.nome} ${formData.sobrenome}`.trim(),
+        firstName: formData.nome,
+        lastName: formData.sobrenome,
         phone: formData.telefone,
         userType: userType
       }

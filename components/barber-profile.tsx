@@ -21,7 +21,6 @@ export function BarberProfile() {
     email: "",
     phone: "",
     specialties: "",
-    commissionRate: 0,
   })
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export function BarberProfile() {
         email: user.email || "",
         phone: user.phone || "",
         specialties: user.barber.specialties || "",
-        commissionRate: user.barber.commissionRate || 0,
       })
     }
   }, [user])
@@ -42,7 +40,6 @@ export function BarberProfile() {
       setLoading(true)
       const response = await apiClient.put(`/barbers/${user?.barber?.id}`, {
         specialties: profileData.specialties,
-        commissionRate: profileData.commissionRate,
       })
 
       if (response.success) {
@@ -127,15 +124,13 @@ export function BarberProfile() {
           <div className="space-y-2">
             <Label>Taxa de Comissão (%)</Label>
             <Input
-              type="number"
-              value={profileData.commissionRate}
-              onChange={(e) =>
-                setProfileData({ ...profileData, commissionRate: Number(e.target.value) })
-              }
-              disabled={!isEditing}
-              min="0"
-              max="100"
+              type="text"
+              value={`${user?.barber?.commissionRate || 0}%`}
+              disabled
             />
+            <p className="text-xs text-gray-500">
+              A taxa de comissão é definida pelo dono da barbearia
+            </p>
           </div>
         </CardContent>
       </Card>

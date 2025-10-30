@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, barbershops, barbers, clients } from '@/lib/db/schema';
+import { users, barbershops, barbers, clients, subscriptionPlans } from '@/lib/db/schema';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
@@ -8,7 +8,8 @@ import { eq } from 'drizzle-orm';
 const registerSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  firstName: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  lastName: z.string().min(2, 'Sobrenome deve ter pelo menos 2 caracteres'),
   phone: z.string().optional(),
   userType: z.enum(['manager', 'barber', 'client'], {
     required_error: 'Tipo de usuário é obrigatório',
@@ -59,6 +60,27 @@ export async function POST(request: NextRequest) {
         try {
           const code = generateBarbershopCode();
           
+          // Buscar ou criar o plano de assinatura
+          const planName = data.subscriptionPlan || 'basico';
+          let plan = await db.query.subscriptionPlans.findFirst({
+            where: eq(subscriptionPlans.name, planName),
+          });
+
+          // Se o plano não existir, criar planos padrão
+          if (!plan) {
+            const defaultPlans = [
+              { name: 'basico' as const, displayName: 'Plano Básico', price: '39.00', maxBarbers: 1, hasInventoryManagement: false, hasAIChatbot: false, features: ['1 barbeiro', 'Agendamentos ilimitados'] },
+              { name: 'profissional' as const, displayName: 'Plano Profissional', price: '79.00', maxBarbers: 3, hasInventoryManagement: false, hasAIChatbot: false, features: ['Até 3 barbeiros', 'Relatórios avançados'] },
+              { name: 'premium' as const, displayName: 'Plano Premium', price: '129.00', maxBarbers: 999, hasInventoryManagement: true, hasAIChatbot: true, features: ['Barbeiros ilimitados', 'IA e estoque'] },
+            ];
+
+            await db.insert(subscriptionPlans).values(defaultPlans);
+            
+            plan = await db.query.subscriptionPlans.findFirst({
+              where: eq(subscriptionPlans.name, planName),
+            });
+          }
+          
           const result = await db.transaction(async (tx) => {
             // Criar usuário
             const [newUser] = await tx
@@ -66,7 +88,9 @@ export async function POST(request: NextRequest) {
               .values({
                 email: data.email,
                 password: hashedPassword,
-                name: data.name,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                name: `${data.firstName} ${data.lastName}`,
                 phone: data.phone,
                 userType: data.userType,
               })
@@ -77,11 +101,12 @@ export async function POST(request: NextRequest) {
               .insert(barbershops)
               .values({
                 ownerId: newUser.id,
-                name: data.barbershopName || `${data.name}'s Barbershop`,
+                name: data.barbershopName || `Barbearia ${data.firstName} ${data.lastName}`,
                 address: data.barbershopAddress,
                 phone: data.barbershopPhone,
                 email: data.email,
-                subscriptionPlan: data.subscriptionPlan || 'basico',
+                subscriptionPlanId: plan.id,
+                subscriptionPlan: planName,
                 code,
               })
               .returning();
@@ -125,7 +150,9 @@ export async function POST(request: NextRequest) {
       .values({
         email: data.email,
         password: hashedPassword,
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        name: `${data.firstName} ${data.lastName}`,
         phone: data.phone,
         userType: data.userType,
       })

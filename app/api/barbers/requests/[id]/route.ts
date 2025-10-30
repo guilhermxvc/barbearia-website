@@ -42,15 +42,47 @@ export const PUT = withAuth(['manager'])(async (req, { params }) => {
     }
 
     if (action === 'approve') {
-      // Aprovar: criar entrada na tabela barbers
-      await db.insert(barbers).values({
-        userId: request.userId,
-        barbershopId: request.barbershopId,
-        specialties: [],
-        commissionRate: '40.00',
-        isApproved: true,
-        isActive: true,
+      // Aprovar: atualizar ou criar entrada na tabela barbers
+      const existingBarber = await db.query.barbers.findFirst({
+        where: eq(barbers.userId, request.userId),
       });
+
+      if (existingBarber) {
+        await db
+          .update(barbers)
+          .set({
+            barbershopId: request.barbershopId,
+            isApproved: true,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(barbers.userId, request.userId));
+      } else {
+        await db.insert(barbers).values({
+          userId: request.userId,
+          barbershopId: request.barbershopId,
+          specialties: [],
+          commissionRate: '40.00',
+          isApproved: true,
+          isActive: true,
+        });
+      }
+    } else {
+      // Rejeitar: resetar barbershopId e isApproved para permitir novo vínculo
+      const existingBarber = await db.query.barbers.findFirst({
+        where: eq(barbers.userId, request.userId),
+      });
+
+      if (existingBarber) {
+        await db
+          .update(barbers)
+          .set({
+            barbershopId: null,
+            isApproved: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(barbers.userId, request.userId));
+      }
     }
 
     // Atualizar status da solicitação
