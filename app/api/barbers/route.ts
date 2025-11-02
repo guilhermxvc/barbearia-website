@@ -33,6 +33,7 @@ export const GET = withAuth()(async (req) => {
       .where(
         and(
           eq(barbers.barbershopId, barbershopId),
+          eq(barbers.isApproved, true),
           eq(barbers.isActive, true)
         )
       );
