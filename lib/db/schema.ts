@@ -33,6 +33,7 @@ export const users = pgTable('users', {
   firstName: text('first_name').notNull(),
   lastName: text('last_name').notNull(),
   phone: text('phone'),
+  photoUrl: text('photo_url'), // URL da foto de perfil
   userType: text('user_type', { enum: userTypeEnum }).notNull(),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
@@ -47,6 +48,7 @@ export const barbershops = pgTable('barbershops', {
   address: text('address'),
   phone: text('phone'),
   email: text('email'),
+  logoUrl: text('logo_url'), // URL da logo da barbearia
   latitude: decimal('latitude', { precision: 10, scale: 8 }), // Para busca por localização
   longitude: decimal('longitude', { precision: 11, scale: 8 }),
   subscriptionPlanId: uuid('subscription_plan_id').references(() => subscriptionPlans.id),
