@@ -131,19 +131,26 @@ export function BarberProfile() {
   const handleSave = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.put(`/barbers/${user?.barber?.id}`, {
+      const response = await apiClient.put<{ success: boolean; message?: string; error?: string }>('/barbers/profile', {
+        phone: profileData.phone,
         specialties: profileData.specialties,
       })
 
-      if (response.success) {
-        setIsEditing(false)
-        alert("Perfil atualizado com sucesso! Recarregue a página para ver as alterações.")
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; message?: string; error?: string }
+        if (apiData.success) {
+          setIsEditing(false)
+          toast.success(apiData.message || "Perfil atualizado com sucesso!")
+          await refreshUser()
+        } else {
+          toast.error(apiData.error || "Erro ao atualizar perfil")
+        }
       } else {
-        alert("Erro ao atualizar perfil")
+        toast.error(response.error || "Erro ao atualizar perfil")
       }
     } catch (error) {
       console.error("Erro ao salvar perfil:", error)
-      alert("Erro ao salvar perfil")
+      toast.error("Erro ao salvar perfil")
     } finally {
       setLoading(false)
     }
@@ -196,10 +203,16 @@ export function BarberProfile() {
             <div className="space-y-2">
               <Label>Email</Label>
               <Input value={profileData.email} disabled />
+              <p className="text-xs text-gray-500">O email não pode ser alterado</p>
             </div>
             <div className="space-y-2">
               <Label>Telefone</Label>
-              <Input value={profileData.phone} disabled />
+              <Input 
+                value={profileData.phone} 
+                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                disabled={!isEditing}
+                placeholder="(00) 00000-0000"
+              />
             </div>
           </div>
 
@@ -212,18 +225,6 @@ export function BarberProfile() {
               placeholder="Ex: Cortes clássicos, degradê, barba, etc."
               rows={3}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Taxa de Comissão (%)</Label>
-            <Input
-              type="text"
-              value={`${user?.barber?.commissionRate || 0}%`}
-              disabled
-            />
-            <p className="text-xs text-gray-500">
-              A taxa de comissão é definida pelo dono da barbearia
-            </p>
           </div>
         </CardContent>
       </Card>
