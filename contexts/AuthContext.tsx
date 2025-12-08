@@ -22,14 +22,18 @@ export interface User {
   barber?: {
     id: string;
     userId: string;
-    barbershopId: string;
+    barbershopId: string | null;
     specialties?: string[];
     commissionRate?: number;
+    isApproved?: boolean;
+    isActive?: boolean;
     barbershop?: {
       id: string;
       name: string;
       code: string;
-    };
+      address?: string;
+      phone?: string;
+    } | null;
   };
   client?: {
     id: string;
@@ -47,6 +51,7 @@ interface AuthContextType {
   register: (data: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -175,6 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    await loadUserProfile();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -185,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshProfile,
+        refreshUser,
       }}
     >
       {children}
