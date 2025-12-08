@@ -204,6 +204,34 @@ function UpgradePrompt({ feature }: { feature: string }) {
 }
 
 function OverviewSection({ userPlan }: { userPlan: string }) {
+  const { user } = useAuth()
+  const [barbersList, setBarbersList] = useState<any[]>([])
+  const [loadingBarbers, setLoadingBarbers] = useState(true)
+
+  useEffect(() => {
+    const loadBarbers = async () => {
+      if (!user?.barbershop?.id) return
+      
+      try {
+        const response = await fetch(`/api/barbers?barbershopId=${user.barbershop.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        })
+        const data = await response.json()
+        if (data.success) {
+          setBarbersList(data.barbers || [])
+        }
+      } catch (error) {
+        console.error('Erro ao carregar barbeiros:', error)
+      } finally {
+        setLoadingBarbers(false)
+      }
+    }
+    
+    loadBarbers()
+  }, [user?.barbershop?.id])
+
   return (
     <div className="space-y-6">
       <OverviewCards />
@@ -225,29 +253,28 @@ function OverviewSection({ userPlan }: { userPlan: string }) {
           <CardHeader>
             <CardTitle className="flex items-center">
               <TrendingUp className="h-5 w-5 mr-2 text-amber-600" />
-              Performance Semanal
+              Resumo da Equipe
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Faturamento</span>
-                <span className="font-semibold text-green-600">+12%</span>
+                <span className="text-sm text-gray-600">Barbeiros Ativos</span>
+                <span className="font-semibold text-green-600">{barbersList.length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Agendamentos</span>
-                <span className="font-semibold text-blue-600">+8%</span>
+                <span className="text-sm text-gray-600">Plano Atual</span>
+                <Badge className="bg-amber-600">{userPlan}</Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Novos Clientes</span>
-                <span className="font-semibold text-purple-600">+15%</span>
+                <span className="text-sm text-gray-600">Limite de Barbeiros</span>
+                <span className="font-semibold">
+                  {userPlan === "Premium" ? "Ilimitado" : userPlan === "Profissional" ? "8" : "3"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Avaliação Média</span>
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                  <span className="ml-1 font-semibold">4.8</span>
-                </div>
+                <span className="text-sm text-gray-600">Barbearia</span>
+                <span className="font-semibold text-amber-600">{user?.barbershop?.name || "-"}</span>
               </div>
             </div>
           </CardContent>
@@ -265,31 +292,43 @@ function OverviewSection({ userPlan }: { userPlan: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            {[
-              { name: "Carlos Silva", status: "Ocupado", nextFree: "14:30", rating: 4.9 },
-              { name: "João Santos", status: "Livre", nextFree: "Agora", rating: 4.7 },
-              { name: "Pedro Costa", status: "Almoço", nextFree: "13:00", rating: 4.8 },
-            ].map((barber, index) => (
-              <div key={index} className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold">{barber.name}</h4>
-                  <Badge
-                    variant={
-                      barber.status === "Livre" ? "default" : barber.status === "Ocupado" ? "destructive" : "secondary"
-                    }
-                  >
-                    {barber.status}
-                  </Badge>
+          {loadingBarbers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
+              <span className="ml-2 text-gray-600">Carregando barbeiros...</span>
+            </div>
+          ) : barbersList.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>Nenhum barbeiro cadastrado ainda.</p>
+              <p className="text-sm mt-2">Os barbeiros aparecerão aqui após serem aprovados.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-4">
+              {barbersList.map((barber, index) => (
+                <div key={barber.id || index} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">{barber.name}</h4>
+                    <Badge variant={barber.isActive ? "default" : "secondary"}>
+                      {barber.isActive ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600">{barber.email}</p>
+                  {barber.phone && (
+                    <p className="text-sm text-gray-500">{barber.phone}</p>
+                  )}
+                  {barber.specialties && barber.specialties.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {barber.specialties.slice(0, 2).map((spec: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {spec}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-gray-600">Próximo livre: {barber.nextFree}</p>
-                <div className="flex items-center mt-2">
-                  <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                  <span className="ml-1 text-sm">{barber.rating}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
