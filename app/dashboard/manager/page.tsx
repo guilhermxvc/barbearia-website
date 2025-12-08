@@ -153,21 +153,21 @@ export default function ManagerDashboard() {
   return (
     <div className="flex h-screen bg-gray-50">
       <ManagerSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
+      <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
+        <div className="p-4 lg:p-6">
+          <div className="mb-4 lg:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
                 {sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm lg:text-base text-gray-600">
                 {sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua barbearia"}
               </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div className="text-right">
-                <p className="text-sm text-gray-600">Plano Atual</p>
-                <Badge variant={userPlan === "Premium" ? "default" : "secondary"} className="font-semibold">
+                <p className="text-xs sm:text-sm text-gray-600">Plano Atual</p>
+                <Badge variant={userPlan === "Premium" ? "default" : "secondary"} className="font-semibold text-xs sm:text-sm">
                   {userPlan}
                 </Badge>
               </div>

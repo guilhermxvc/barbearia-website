@@ -1,8 +1,10 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot } from "lucide-react"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot, Menu } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
 interface ManagerSidebarProps {
@@ -18,6 +20,7 @@ const planDisplayNames: { [key: string]: string } = {
 
 export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSidebarProps) {
   const { user, isLoading, logout } = useAuth()
+  const [mobileOpen, setMobileOpen] = useState(false)
   
   const barbershopName = user?.barbershop?.name || "Carregando..."
   const ownerName = user?.name || "Carregando..."
@@ -50,47 +53,23 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
     }
 
     onSectionChange(sectionId)
+    setMobileOpen(false)
   }
 
-  if (isLoading) {
-    return (
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <Scissors className="h-8 w-8 text-amber-600" />
-            <div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
-            </div>
-          </div>
-        </div>
-        <div className="flex-1 p-4">
-          <div className="space-y-2">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} className="h-10 bg-gray-200 rounded animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+  const SidebarContent = () => (
+    <>
+      <div className="p-4 lg:p-6 border-b border-gray-200">
         <div className="flex items-center space-x-2">
-          <Scissors className="h-8 w-8 text-amber-600" />
-          <div>
-            <h2 className="font-bold text-gray-900">{barbershopName}</h2>
+          <Scissors className="h-6 w-6 lg:h-8 lg:w-8 text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <h2 className="font-bold text-gray-900 truncate text-sm lg:text-base">{barbershopName}</h2>
             <Badge className="bg-amber-600 text-xs">Plano {currentPlanDisplay}</Badge>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 p-3 lg:p-4 overflow-y-auto">
+        <ul className="space-y-1 lg:space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
             const isLocked = item.premium && !isPremium
@@ -99,7 +78,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
               <li key={item.id}>
                 <Button
                   variant={activeSection === item.id ? "default" : "ghost"}
-                  className={`w-full justify-start relative ${
+                  className={`w-full justify-start relative text-sm ${
                     activeSection === item.id
                       ? "bg-amber-600 hover:bg-amber-700 text-white"
                       : isLocked
@@ -110,8 +89,8 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
                   disabled={isLocked}
                 >
                   <IconComponent className="h-4 w-4 mr-3" />
-                  {item.label}
-                  {isLocked && <Badge className="ml-auto bg-amber-100 text-amber-800 text-xs">Premium</Badge>}
+                  <span className="truncate">{item.label}</span>
+                  {isLocked && <Badge className="ml-auto bg-amber-100 text-amber-800 text-xs flex-shrink-0">Premium</Badge>}
                 </Button>
               </li>
             )
@@ -119,28 +98,86 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
         </ul>
       </nav>
 
-      {/* User Profile */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-            <User className="h-5 w-5 text-amber-600" />
+      <div className="p-3 lg:p-4 border-t border-gray-200">
+        <div className="flex items-center space-x-3 mb-3 lg:mb-4">
+          <div className="w-8 h-8 lg:w-10 lg:h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="h-4 w-4 lg:h-5 lg:w-5 text-amber-600" />
           </div>
-          <div>
-            <p className="font-medium text-gray-900">{ownerName}</p>
-            <p className="text-sm text-gray-500">Proprietário</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-gray-900 truncate text-sm">{ownerName}</p>
+            <p className="text-xs lg:text-sm text-gray-500">Proprietário</p>
           </div>
         </div>
-        <div className="space-y-2">
-          <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600">
+        <div className="space-y-1 lg:space-y-2">
+          <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 text-sm">
             <Bell className="h-4 w-4 mr-2" />
             Notificações
           </Button>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-red-600" onClick={handleLogout}>
+          <Button variant="ghost" size="sm" className="w-full justify-start text-red-600 text-sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
             Sair
           </Button>
         </div>
       </div>
-    </div>
+    </>
+  )
+
+  if (isLoading) {
+    return (
+      <>
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Scissors className="h-6 w-6 text-amber-600" />
+            <span className="font-bold text-gray-900">BarberPro</span>
+          </div>
+          <div className="w-10 h-10 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center space-x-2">
+              <Scissors className="h-8 w-8 text-amber-600" />
+              <div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-20"></div>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 p-4">
+            <div className="space-y-2">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="h-10 bg-gray-200 rounded animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Scissors className="h-6 w-6 text-amber-600" />
+          <span className="font-bold text-gray-900 truncate">{barbershopName}</span>
+        </div>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0">
+            <div className="flex flex-col h-full">
+              <SidebarContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col">
+        <SidebarContent />
+      </div>
+    </>
   )
 }

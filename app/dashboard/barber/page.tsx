@@ -90,19 +90,21 @@ export default function BarberDashboard() {
   return (
     <div className="flex h-screen bg-gray-50">
       <BarberSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
+      <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
+        <div className="p-4 lg:p-6">
+          <div className="mb-4 lg:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}</h1>
-              <p className="text-gray-600">{sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}</p>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}</h1>
+              <p className="text-sm lg:text-base text-gray-600">{sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}</p>
             </div>
             <NotificationsSystem userType="barber" />
           </div>
           {renderContent()}
         </div>
       </main>
-      <AIAssistant userType="barber" userName={user.name} />
+      <div className="hidden lg:block">
+        <AIAssistant userType="barber" userName={user.name} />
+      </div>
     </div>
   )
 }
@@ -127,11 +129,13 @@ function ScheduleSection() {
         return
       }
 
-      // Buscar todos os agendamentos do barbeiro
-      const response = await apiClient.get(`/appointments?barberId=${user.barber.id}`)
+      const response = await apiClient.get<{ success: boolean; appointments: any[] }>(`/appointments?barberId=${user.barber.id}`)
 
-      if (response.success && response.appointments) {
-        setAppointments(response.appointments)
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; appointments: any[] }
+        if (apiData.appointments) {
+          setAppointments(apiData.appointments)
+        }
       } else {
         setError("Erro ao carregar agendamentos")
       }
