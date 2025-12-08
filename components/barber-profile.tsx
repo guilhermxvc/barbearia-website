@@ -29,6 +29,7 @@ export function BarberProfile() {
     message: "",
   })
   const [pendingRequest, setPendingRequest] = useState<any>(null)
+  const [wasEverApproved, setWasEverApproved] = useState(false)
 
   useEffect(() => {
     if (user?.barber) {
@@ -46,14 +47,17 @@ export function BarberProfile() {
   const loadPendingRequest = async () => {
     try {
       const response = await apiClient.get('/barbers/requests/pending')
-      if (response.success && response.data) {
+      if (response.success) {
         setPendingRequest(response.data)
+        setWasEverApproved(response.wasEverApproved || false)
       } else {
         setPendingRequest(null)
+        setWasEverApproved(false)
       }
     } catch (error) {
       console.error('Error loading pending request:', error)
       setPendingRequest(null)
+      setWasEverApproved(false)
     }
   }
 
@@ -302,7 +306,7 @@ export function BarberProfile() {
                 Tentar Outra Barbearia
               </Button>
             </div>
-          ) : user.barber.isApproved === false && !user.barber.isActive ? (
+          ) : wasEverApproved && !user.barber.isApproved && !user.barber.isActive && !user.barber.barbershopId ? (
             <div className="space-y-4">
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">

@@ -6,7 +6,7 @@ import { eq, and, or, desc } from 'drizzle-orm';
 
 export const GET = withAuth(['barber'])(async (req) => {
   try {
-    // Buscar a solicitação mais recente (pendente ou rejeitada recentemente)
+    // Buscar a solicitação mais recente (pendente ou rejeitada)
     const latestRequest = await db.query.barberRequests.findFirst({
       where: and(
         eq(barberRequests.userId, req.user!.id),
@@ -21,16 +21,18 @@ export const GET = withAuth(['barber'])(async (req) => {
       orderBy: [desc(barberRequests.createdAt)],
     });
 
-    if (!latestRequest) {
-      return NextResponse.json({
-        success: true,
-        data: null,
-      });
-    }
+    // Verificar se o barbeiro já foi aprovado anteriormente (indica que foi desvinculado)
+    const wasEverApproved = await db.query.barberRequests.findFirst({
+      where: and(
+        eq(barberRequests.userId, req.user!.id),
+        eq(barberRequests.status, 'approved')
+      ),
+    });
 
     return NextResponse.json({
       success: true,
       data: latestRequest,
+      wasEverApproved: !!wasEverApproved,
     });
   } catch (error) {
     console.error('Get pending request error:', error);
