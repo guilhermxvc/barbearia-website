@@ -33,12 +33,19 @@ export function BarberProfile() {
 
   useEffect(() => {
     if (user?.barber) {
+      const nameParts = (user.name || "").split(" ")
+      const firstName = nameParts[0] || ""
+      const lastName = nameParts.slice(1).join(" ") || ""
+      const specialtiesStr = Array.isArray(user.barber.specialties) 
+        ? user.barber.specialties.join(", ") 
+        : (user.barber.specialties || "")
+      
       setProfileData({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
+        firstName,
+        lastName,
         email: user.email || "",
         phone: user.phone || "",
-        specialties: user.barber.specialties || "",
+        specialties: specialtiesStr,
       })
       loadPendingRequest()
     }
@@ -46,10 +53,11 @@ export function BarberProfile() {
 
   const loadPendingRequest = async () => {
     try {
-      const response = await apiClient.get('/barbers/requests/pending')
-      if (response.success) {
-        setPendingRequest(response.data)
-        setWasEverApproved(response.wasEverApproved || false)
+      const response = await apiClient.get<{ success: boolean; data: any; wasEverApproved: boolean }>('/barbers/requests/pending')
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; data: any; wasEverApproved: boolean }
+        setPendingRequest(apiData.data)
+        setWasEverApproved(apiData.wasEverApproved || false)
       } else {
         setPendingRequest(null)
         setWasEverApproved(false)
@@ -69,16 +77,21 @@ export function BarberProfile() {
 
     try {
       setLinkLoading(true)
-      const response = await apiClient.post('/barbers/link', {
+      const response = await apiClient.post<{ success: boolean; message?: string; error?: string }>('/barbers/link', {
         barbershopCode: linkData.barbershopCode,
         message: linkData.message || undefined,
       })
 
-      if (response.success) {
-        toast.success(response.message || "Solicitação enviada com sucesso!")
-        setLinkData({ barbershopCode: "", message: "" })
-        await loadPendingRequest()
-        await refreshUser()
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; message?: string; error?: string }
+        if (apiData.success) {
+          toast.success(apiData.message || "Solicitação enviada com sucesso!")
+          setLinkData({ barbershopCode: "", message: "" })
+          await loadPendingRequest()
+          await refreshUser()
+        } else {
+          toast.error(apiData.error || "Erro ao enviar solicitação")
+        }
       } else {
         toast.error(response.error || "Erro ao enviar solicitação")
       }
@@ -93,12 +106,17 @@ export function BarberProfile() {
   const handleCancelRequest = async () => {
     try {
       setLinkLoading(true)
-      const response = await apiClient.delete('/barbers/link')
+      const response = await apiClient.delete<{ success: boolean; message?: string; error?: string }>('/barbers/link')
 
-      if (response.success) {
-        toast.success("Solicitação cancelada com sucesso")
-        setPendingRequest(null)
-        await refreshUser()
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; message?: string; error?: string }
+        if (apiData.success) {
+          toast.success(apiData.message || "Solicitação cancelada com sucesso")
+          setPendingRequest(null)
+          await refreshUser()
+        } else {
+          toast.error(apiData.error || "Erro ao cancelar solicitação")
+        }
       } else {
         toast.error(response.error || "Erro ao cancelar solicitação")
       }
