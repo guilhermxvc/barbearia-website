@@ -355,11 +355,6 @@ function SearchSection() {
 function FavoritesSection() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Minhas Barbearias Favoritas</h2>
-        <p className="text-gray-600">Suas barbearias mais visitadas e preferidas</p>
-      </div>
-
       <Card>
         <CardContent className="p-12 text-center">
           <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
