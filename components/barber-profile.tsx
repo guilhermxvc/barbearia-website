@@ -238,7 +238,7 @@ export function BarberProfile() {
                 <p className="text-base">{user.barber.barbershop.phone || "Não informado"}</p>
               </div>
             </div>
-          ) : pendingRequest ? (
+          ) : pendingRequest && pendingRequest.status === 'pending' ? (
             <div className="space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -274,6 +274,91 @@ export function BarberProfile() {
                   </>
                 )}
               </Button>
+            </div>
+          ) : pendingRequest && pendingRequest.status === 'rejected' ? (
+            <div className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-red-900 mb-1">Solicitação Rejeitada</p>
+                    <p className="text-sm text-red-800">
+                      Sua solicitação de vínculo foi rejeitada pelo dono da barbearia.
+                    </p>
+                    {pendingRequest.barbershop?.name && (
+                      <p className="text-sm text-red-700 mt-2">
+                        <strong>Barbearia:</strong> {pendingRequest.barbershop.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => setPendingRequest(null)}
+                className="w-full"
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Tentar Outra Barbearia
+              </Button>
+            </div>
+          ) : user.barber.isApproved === false && !user.barber.isActive ? (
+            <div className="space-y-4">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-gray-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-gray-900 mb-1">Desvinculado</p>
+                    <p className="text-sm text-gray-700">
+                      Você foi desvinculado da barbearia anterior. Você pode solicitar vínculo com outra barbearia.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="barbershopCode">Código da Barbearia</Label>
+                  <Input
+                    id="barbershopCode"
+                    placeholder="Ex: ABC123"
+                    value={linkData.barbershopCode}
+                    onChange={(e) => setLinkData({ ...linkData, barbershopCode: e.target.value.toUpperCase() })}
+                    disabled={linkLoading}
+                    maxLength={10}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="message">Mensagem (Opcional)</Label>
+                  <Textarea
+                    id="message"
+                    placeholder="Apresente-se ao dono da barbearia..."
+                    value={linkData.message}
+                    onChange={(e) => setLinkData({ ...linkData, message: e.target.value })}
+                    disabled={linkLoading}
+                    rows={3}
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleLinkBarbershop}
+                  disabled={linkLoading || !linkData.barbershopCode.trim()}
+                  className="w-full"
+                >
+                  {linkLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Enviar Solicitação
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

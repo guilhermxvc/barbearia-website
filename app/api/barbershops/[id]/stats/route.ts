@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { barbershops, appointments, sales, barbers, clients } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
-import { eq, and, gte, lte, count, sum } from 'drizzle-orm';
+import { eq, and, gte, lte, count, sum, sql } from 'drizzle-orm';
 
 // GET /api/barbershops/[id]/stats - Estatísticas da barbearia
 export const GET = withAuth(['manager', 'barber'])(async (req, { params }) => {
@@ -41,8 +41,7 @@ export const GET = withAuth(['manager', 'barber'])(async (req, { params }) => {
       .select({
         total: count(),
         completed: sum(
-          // Contar apenas agendamentos concluídos
-          `CASE WHEN status = 'completed' THEN 1 ELSE 0 END`
+          sql<number>`CASE WHEN ${appointments.status} = 'completed' THEN 1 ELSE 0 END`
         ),
       })
       .from(appointments)
