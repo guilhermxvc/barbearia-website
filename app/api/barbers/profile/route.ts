@@ -8,6 +8,7 @@ import { z } from 'zod';
 const updateProfileSchema = z.object({
   phone: z.string().optional(),
   specialties: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
 
 export const PUT = withAuth(['barber'])(async (req) => {
@@ -26,13 +27,22 @@ export const PUT = withAuth(['barber'])(async (req) => {
       );
     }
 
+    const userUpdates: { phone?: string; photoUrl?: string; updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+    
     if (validatedData.phone !== undefined) {
+      userUpdates.phone = validatedData.phone;
+    }
+    
+    if (validatedData.photoUrl !== undefined) {
+      userUpdates.photoUrl = validatedData.photoUrl;
+    }
+    
+    if (userUpdates.phone !== undefined || userUpdates.photoUrl !== undefined) {
       await db
         .update(users)
-        .set({
-          phone: validatedData.phone,
-          updatedAt: new Date(),
-        })
+        .set(userUpdates)
         .where(eq(users.id, req.user!.id));
     }
 
