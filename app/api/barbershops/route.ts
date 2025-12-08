@@ -18,6 +18,7 @@ export const GET = withAuth(['client'])(async (req) => {
         name: barbershops.name,
         address: barbershops.address,
         phone: barbershops.phone,
+        logoUrl: barbershops.logoUrl,
         businessHours: barbershops.businessHours,
         subscriptionPlan: barbershops.subscriptionPlan,
       })
@@ -43,6 +44,7 @@ export const GET = withAuth(['client'])(async (req) => {
           .select({
             id: barbers.id,
             name: users.name,
+            photoUrl: users.photoUrl,
             specialties: barbers.specialties,
           })
           .from(barbers)

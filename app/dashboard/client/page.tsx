@@ -99,6 +99,26 @@ export default function ClientDashboard() {
   )
 }
 
+function BarbershopLogo({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
+  const [imageError, setImageError] = useState(false)
+  const initial = name?.charAt(0)?.toUpperCase() || 'B'
+  
+  return (
+    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-amber-200 flex-shrink-0 flex items-center justify-center border border-amber-200">
+      {logoUrl && !imageError ? (
+        <img 
+          src={logoUrl} 
+          alt={`Logo ${name}`}
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <span className="text-2xl font-bold text-amber-600">{initial}</span>
+      )}
+    </div>
+  )
+}
+
 function SearchSection() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedBarbershop, setSelectedBarbershop] = useState<any>(null)
@@ -281,15 +301,16 @@ function SearchSection() {
             return (
               <Card key={barbershop.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-start gap-4">
+                    <BarbershopLogo name={barbershop.name} logoUrl={barbershop.logoUrl} />
+                    <div className="flex-1 min-w-0">
                       <h3 className="text-xl font-semibold text-gray-900 mb-1">{barbershop.name}</h3>
                       <p className="text-gray-600 text-sm mb-2">{barbershop.address || 'Endereço não informado'}</p>
                       <div className="flex items-center space-x-4 mb-3">
                         {barbershop.phone && (
                           <span className="text-sm text-gray-500">{barbershop.phone}</span>
                         )}
-                        <span className="text-sm text-gray-500">{priceRange}</span>
+                        <span className="text-sm text-amber-600 font-medium">{priceRange}</span>
                       </div>
                       <div className="flex flex-wrap gap-2 mb-3">
                         {barbershop.services.slice(0, 3).map((service: any) => (
@@ -312,7 +333,7 @@ function SearchSection() {
                         </Badge>
                       </div>
                     </div>
-                    <div className="text-right ml-4">
+                    <div className="text-right flex-shrink-0">
                       <Button
                         onClick={() => setSelectedBarbershop(barbershop)}
                         className="bg-amber-600 hover:bg-amber-700"

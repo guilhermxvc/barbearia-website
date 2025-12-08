@@ -12,6 +12,25 @@ import { useAuth } from "@/contexts/AuthContext"
 import { apiClient } from "@/lib/api"
 import { toast } from "sonner"
 
+function ProfilePhoto({ photoUrl }: { photoUrl?: string }) {
+  const [imageError, setImageError] = useState(false)
+  
+  return (
+    <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center">
+      {photoUrl && !imageError ? (
+        <img 
+          src={photoUrl} 
+          alt="Foto de perfil" 
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <User className="h-10 w-10 text-gray-400" />
+      )}
+    </div>
+  )
+}
+
 export function BarberProfile() {
   const { user, refreshUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
@@ -193,26 +212,7 @@ export function BarberProfile() {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-6">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center">
-                {profileData.photoUrl ? (
-                  <img 
-                    src={profileData.photoUrl} 
-                    alt="Foto de perfil" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                      const parent = (e.target as HTMLImageElement).parentElement
-                      if (parent) {
-                        const icon = document.createElement('div')
-                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-                        parent.appendChild(icon)
-                      }
-                    }}
-                  />
-                ) : (
-                  <User className="h-10 w-10 text-gray-400" />
-                )}
-              </div>
+              <ProfilePhoto photoUrl={profileData.photoUrl} />
               {isEditing && (
                 <p className="text-xs text-gray-500 text-center">Adicione a URL da foto abaixo</p>
               )}
