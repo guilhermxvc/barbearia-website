@@ -329,6 +329,7 @@ export const barbershopsRelations = relations(barbershops, ({ one, many }) => ({
   appointments: many(appointments),
   sales: many(sales),
   commissions: many(commissions),
+  barberRequests: many(barberRequests),
 }));
 
 export const barbersRelations = relations(barbers, ({ one, many }) => ({
@@ -380,5 +381,16 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
   service: one(services, {
     fields: [appointments.serviceId],
     references: [services.id],
+  }),
+}));
+
+export const barberRequestsRelations = relations(barberRequests, ({ one }) => ({
+  barbershop: one(barbershops, {
+    fields: [barberRequests.barbershopId],
+    references: [barbershops.id],
+  }),
+  user: one(users, {
+    fields: [barberRequests.userId],
+    references: [users.id],
   }),
 }));
