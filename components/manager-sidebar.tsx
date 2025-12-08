@@ -3,40 +3,27 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface ManagerSidebarProps {
   activeSection: string
   onSectionChange: (section: string) => void
 }
 
+const planDisplayNames: { [key: string]: string } = {
+  basico: "Básico",
+  profissional: "Profissional",
+  premium: "Premium",
+}
+
 export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSidebarProps) {
-  const router = useRouter()
-  const [currentPlan, setCurrentPlan] = useState("Profissional")
-  const [barbershopName, setBarbershopName] = useState("Barbearia Premium")
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-    const userEmail = localStorage.getItem("userEmail")
-
-    if (userEmail) {
-      let plan = "Profissional"
-      let barbershop = "Barbearia Premium"
-
-      if (userEmail.includes("basico")) {
-        plan = "Básico"
-        barbershop = "Barbearia Essencial"
-      } else if (userEmail.includes("premium")) {
-        plan = "Premium"
-        barbershop = "Barbearia Elite"
-      }
-
-      setCurrentPlan(plan)
-      setBarbershopName(barbershop)
-    }
-  }, [])
+  const { user, isLoading, logout } = useAuth()
+  
+  const barbershopName = user?.barbershop?.name || "Carregando..."
+  const ownerName = user?.name || "Carregando..."
+  const subscriptionPlan = user?.barbershop?.subscriptionPlan || "basico"
+  const currentPlanDisplay = planDisplayNames[subscriptionPlan] || "Básico"
+  const isPremium = subscriptionPlan === "premium"
 
   const menuItems = [
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
@@ -51,18 +38,13 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
   ]
 
   const handleLogout = () => {
-    localStorage.removeItem("userType")
-    localStorage.removeItem("userEmail")
-    localStorage.removeItem("isLoggedIn")
-    localStorage.removeItem("userPlan")
-    router.push("/")
+    logout()
   }
 
   const handleSectionChange = (sectionId: string) => {
     const section = menuItems.find((item) => item.id === sectionId)
 
-    if (section?.premium && currentPlan !== "Premium") {
-      // Mostrar modal de upgrade ou mensagem
+    if (section?.premium && !isPremium) {
       alert("Esta funcionalidade está disponível apenas no plano Premium. Faça upgrade para acessar o Assistente IA.")
       return
     }
@@ -70,7 +52,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
     onSectionChange(sectionId)
   }
 
-  if (!isClient) {
+  if (isLoading) {
     return (
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
@@ -101,7 +83,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
           <Scissors className="h-8 w-8 text-amber-600" />
           <div>
             <h2 className="font-bold text-gray-900">{barbershopName}</h2>
-            <Badge className="bg-amber-600 text-xs">Plano {currentPlan}</Badge>
+            <Badge className="bg-amber-600 text-xs">Plano {currentPlanDisplay}</Badge>
           </div>
         </div>
       </div>
@@ -111,7 +93,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
-            const isLocked = item.premium && currentPlan !== "Premium"
+            const isLocked = item.premium && !isPremium
 
             return (
               <li key={item.id}>
@@ -144,7 +126,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
             <User className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <p className="font-medium text-gray-900">João Manager</p>
+            <p className="font-medium text-gray-900">{ownerName}</p>
             <p className="text-sm text-gray-500">Proprietário</p>
           </div>
         </div>
