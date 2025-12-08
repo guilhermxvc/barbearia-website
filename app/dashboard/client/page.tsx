@@ -100,27 +100,39 @@ export default function ClientDashboard() {
 }
 
 function SearchSection() {
-  const [searchLocation, setSearchLocation] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
   const [selectedBarbershop, setSelectedBarbershop] = useState<any>(null)
   const [barbershops, setBarbershops] = useState<any[]>([])
+  const [filteredBarbershops, setFilteredBarbershops] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
 
   useEffect(() => {
     loadBarbershops()
   }, [])
+
+  useEffect(() => {
+    applyFilters()
+  }, [barbershops, searchQuery, activeFilter])
 
   const loadBarbershops = async () => {
     try {
       setIsLoading(true)
       setError("")
 
-      const response = await apiClient.get('/barbershops')
+      const response = await apiClient.get<{ success: boolean; barbershops: any[]; error?: string }>('/barbershops')
 
-      if (response.success && response.barbershops) {
-        setBarbershops(response.barbershops)
+      if (response.success && response.data) {
+        const apiData = response.data as { success: boolean; barbershops: any[]; error?: string }
+        if (apiData.success && apiData.barbershops) {
+          setBarbershops(apiData.barbershops)
+          setFilteredBarbershops(apiData.barbershops)
+        } else {
+          setError(apiData.error || "Erro ao carregar barbearias")
+        }
       } else {
-        setError("Erro ao carregar barbearias")
+        setError(response.error || "Erro ao carregar barbearias")
       }
     } catch (error) {
       console.error("Erro ao carregar barbearias:", error)
@@ -130,53 +142,112 @@ function SearchSection() {
     }
   }
 
+  const applyFilters = () => {
+    let filtered = [...barbershops]
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(b => 
+        b.name?.toLowerCase().includes(query) ||
+        b.address?.toLowerCase().includes(query) ||
+        b.services?.some((s: any) => s.name?.toLowerCase().includes(query))
+      )
+    }
+
+    if (activeFilter === 'maisBarbers') {
+      filtered = filtered.sort((a, b) => (b.barbers?.length || 0) - (a.barbers?.length || 0))
+    } else if (activeFilter === 'menorPreco') {
+      filtered = filtered.sort((a, b) => {
+        const minA = a.services?.length > 0 ? Math.min(...a.services.map((s: any) => Number(s.price))) : Infinity
+        const minB = b.services?.length > 0 ? Math.min(...b.services.map((s: any) => Number(s.price))) : Infinity
+        return minA - minB
+      })
+    } else if (activeFilter === 'maisServicos') {
+      filtered = filtered.sort((a, b) => (b.services?.length || 0) - (a.services?.length || 0))
+    }
+
+    setFilteredBarbershops(filtered)
+  }
+
+  const handleFilterClick = (filter: string) => {
+    if (activeFilter === filter) {
+      setActiveFilter(null)
+    } else {
+      setActiveFilter(filter)
+    }
+  }
+
   if (selectedBarbershop) {
     return <BookingFlow barbershop={selectedBarbershop} onBack={() => setSelectedBarbershop(null)} />
   }
 
   return (
     <div className="space-y-6">
-      {/* Busca por Localização */}
+      {/* Busca por Nome/Serviço */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <MapPin className="h-5 w-5 mr-2 text-amber-600" />
-            Encontrar Barbearias Próximas
+            Encontrar Barbearias
           </CardTitle>
-          <CardDescription>Digite seu endereço ou permita acesso à localização</CardDescription>
+          <CardDescription>Pesquise por nome, endereço ou serviço</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex space-x-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Digite seu endereço ou bairro..."
-                value={searchLocation}
-                onChange={(e) => setSearchLocation(e.target.value)}
+                placeholder="Buscar por nome, endereço ou serviço..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Button className="bg-amber-600 hover:bg-amber-700">Buscar</Button>
-            <Button variant="outline">Usar Minha Localização</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => { setSearchQuery(""); setActiveFilter(null); }}
+            >
+              Limpar
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Filtros Rápidos */}
-      <div className="flex space-x-4">
-        <Button variant="outline" size="sm">
-          Aberto Agora
+      <div className="flex flex-wrap gap-2">
+        <Button 
+          variant={activeFilter === 'maisBarbers' ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => handleFilterClick('maisBarbers')}
+          className={activeFilter === 'maisBarbers' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+        >
+          Mais Barbeiros
         </Button>
-        <Button variant="outline" size="sm">
-          Melhor Avaliado
-        </Button>
-        <Button variant="outline" size="sm">
-          Mais Próximo
-        </Button>
-        <Button variant="outline" size="sm">
+        <Button 
+          variant={activeFilter === 'menorPreco' ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => handleFilterClick('menorPreco')}
+          className={activeFilter === 'menorPreco' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+        >
           Menor Preço
         </Button>
+        <Button 
+          variant={activeFilter === 'maisServicos' ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => handleFilterClick('maisServicos')}
+          className={activeFilter === 'maisServicos' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+        >
+          Mais Serviços
+        </Button>
       </div>
+
+      {/* Contador de Resultados */}
+      {!isLoading && !error && (
+        <p className="text-sm text-gray-600">
+          {filteredBarbershops.length} {filteredBarbershops.length === 1 ? 'barbearia encontrada' : 'barbearias encontradas'}
+          {searchQuery && ` para "${searchQuery}"`}
+        </p>
+      )}
 
       {/* Lista de Barbearias */}
       {isLoading ? (
@@ -187,19 +258,22 @@ function SearchSection() {
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
           {error}
         </div>
-      ) : barbershops.length === 0 ? (
+      ) : filteredBarbershops.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma barbearia encontrada</h3>
             <p className="text-gray-600">
-              Não encontramos barbearias cadastradas no momento. Volte mais tarde!
+              {searchQuery 
+                ? `Não encontramos resultados para "${searchQuery}". Tente outra pesquisa.`
+                : "Não encontramos barbearias cadastradas no momento. Volte mais tarde!"
+              }
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6">
-          {barbershops.map((barbershop) => {
+          {filteredBarbershops.map((barbershop) => {
             const priceRange = barbershop.services.length > 0
               ? `R$ ${Math.min(...barbershop.services.map((s: any) => Number(s.price)))} - R$ ${Math.max(...barbershop.services.map((s: any) => Number(s.price)))}`
               : 'Preços sob consulta'
