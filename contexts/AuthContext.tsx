@@ -8,6 +8,7 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
+  photoUrl?: string;
   userType: 'manager' | 'barber' | 'client';
   barbershop?: {
     id: string;
@@ -16,6 +17,7 @@ export interface User {
     phone?: string;
     email?: string;
     code?: string;
+    logoUrl?: string;
     subscriptionPlan?: string;
     isActive?: boolean;
   };
@@ -33,6 +35,7 @@ export interface User {
       code: string;
       address?: string;
       phone?: string;
+      logoUrl?: string;
     } | null;
   };
   client?: {

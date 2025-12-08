@@ -344,6 +344,7 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
     phone: barbershop?.phone || '',
     address: barbershop?.address || '',
     email: barbershop?.email || '',
+    logoUrl: barbershop?.logoUrl || '',
   })
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -355,6 +356,7 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
         phone: barbershop.phone || '',
         address: barbershop.address || '',
         email: barbershop.email || '',
+        logoUrl: barbershop.logoUrl || '',
       })
     }
   }, [barbershop])
@@ -475,6 +477,34 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Logo da Barbearia (URL)</label>
+            <div className="flex gap-4 items-start">
+              <div className="flex-1">
+                <input 
+                  type="url" 
+                  className="w-full p-2 border rounded-md" 
+                  placeholder="https://exemplo.com/logo.png"
+                  value={formData.logoUrl}
+                  onChange={(e) => handleInputChange('logoUrl', e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">Cole a URL de uma imagem (PNG, JPG) para usar como logo</p>
+              </div>
+              {formData.logoUrl && (
+                <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
+                  <img 
+                    src={formData.logoUrl} 
+                    alt="Preview da logo" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Código da Barbearia</label>
