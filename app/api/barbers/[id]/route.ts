@@ -139,18 +139,21 @@ export const DELETE = withAuth(['manager'])(async (req, { params }) => {
       );
     }
 
-    // Desativar o barbeiro (soft delete)
+    // Desativar o barbeiro e remover vínculo com a barbearia
+    // Isso permite que o barbeiro vincule-se a outra barbearia no futuro
     await db
       .update(barbers)
       .set({
         isActive: false,
+        isApproved: false,
+        barbershopId: null,
         updatedAt: new Date(),
       })
       .where(eq(barbers.id, id));
 
     return NextResponse.json({
       success: true,
-      message: 'Barbeiro desativado com sucesso',
+      message: 'Barbeiro desativado e desvinculado com sucesso',
     });
   } catch (error) {
     console.error('Delete barber error:', error);

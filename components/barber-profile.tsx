@@ -217,7 +217,7 @@ export function BarberProfile() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {user.barber.isApproved && user.barber.barbershop ? (
+          {user.barber.isApproved && user.barber.isActive && user.barber.barbershop ? (
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
