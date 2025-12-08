@@ -654,93 +654,108 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
   )
 }
 
+interface AppointmentData {
+  id: string
+  time: string
+  client: string
+  barber: string
+  barberId: string
+  service: string
+  status: string
+  duration: string
+  price: string
+}
+
 function AppointmentsSection({ userPlan }: { userPlan: string }) {
+  const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
   const [selectedBarber, setSelectedBarber] = useState("todos")
   const [selectedStatus, setSelectedStatus] = useState("todos")
+  const [appointments, setAppointments] = useState<AppointmentData[]>([])
+  const [barbersList, setBarbersList] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const mockAppointments = [
-    {
-      id: 1,
-      time: "09:00",
-      client: "João Silva",
-      barber: "Carlos Silva",
-      service: "Corte + Barba",
-      status: "confirmado",
-      duration: "45min",
-      price: "R$ 45,00",
-    },
-    {
-      id: 2,
-      time: "10:00",
-      client: "Pedro Santos",
-      barber: "João Santos",
-      service: "Corte Clássico",
-      status: "em-andamento",
-      duration: "30min",
-      price: "R$ 25,00",
-    },
-    {
-      id: 3,
-      time: "11:30",
-      client: "Lucas Costa",
-      barber: "Carlos Silva",
-      service: "Barba Completa",
-      status: "pendente",
-      duration: "30min",
-      price: "R$ 20,00",
-    },
-    {
-      id: 4,
-      time: "14:00",
-      client: "Rafael Lima",
-      barber: "Pedro Costa",
-      service: "Corte + Barba",
-      status: "confirmado",
-      duration: "45min",
-      price: "R$ 45,00",
-    },
-    {
-      id: 5,
-      time: "15:30",
-      client: "André Oliveira",
-      barber: "João Santos",
-      service: "Corte Social",
-      status: "cancelado",
-      duration: "30min",
-      price: "R$ 30,00",
-    },
-    {
-      id: 6,
-      time: "16:00",
-      client: "Marcos Ferreira",
-      barber: "Carlos Silva",
-      service: "Degradê Moderno",
-      status: "aguardando",
-      duration: "40min",
-      price: "R$ 35,00",
-    },
-    {
-      id: 7,
-      time: "16:30",
-      client: "Roberto Alves",
-      barber: "Pedro Costa",
-      service: "Barba + Bigode",
-      status: "reagendado",
-      duration: "35min",
-      price: "R$ 30,00",
-    },
-    {
-      id: 8,
-      time: "17:00",
-      client: "Felipe Rocha",
-      barber: "João Santos",
-      service: "Corte Infantil",
-      status: "no-show",
-      duration: "25min",
-      price: "R$ 20,00",
-    },
-  ]
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user?.barbershop?.id) return
+      
+      setLoading(true)
+      setError(null)
+      try {
+        const [appointmentsRes, barbersRes] = await Promise.all([
+          fetch(`/api/appointments?barbershopId=${user.barbershop.id}&date=${selectedDate}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          }),
+          fetch(`/api/barbers?barbershopId=${user.barbershop.id}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          }),
+        ])
+
+        if (!appointmentsRes.ok || !barbersRes.ok) {
+          setError('Erro ao carregar dados. Verifique sua conexão.')
+          setAppointments([])
+          setBarbersList([])
+          return
+        }
+
+        const appointmentsData = await appointmentsRes.json()
+        const barbersData = await barbersRes.json()
+
+        if (barbersData.success) {
+          setBarbersList(barbersData.barbers || [])
+        }
+
+        if (appointmentsData.success && appointmentsData.appointments) {
+          const formattedAppointments = appointmentsData.appointments.map((apt: any) => {
+            const scheduledTime = new Date(apt.scheduledAt)
+            const hours = scheduledTime.getHours().toString().padStart(2, '0')
+            const minutes = scheduledTime.getMinutes().toString().padStart(2, '0')
+            
+            const statusMap: { [key: string]: string } = {
+              'pending': 'pendente',
+              'confirmed': 'confirmado',
+              'in_progress': 'em-andamento',
+              'completed': 'concluido',
+              'cancelled': 'cancelado',
+              'no_show': 'no-show',
+            }
+
+            const durationValue = apt.duration || 30
+            const priceValue = parseFloat(String(apt.totalPrice || apt.service?.price || 0))
+            const formattedPrice = new Intl.NumberFormat('pt-BR', { 
+              style: 'currency', 
+              currency: 'BRL' 
+            }).format(priceValue)
+
+            return {
+              id: apt.id,
+              time: `${hours}:${minutes}`,
+              client: apt.client?.name || 'Cliente',
+              barber: apt.barber?.name || 'Barbeiro',
+              barberId: apt.barber?.id || '',
+              service: apt.service?.name || 'Serviço',
+              status: statusMap[apt.status] || apt.status || 'pendente',
+              duration: `${durationValue}min`,
+              price: formattedPrice,
+            }
+          })
+          setAppointments(formattedAppointments)
+        } else {
+          setAppointments([])
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err)
+        setError('Erro ao carregar dados. Tente novamente.')
+        setAppointments([])
+        setBarbersList([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [user?.barbershop?.id, selectedDate])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -788,19 +803,19 @@ function AppointmentsSection({ userPlan }: { userPlan: string }) {
     }
   }
 
-  const filteredAppointments = mockAppointments.filter((appointment) => {
-    if (selectedBarber !== "todos" && appointment.barber !== selectedBarber) return false
+  const filteredAppointments = appointments.filter((appointment) => {
+    if (selectedBarber !== "todos" && appointment.barberId !== selectedBarber) return false
     if (selectedStatus !== "todos" && appointment.status !== selectedStatus) return false
     return true
   })
 
   const todayStats = {
-    total: mockAppointments.length,
-    confirmados: mockAppointments.filter((a) => a.status === "confirmado").length,
-    emAndamento: mockAppointments.filter((a) => a.status === "em-andamento").length,
-    pendentes: mockAppointments.filter((a) => a.status === "pendente").length,
-    aguardando: mockAppointments.filter((a) => a.status === "aguardando").length,
-    cancelados: mockAppointments.filter((a) => a.status === "cancelado").length,
+    total: appointments.length,
+    confirmados: appointments.filter((a) => a.status === "confirmado").length,
+    emAndamento: appointments.filter((a) => a.status === "em-andamento").length,
+    pendentes: appointments.filter((a) => a.status === "pendente").length,
+    concluidos: appointments.filter((a) => a.status === "concluido").length,
+    cancelados: appointments.filter((a) => a.status === "cancelado").length,
   }
 
   return (
@@ -864,11 +879,11 @@ function AppointmentsSection({ userPlan }: { userPlan: string }) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Aguardando</p>
-                <p className="text-2xl font-bold text-orange-600">{todayStats.aguardando}</p>
+                <p className="text-sm text-gray-600">Concluídos</p>
+                <p className="text-2xl font-bold text-gray-600">{todayStats.concluidos}</p>
               </div>
-              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-orange-600 rounded-full"></div>
+              <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="h-4 w-4 bg-gray-600 rounded-full"></div>
               </div>
             </div>
           </CardContent>
@@ -898,9 +913,9 @@ function AppointmentsSection({ userPlan }: { userPlan: string }) {
                 className="w-full mt-1 p-2 border rounded-md"
               >
                 <option value="todos">Todos os Barbeiros</option>
-                <option value="Carlos Silva">Carlos Silva</option>
-                <option value="João Santos">João Santos</option>
-                <option value="Pedro Costa">Pedro Costa</option>
+                {barbersList.map((barber) => (
+                  <option key={barber.id} value={barber.id}>{barber.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -911,13 +926,11 @@ function AppointmentsSection({ userPlan }: { userPlan: string }) {
                 className="w-full mt-1 p-2 border rounded-md"
               >
                 <option value="todos">Todos os Status</option>
+                <option value="pendente">Pendente</option>
                 <option value="confirmado">Confirmado</option>
                 <option value="em-andamento">Em Andamento</option>
-                <option value="pendente">Pendente</option>
-                <option value="aguardando">Aguardando</option>
-                <option value="reagendado">Reagendado</option>
-                <option value="cancelado">Cancelado</option>
                 <option value="concluido">Concluído</option>
+                <option value="cancelado">Cancelado</option>
                 <option value="no-show">Não Compareceu</option>
               </select>
             </div>
@@ -927,48 +940,69 @@ function AppointmentsSection({ userPlan }: { userPlan: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Todos os Agendamentos de Hoje</CardTitle>
-          <CardDescription>{filteredAppointments.length} agendamento(s) encontrado(s)</CardDescription>
+          <CardTitle>Todos os Agendamentos do Dia</CardTitle>
+          <CardDescription>
+            {loading ? "Carregando..." : `${filteredAppointments.length} agendamento(s) encontrado(s)`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
+              <span className="ml-2 text-gray-600">Carregando agendamentos...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">
+              <p>{error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => window.location.reload()}
               >
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-amber-600">{appointment.time}</div>
-                    <div className="text-xs text-gray-500">{appointment.duration}</div>
+                Tentar Novamente
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredAppointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-amber-600">{appointment.time}</div>
+                      <div className="text-xs text-gray-500">{appointment.duration}</div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{appointment.client}</h4>
+                      <p className="text-sm text-gray-600">{appointment.service}</p>
+                      <p className="text-xs text-gray-500">Barbeiro: {appointment.barber}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{appointment.client}</h4>
-                    <p className="text-sm text-gray-600">{appointment.service}</p>
-                    <p className="text-xs text-gray-500">Barbeiro: {appointment.barber}</p>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">{appointment.price}</div>
+                      <Badge className={`text-xs ${getStatusColor(appointment.status)}`}>
+                        {getStatusText(appointment.status)}
+                      </Badge>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Detalhes
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <div className="font-semibold text-gray-900">{appointment.price}</div>
-                    <Badge className={`text-xs ${getStatusColor(appointment.status)}`}>
-                      {getStatusText(appointment.status)}
-                    </Badge>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Detalhes
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))}
 
-            {filteredAppointments.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Nenhum agendamento encontrado para os filtros selecionados.</p>
-              </div>
-            )}
-          </div>
+              {filteredAppointments.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhum agendamento encontrado para a data selecionada.</p>
+                  <p className="text-sm mt-2">Os agendamentos aparecerão aqui quando forem criados.</p>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
