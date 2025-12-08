@@ -9,12 +9,24 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Building2, User, UserCheck, Scissors, Check, ArrowLeft, MapPin, Phone, Mail, Lock, Briefcase } from "lucide-react"
+import { Building2, User, UserCheck, Scissors, Check, ArrowLeft, MapPin, Phone, Mail, Lock, Briefcase, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 
 type UserType = "manager" | "barber" | "client" | null
 type PlanType = "basico" | "profissional" | "premium"
+
+interface SubscriptionPlan {
+  id: string
+  name: string
+  displayName: string
+  price: string
+  priceFormatted: string
+  maxBarbers: number
+  hasInventoryManagement: boolean
+  hasAIChatbot: boolean
+  features: string[]
+}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -25,7 +37,9 @@ export default function RegisterPage() {
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("profissional")
   const [isClient, setIsClient] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [plansLoading, setPlansLoading] = useState(true)
   const [error, setError] = useState("")
+  const [dbPlans, setDbPlans] = useState<SubscriptionPlan[]>([])
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -48,30 +62,52 @@ export default function RegisterPage() {
     if (planFromUrl && ["basico", "profissional", "premium"].includes(planFromUrl)) {
       setSelectedPlan(planFromUrl as PlanType)
     }
+
+    loadPlans()
   }, [searchParams])
 
+  const loadPlans = async () => {
+    try {
+      setPlansLoading(true)
+      const response = await fetch('/api/subscription-plans')
+      const data = await response.json()
+      
+      if (data.success && data.plans) {
+        setDbPlans(data.plans)
+      }
+    } catch (error) {
+      console.error('Error loading plans:', error)
+    } finally {
+      setPlansLoading(false)
+    }
+  }
+
+  const getPlanData = (planName: PlanType) => {
+    const dbPlan = dbPlans.find(p => p.name === planName)
+    if (dbPlan) {
+      return {
+        name: dbPlan.displayName,
+        price: dbPlan.priceFormatted,
+        description: planName === 'basico' ? 'Ideal para começar' : planName === 'profissional' ? 'Mais popular' : 'Recursos completos',
+        features: dbPlan.features as string[] || [],
+        popular: planName === 'profissional',
+        maxBarbers: dbPlan.maxBarbers,
+      }
+    }
+    return {
+      name: planName === 'basico' ? 'Básico' : planName === 'profissional' ? 'Profissional' : 'Premium',
+      price: 'Carregando...',
+      description: '',
+      features: [],
+      popular: false,
+      maxBarbers: 1,
+    }
+  }
+
   const plans = {
-    basico: {
-      name: "Básico",
-      price: "R$ 39",
-      description: "Ideal para começar",
-      features: ["Até 2 barbeiros", "Agendamento básico", "Relatórios simples"],
-      popular: false,
-    },
-    profissional: {
-      name: "Profissional",
-      price: "R$ 79",
-      description: "Mais popular",
-      features: ["Até 5 barbeiros", "Agendamento avançado", "Relatórios completos", "Suporte prioritário"],
-      popular: true,
-    },
-    premium: {
-      name: "Premium",
-      price: "R$ 129",
-      description: "Recursos completos",
-      features: ["Barbeiros ilimitados", "Todas as funcionalidades", "API personalizada", "Suporte 24/7"],
-      popular: false,
-    },
+    basico: getPlanData('basico'),
+    profissional: getPlanData('profissional'),
+    premium: getPlanData('premium'),
   }
 
   const handleInputChange = (field: string, value: string | boolean) => {

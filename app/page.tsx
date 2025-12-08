@@ -7,60 +7,95 @@ import Image from "next/image"
 import barbershopInterior from "@/attached_assets/generated_images/Modern_barbershop_interior_scene_9e6f6d5f.png"
 import barberApp from "@/attached_assets/generated_images/Barber_using_scheduling_app_883e73ca.png"
 import happyClients from "@/attached_assets/generated_images/Happy_barbershop_clients_a1f46e3a.png"
+import { db } from "@/lib/db"
+import { subscriptionPlans } from "@/lib/db/schema"
+import { eq, asc } from "drizzle-orm"
 
-export default function HomePage() {
-  const plans = [
-    {
-      name: "Básico",
-      price: "R$ 99",
-      period: "/mês",
-      description: "Ideal para barbearias iniciantes",
-      features: [
-        "Agendamento online",
-        "Gestão básica de clientes",
-        "Até 3 barbeiros",
-        "Suporte por email",
-        "Dashboard básico",
-      ],
-      icon: Scissors,
-      popular: false,
-      color: "border-amber-200 bg-amber-50",
-    },
-    {
-      name: "Profissional",
-      price: "R$ 125",
-      period: "/mês",
-      description: "Para barbearias em crescimento",
-      features: [
-        "Todas as funcionalidades básicas",
-        "Gestão de estoque",
-        "Relatórios avançados",
-        "Marketing integrado",
-        "Até 8 barbeiros",
-        "Suporte prioritário",
-      ],
-      icon: BarChart3,
-      popular: false,
-      color: "border-amber-200 bg-amber-50",
-    },
-    {
-      name: "Premium",
-      price: "R$ 199",
-      period: "/mês",
-      description: "Para barbearias estabelecidas",
-      features: [
-        "Todas as funcionalidades profissionais",
-        "IA avançada para recomendações",
-        "Integrações personalizadas",
-        "Barbeiros ilimitados",
-        "Suporte 24/7",
-        "Análises preditivas",
-      ],
-      icon: Crown,
-      popular: true,
-      color: "border-amber-200 bg-amber-50",
-    },
-  ]
+async function getPlans() {
+  try {
+    const dbPlans = await db.query.subscriptionPlans.findMany({
+      where: eq(subscriptionPlans.isActive, true),
+      orderBy: [asc(subscriptionPlans.price)],
+    })
+    
+    const planConfig = {
+      basico: {
+        icon: Scissors,
+        description: "Ideal para barbearias iniciantes",
+        popular: false,
+      },
+      profissional: {
+        icon: BarChart3,
+        description: "Para barbearias em crescimento",
+        popular: false,
+      },
+      premium: {
+        icon: Crown,
+        description: "Para barbearias estabelecidas",
+        popular: true,
+      },
+    }
+
+    return dbPlans.map((plan) => {
+      const priceNum = parseFloat(plan.price)
+      const priceFormatted = priceNum % 1 === 0 
+        ? `R$ ${priceNum.toFixed(0)}` 
+        : `R$ ${priceNum.toFixed(2).replace('.', ',')}`
+      
+      return {
+        name: plan.displayName,
+        price: priceFormatted,
+        period: "/mês",
+        description: planConfig[plan.name as keyof typeof planConfig]?.description || "",
+        features: (plan.features as string[]) || [],
+        icon: planConfig[plan.name as keyof typeof planConfig]?.icon || Scissors,
+        popular: planConfig[plan.name as keyof typeof planConfig]?.popular || false,
+        color: "border-amber-200 bg-amber-50",
+        planKey: plan.name,
+      }
+    })
+  } catch (error) {
+    console.error('Error loading plans:', error)
+    return [
+      {
+        name: "Básico",
+        price: "R$ 39",
+        period: "/mês",
+        description: "Ideal para barbearias iniciantes",
+        features: ["Agendamento online", "Gestão básica de clientes", "Até 1 barbeiro"],
+        icon: Scissors,
+        popular: false,
+        color: "border-amber-200 bg-amber-50",
+        planKey: "basico",
+      },
+      {
+        name: "Profissional",
+        price: "R$ 79",
+        period: "/mês",
+        description: "Para barbearias em crescimento",
+        features: ["Todas as funcionalidades básicas", "Até 3 barbeiros", "Relatórios avançados"],
+        icon: BarChart3,
+        popular: false,
+        color: "border-amber-200 bg-amber-50",
+        planKey: "profissional",
+      },
+      {
+        name: "Premium",
+        price: "R$ 129",
+        period: "/mês",
+        description: "Para barbearias estabelecidas",
+        features: ["Todas as funcionalidades", "Barbeiros ilimitados", "IA e estoque"],
+        icon: Crown,
+        popular: true,
+        color: "border-amber-200 bg-amber-50",
+        planKey: "premium",
+      },
+    ]
+  }
+}
+
+export default async function HomePage() {
+  const plans = await getPlans()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">
@@ -203,13 +238,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {plans.map((plan, index) => {
               const IconComponent = plan.icon
-              // Mapeamento correto dos nomes dos planos para as chaves
-              const planMapping: { [key: string]: string } = {
-                "Básico": "basico",
-                "Profissional": "profissional", 
-                "Premium": "premium"
-              }
-              const planKey = planMapping[plan.name] || plan.name.toLowerCase()
+              const planKey = plan.planKey
               return (
                 <Card
                   key={index}
