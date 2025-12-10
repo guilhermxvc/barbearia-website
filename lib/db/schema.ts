@@ -217,6 +217,58 @@ export const stockMovements = pgTable('stock_movements', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Barber Work Schedules (jornada de trabalho dos barbeiros)
+export const barberWorkSchedules = pgTable('barber_work_schedules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  dayOfWeek: integer('day_of_week').notNull(), // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  startTime: text('start_time').notNull(), // "08:00"
+  endTime: text('end_time').notNull(), // "18:00"
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Time Blocks (bloqueios de horários - férias, feriados, manutenção)
+export const timeBlocks = pgTable('time_blocks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id), // Null = bloqueio para toda barbearia
+  title: text('title').notNull(),
+  description: text('description'),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  allDay: boolean('all_day').default(false),
+  blockType: text('block_type').notNull(), // 'vacation', 'holiday', 'maintenance', 'personal', 'other'
+  isRecurring: boolean('is_recurring').default(false),
+  recurringPattern: text('recurring_pattern'), // 'weekly', 'monthly', 'yearly'
+  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Recurring Appointments (agendamentos recorrentes)
+export const recurringAppointments = pgTable('recurring_appointments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  clientId: uuid('client_id').references(() => clients.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  serviceId: uuid('service_id').references(() => services.id).notNull(),
+  dayOfWeek: integer('day_of_week').notNull(), // 0-6
+  startTime: text('start_time').notNull(), // "10:00"
+  duration: integer('duration').notNull(),
+  totalPrice: decimal('total_price', { precision: 8, scale: 2 }).notNull(),
+  repeatWeeks: integer('repeat_weeks').notNull(), // Quantidade de semanas para repetir
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  notes: text('notes'),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
@@ -260,6 +312,15 @@ export const selectAiChatHistorySchema = createSelectSchema(aiChatHistory);
 export const insertStockMovementSchema = createInsertSchema(stockMovements);
 export const selectStockMovementSchema = createSelectSchema(stockMovements);
 
+export const insertBarberWorkScheduleSchema = createInsertSchema(barberWorkSchedules);
+export const selectBarberWorkScheduleSchema = createSelectSchema(barberWorkSchedules);
+
+export const insertTimeBlockSchema = createInsertSchema(timeBlocks);
+export const selectTimeBlockSchema = createSelectSchema(timeBlocks);
+
+export const insertRecurringAppointmentSchema = createInsertSchema(recurringAppointments);
+export const selectRecurringAppointmentSchema = createSelectSchema(recurringAppointments);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -302,6 +363,15 @@ export type NewAiChatHistory = typeof aiChatHistory.$inferInsert;
 
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type NewStockMovement = typeof stockMovements.$inferInsert;
+
+export type BarberWorkSchedule = typeof barberWorkSchedules.$inferSelect;
+export type NewBarberWorkSchedule = typeof barberWorkSchedules.$inferInsert;
+
+export type TimeBlock = typeof timeBlocks.$inferSelect;
+export type NewTimeBlock = typeof timeBlocks.$inferInsert;
+
+export type RecurringAppointment = typeof recurringAppointments.$inferSelect;
+export type NewRecurringAppointment = typeof recurringAppointments.$inferInsert;
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({

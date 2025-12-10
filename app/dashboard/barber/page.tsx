@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api"
 import { format, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { CalendarView } from "@/components/calendar-view"
+import { WorkScheduleConfig } from "@/components/work-schedule-config"
 
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -111,83 +113,9 @@ export default function BarberDashboard() {
 
 function ScheduleSection() {
   const { user } = useAuth()
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [showWorkSchedule, setShowWorkSchedule] = useState(false)
 
-  useEffect(() => {
-    loadAppointments()
-  }, [user])
-
-  const loadAppointments = async () => {
-    try {
-      setIsLoading(true)
-      setError("")
-
-      if (!user?.barber?.id) {
-        setError("Perfil de barbeiro não encontrado")
-        return
-      }
-
-      const response = await apiClient.get<{ success: boolean; appointments: any[] }>(`/appointments?barberId=${user.barber.id}`)
-
-      if (response.success && response.data) {
-        const apiData = response.data as { success: boolean; appointments: any[] }
-        if (apiData.appointments) {
-          setAppointments(apiData.appointments)
-        }
-      } else {
-        setError("Erro ao carregar agendamentos")
-      }
-    } catch (error) {
-      console.error("Erro ao carregar agendamentos:", error)
-      setError("Erro ao carregar agendamentos")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Filtrar agendamentos de hoje
-  const todayAppointments = appointments.filter(apt => 
-    isToday(new Date(apt.scheduledAt)) && apt.status !== 'cancelled'
-  )
-
-  // Calcular estatísticas
-  const confirmedToday = todayAppointments.filter(apt => apt.status === 'confirmed' || apt.status === 'in_progress')
-  const totalRevenue = todayAppointments.reduce((sum, apt) => sum + (Number(apt.totalPrice) || 0), 0)
-  const nextAppointment = todayAppointments
-    .filter(apt => new Date(apt.scheduledAt) > new Date())
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0]
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "bg-green-100 text-green-800"
-      case "in_progress":
-        return "bg-blue-100 text-blue-800"
-      case "completed":
-        return "bg-gray-100 text-gray-800"
-      case "cancelled":
-        return "bg-red-100 text-red-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      confirmed: "Confirmado",
-      in_progress: "Em Andamento",
-      completed: "Concluído",
-      cancelled: "Cancelado",
-      pending: "Pendente",
-    }
-    return labels[status] || status
-  }
-
-  if (isLoading) {
+  if (!user?.barber?.barbershopId || !user?.barber?.id) {
     return (
       <div className="flex items-center justify-center p-12">
         <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
@@ -195,161 +123,29 @@ function ScheduleSection() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-        {error}
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Agendamentos Hoje</p>
-                <p className="text-2xl font-bold text-gray-900">{confirmedToday.length}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Próximo Cliente</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {nextAppointment ? format(new Date(nextAppointment.scheduledAt), 'HH:mm', { locale: ptBR }) : '--:--'}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Faturamento Hoje</p>
-                <p className="text-2xl font-bold text-green-600">
-                  R$ {totalRevenue.toFixed(2)}
-                </p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Agendamentos</p>
-                <div className="flex items-center">
-                  <p className="text-lg font-semibold text-gray-900">{appointments.length}</p>
-                </div>
-              </div>
-              <Star className="h-8 w-8 text-yellow-400" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex justify-end">
+        <Button 
+          variant="outline" 
+          onClick={() => setShowWorkSchedule(!showWorkSchedule)}
+          className="border-amber-300 text-amber-700 hover:bg-amber-50"
+        >
+          <Clock className="h-4 w-4 mr-2" />
+          {showWorkSchedule ? 'Ver Calendário' : 'Configurar Jornada'}
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Agenda de Hoje</span>
-            <Badge className="bg-amber-600">{confirmedToday.length} agendamentos</Badge>
-          </CardTitle>
-          <CardDescription>
-            Seus agendamentos para hoje, {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {todayAppointments.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum agendamento para hoje</h3>
-              <p className="text-gray-600">Você não tem agendamentos marcados para hoje.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {todayAppointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-amber-600">
-                        {format(new Date(appointment.scheduledAt), 'HH:mm', { locale: ptBR })}
-                      </p>
-                      <p className="text-xs text-gray-500">{appointment.duration}min</p>
-                    </div>
-                    <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                      <User className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{appointment.client.name}</h4>
-                      <p className="text-sm text-gray-600">{appointment.service.name}</p>
-                      {appointment.client.phone && (
-                        <p className="text-xs text-gray-500">{appointment.client.phone}</p>
-                      )}
-                      {appointment.notes && (
-                        <p className="text-xs text-blue-600 mt-1">{appointment.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right mr-3">
-                      <p className="text-sm font-semibold text-gray-900">
-                        R$ {Number(appointment.totalPrice).toFixed(2)}
-                      </p>
-                    </div>
-                    <Badge className={getStatusColor(appointment.status)}>
-                      {getStatusLabel(appointment.status)}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {appointments.length > todayAppointments.length && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Próximos Agendamentos</CardTitle>
-            <CardDescription>Agendamentos futuros</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {appointments
-                .filter(apt => !isToday(new Date(apt.scheduledAt)) && new Date(apt.scheduledAt) > new Date())
-                .slice(0, 5)
-                .map((appointment) => (
-                  <div key={appointment.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                    <div>
-                      <p className="font-medium text-gray-900">{appointment.client.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {format(new Date(appointment.scheduledAt), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <Badge className={getStatusColor(appointment.status)}>
-                      {getStatusLabel(appointment.status)}
-                    </Badge>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
+      {showWorkSchedule ? (
+        <WorkScheduleConfig 
+          barbershopId={user.barber.barbershopId} 
+          barberId={user.barber.id}
+        />
+      ) : (
+        <CalendarView 
+          barbershopId={user.barber.barbershopId} 
+          barberId={user.barber.id}
+        />
       )}
     </div>
   )
