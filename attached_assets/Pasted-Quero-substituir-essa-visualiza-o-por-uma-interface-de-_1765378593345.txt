@@ -1,0 +1,53 @@
+Quero substituir essa visualização por uma **interface de calendário visual estilo Google Calendar**, mantendo a lógica de agendamento que já existe.
+
+### OBJETIVO
+
+Reestruture a interface do sistema para apresentar uma agenda visual com calendário, onde os horários são exibidos em blocos por dia e hora (semelhante ao Google Calendar).
+
+### O QUE DEVE FAZER:
+
+1. **Substituir a visualização atual (listas)** por um **calendário visual**
+    - Use uma biblioteca como `react-big-calendar`, `FullCalendar` ou crie uma do zero com CSS grid e hora/dia
+    - Mostrar agendamentos com cores diferentes por estado (livre, ocupado, bloqueado)
+2. **Manter o sistema de agendamento atual funcionando**
+    - Reutilize a lógica e os dados que já existem
+    - Se os dados estiverem em listas, converta para um formato adequado ao novo calendário (ex: objetos com `start`, `end`, `title`, etc.)
+3. **Adicionar as seguintes funcionalidades se ainda não existirem:**
+    - **Jornada de trabalho dos barbeiros**
+        - Cada barbeiro define os dias e horários em que trabalha
+        - Calendário só deve mostrar horários disponíveis dentro dessa jornada
+    - **Bloqueio de horários**
+        - Permitir que o administrador bloqueie horários ou dias específicos (ex: férias, feriados, manutenção)
+        - Bloqueios devem ser visíveis no calendário e impedir novos agendamentos
+    - **Agendamentos recorrentes**
+        - Ao criar um agendamento, permitir marcar como “repetir semanalmente por X semanas”
+        - Renderizar todos os agendamentos da série no calendário
+    - **Notificações (simuladas)**
+        - Ao criar, editar ou excluir um agendamento, simular o envio de uma notificação com `console.log`
+        - Ex: "Notificação enviada para cliente João: Corte agendado para terça-feira às 14h"
+4. **Visual**
+    - Interface responsiva com visual de calendário semanal ou diário
+    - Mostrar os horários verticalmente e dias da semana horizontalmente
+    - Mostrar agendamentos com o nome do cliente e tipo de serviço
+    - Diferenciar visualmente horários ocupados, livres e bloqueados
+5. **Backend**
+    - Manter a estrutura atual (Node.js, Express, Mongo ou JSON)
+    - Se necessário, crie novos endpoints para:
+        - Buscar eventos por intervalo de data
+        - Criar bloqueios
+        - Criar agendamentos recorrentes
+
+---
+
+### TECNOLOGIAS PREFERIDAS
+
+- Frontend: React (preferencial), pode usar Tailwind CSS
+- Calendário: `react-big-calendar` (ou similar)
+- Backend: Node.js + Express
+- Banco de dados: Pode continuar usando o que já existe (JSON, Mongo, etc.)
+
+---
+
+### OBSERVAÇÃO IMPORTANTE:
+
+Reaproveite ao máximo o sistema de agendamento já existente, adaptando os dados para o novo formato de calendário visual, em vez de reescrever tudo do zero. Só adicione o que ainda não estiver implementado.
