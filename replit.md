@@ -20,6 +20,9 @@ The application is built with Next.js 14.2.16, TypeScript, and Tailwind CSS v4.1
 **Feature Specifications:**
 - **Multi-user System:** Manager/Owner, Barber, and Client dashboards.
 - **Appointment Booking:** Full scheduling system with real-time data.
+- **Google Calendar-style Visual Scheduling:** Week/day views with color-coded appointment states, time slots, and barber filtering.
+- **Barber Work Schedules:** Configurable working hours per day with toggle on/off functionality.
+- **Time Blocks:** Support for blocking specific date/time ranges (vacation, maintenance, personal, etc).
 - **Barbershop Management:** Settings, subscription plan, and code display.
 - **Barbers Management:** List, approve, edit, and deactivate barbers.
 - **Clients Management:** List, create, edit, and deactivate clients with search/filter.
