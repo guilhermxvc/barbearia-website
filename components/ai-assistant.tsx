@@ -20,10 +20,11 @@ interface Message {
 interface AIAssistantProps {
   userType: "client" | "barber" | "manager"
   userName?: string
+  embedded?: boolean
 }
 
-export function AIAssistant({ userType, userName = "Usuário" }: AIAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function AIAssistant({ userType, userName = "Usuário", embedded = false }: AIAssistantProps) {
+  const [isOpen, setIsOpen] = useState(embedded)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -119,7 +120,7 @@ export function AIAssistant({ userType, userName = "Usuário" }: AIAssistantProp
     }
   }
 
-  if (!isOpen) {
+  if (!isOpen && !embedded) {
     return (
       <Button
         onClick={() => setIsOpen(true)}
@@ -128,6 +129,93 @@ export function AIAssistant({ userType, userName = "Usuário" }: AIAssistantProp
       >
         <Bot className="h-6 w-6" />
       </Button>
+    )
+  }
+
+  if (embedded) {
+    return (
+      <Card className="w-full h-[600px] shadow-lg flex flex-col">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-amber-600 text-white rounded-t-lg">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Assistente IA
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="flex-1 flex flex-col p-0">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {message.sender === "ai" && (
+                    <Avatar className="h-8 w-8 bg-amber-100">
+                      <AvatarFallback>
+                        <Bot className="h-4 w-4 text-amber-600" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 text-sm ${
+                      message.sender === "user" ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-900"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+
+                  {message.sender === "user" && (
+                    <Avatar className="h-8 w-8 bg-gray-100">
+                      <AvatarFallback>
+                        <User className="h-4 w-4 text-gray-600" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="flex gap-3 justify-start">
+                  <Avatar className="h-8 w-8 bg-amber-100">
+                    <AvatarFallback>
+                      <Bot className="h-4 w-4 text-amber-600" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-gray-100 rounded-lg p-3 text-sm">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="p-4 border-t">
+            <div className="flex gap-2">
+              <Input
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Digite sua pergunta..."
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isTyping}
+                size="icon"
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 

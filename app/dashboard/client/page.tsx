@@ -47,6 +47,10 @@ export default function ClientDashboard() {
       title: "Barbearias Favoritas",
       description: "Suas barbearias mais visitadas e preferidas",
     },
+    ai: {
+      title: "Assistente IA",
+      description: "Seu assistente inteligente para ajudar no dia a dia",
+    },
   }
 
   const renderContent = () => {
@@ -59,6 +63,8 @@ export default function ClientDashboard() {
         return <ClientProfile />
       case "favorites":
         return <FavoritesSection />
+      case "ai":
+        return <AIAssistant userType="client" userName={user?.name || "Cliente"} embedded />
       default:
         return <SearchSection />
     }
@@ -94,9 +100,6 @@ export default function ClientDashboard() {
           {renderContent()}
         </div>
       </main>
-      <div className="hidden lg:block">
-        <AIAssistant userType="client" userName={user.name} />
-      </div>
     </div>
   )
 }

@@ -55,6 +55,10 @@ export default function BarberDashboard() {
       title: "Meu Perfil",
       description: "Gerencie suas informações e especialidades",
     },
+    ai: {
+      title: "Assistente IA",
+      description: "Seu assistente inteligente para ajudar no dia a dia",
+    },
   }
 
   const renderContent = () => {
@@ -69,6 +73,8 @@ export default function BarberDashboard() {
         return <BarberStats />
       case "profile":
         return <BarberProfile />
+      case "ai":
+        return <AIAssistant userType="barber" userName={user?.name || "Barbeiro"} embedded />
       default:
         return <ScheduleSection />
     }
@@ -104,9 +110,6 @@ export default function BarberDashboard() {
           {renderContent()}
         </div>
       </main>
-      <div className="hidden lg:block">
-        <AIAssistant userType="barber" userName={user.name} />
-      </div>
     </div>
   )
 }

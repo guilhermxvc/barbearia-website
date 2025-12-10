@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Search, Calendar, User, Heart, LogOut, Bell, Settings, MapPin, Menu, X } from "lucide-react"
+import { Search, Calendar, User, Heart, LogOut, Bell, Settings, MapPin, Menu, X, Bot } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 
@@ -23,6 +23,7 @@ export function ClientSidebar({ activeSection, onSectionChange }: ClientSidebarP
     { id: "appointments", label: "Meus Agendamentos", icon: Calendar },
     { id: "favorites", label: "Favoritas", icon: Heart },
     { id: "profile", label: "Meu Perfil", icon: User },
+    { id: "ai", label: "Assistente IA", icon: Bot },
   ]
 
   const handleLogout = async () => {
