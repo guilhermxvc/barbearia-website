@@ -112,17 +112,16 @@ export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkS
       setError("")
       setSuccess(false)
 
-      const activeSchedules = schedules.filter(s => s.isActive)
-
-      for (const schedule of activeSchedules) {
-        await apiClient.post('/work-schedules', {
-          barbershopId,
-          barberId,
-          dayOfWeek: schedule.dayOfWeek,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime
-        })
-      }
+      await apiClient.put('/work-schedules', {
+        barbershopId,
+        barberId,
+        schedules: schedules.map(s => ({
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          isActive: s.isActive
+        }))
+      })
 
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)

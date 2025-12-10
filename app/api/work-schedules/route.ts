@@ -123,18 +123,73 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const scheduleId = searchParams.get('id');
+    const barberId = searchParams.get('barberId');
+    const dayOfWeek = searchParams.get('dayOfWeek');
 
-    if (!scheduleId) {
-      return NextResponse.json({ success: false, error: 'ID do horário é obrigatório' }, { status: 400 });
+    if (scheduleId) {
+      await db.update(barberWorkSchedules)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(barberWorkSchedules.id, scheduleId));
+    } else if (barberId && dayOfWeek !== null) {
+      await db.update(barberWorkSchedules)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(and(
+          eq(barberWorkSchedules.barberId, barberId),
+          eq(barberWorkSchedules.dayOfWeek, parseInt(dayOfWeek)),
+          eq(barberWorkSchedules.isActive, true)
+        ));
+    } else {
+      return NextResponse.json({ success: false, error: 'ID do horário ou barberId+dayOfWeek são obrigatórios' }, { status: 400 });
     }
-
-    await db.update(barberWorkSchedules)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(barberWorkSchedules.id, scheduleId));
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting work schedule:', error);
     return NextResponse.json({ success: false, error: 'Erro ao remover jornada de trabalho' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const user = getUserFromToken(request);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { barbershopId, barberId, schedules } = body;
+
+    if (!barbershopId || !barberId || !Array.isArray(schedules)) {
+      return NextResponse.json({ success: false, error: 'Dados obrigatórios faltando' }, { status: 400 });
+    }
+
+    await db.update(barberWorkSchedules)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(
+        eq(barberWorkSchedules.barberId, barberId),
+        eq(barberWorkSchedules.isActive, true)
+      ));
+
+    const activeSchedules = schedules.filter((s: any) => s.isActive);
+    const createdSchedules = [];
+
+    for (const schedule of activeSchedules) {
+      const [newSchedule] = await db.insert(barberWorkSchedules)
+        .values({
+          barbershopId,
+          barberId,
+          dayOfWeek: schedule.dayOfWeek,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          isActive: true,
+        })
+        .returning();
+      createdSchedules.push(newSchedule);
+    }
+
+    return NextResponse.json({ success: true, schedules: createdSchedules });
+  } catch (error) {
+    console.error('Error updating work schedules:', error);
+    return NextResponse.json({ success: false, error: 'Erro ao atualizar jornadas de trabalho' }, { status: 500 });
   }
 }
