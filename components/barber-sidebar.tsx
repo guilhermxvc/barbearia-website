@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Calendar, Users, User, BarChart3, LogOut, Bell, Settings, Scissors, Menu } from "lucide-react"
+import { Calendar, Users, User, BarChart3, LogOut, Bell, Settings, Scissors, Menu, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 
@@ -19,10 +19,10 @@ export function BarberSidebar({ activeSection, onSectionChange }: BarberSidebarP
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const menuItems = [
+    { id: "stats", label: "Estatísticas", icon: TrendingUp },
     { id: "schedule", label: "Minha Agenda", icon: Calendar },
     { id: "clients", label: "Meus Clientes", icon: Users },
     { id: "reports", label: "Relatórios", icon: BarChart3 },
-    { id: "stats", label: "Estatísticas", icon: BarChart3 },
     { id: "profile", label: "Meu Perfil", icon: User },
   ]
 
