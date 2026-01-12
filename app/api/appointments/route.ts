@@ -238,14 +238,49 @@ export const POST = withAuth(['client'])(async (req) => {
       );
     }
 
-    // Verificar horário de trabalho do barbeiro
+    // Verificar horário de funcionamento da barbearia e disponibilidade do barbeiro
     const scheduledDate = data.scheduledAt;
     const dayOfWeek = scheduledDate.getDay();
     const scheduledTime = scheduledDate.toTimeString().slice(0, 5);
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayKey = dayNames[dayOfWeek];
 
-    // Buscar agenda de trabalho do barbeiro para o dia específico
+    // Buscar horários de funcionamento da barbearia
+    const barbershop = await db.query.barbershops.findFirst({
+      where: eq(barbershops.id, data.barbershopId),
+    });
+
+    if (!barbershop) {
+      return NextResponse.json(
+        { error: 'Barbearia não encontrada' },
+        { status: 404 }
+      );
+    }
+
+    const businessHours = barbershop.businessHours as Record<string, any> | null;
+    if (businessHours && businessHours[dayKey]) {
+      const dayHours = businessHours[dayKey];
+      if (!dayHours.enabled) {
+        return NextResponse.json(
+          { error: 'A barbearia está fechada neste dia' },
+          { status: 400 }
+        );
+      }
+
+      const openTime = dayHours.openTime || '08:00';
+      const closeTime = dayHours.closeTime || '18:00';
+
+      if (scheduledTime < openTime || scheduledTime >= closeTime) {
+        return NextResponse.json(
+          { error: `A barbearia só funciona entre ${openTime} e ${closeTime} neste dia` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Verificar se o barbeiro trabalha neste dia
     const { barberWorkSchedules } = await import('@/lib/db/schema');
-    const daySchedule = await db.query.barberWorkSchedules.findFirst({
+    const barberDaySchedule = await db.query.barberWorkSchedules.findFirst({
       where: and(
         eq(barberWorkSchedules.barberId, data.barberId),
         eq(barberWorkSchedules.dayOfWeek, dayOfWeek),
@@ -253,25 +288,43 @@ export const POST = withAuth(['client'])(async (req) => {
       ),
     });
 
-    if (!daySchedule) {
+    if (!barberDaySchedule) {
       return NextResponse.json(
         { error: 'O barbeiro não trabalha neste dia' },
         { status: 400 }
       );
     }
 
-    const startTime = daySchedule.startTime;
-    const endTime = daySchedule.endTime;
+    // Verificar se há bloqueio de horário para o barbeiro
+    const { timeBlocks } = await import('@/lib/db/schema');
+    const blocks = await db
+      .select()
+      .from(timeBlocks)
+      .where(
+        and(
+          eq(timeBlocks.barbershopId, data.barbershopId),
+          eq(timeBlocks.isActive, true)
+        )
+      );
 
-    if (scheduledTime < startTime || scheduledTime >= endTime) {
+    const appointmentEndTime = new Date(scheduledDate.getTime() + data.duration * 60000);
+    const hasBlockConflict = blocks.some(block => {
+      if (block.barberId && block.barberId !== data.barberId) return false;
+      
+      const blockStart = new Date(block.startDate);
+      const blockEnd = new Date(block.endDate);
+      
+      return (scheduledDate < blockEnd && appointmentEndTime > blockStart);
+    });
+
+    if (hasBlockConflict) {
       return NextResponse.json(
-        { error: `O barbeiro só atende entre ${startTime} e ${endTime} neste dia` },
+        { error: 'O barbeiro está bloqueado neste horário' },
         { status: 400 }
       );
     }
 
     // Verificar se há conflito com agendamentos existentes do barbeiro
-    const appointmentEndTime = new Date(scheduledDate.getTime() + data.duration * 60000);
     
     const existingAppointments = await db
       .select()

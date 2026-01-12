@@ -60,6 +60,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   const [availableSlots, setAvailableSlots] = useState<{date: string, day: string, slots: string[]}[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
+  const [barberWorkDays, setBarberWorkDays] = useState<number[]>([])
 
   useEffect(() => {
     if (barbershop?.id) {
@@ -68,10 +69,35 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   }, [barbershop?.id])
 
   useEffect(() => {
-    if (businessHours) {
+    if (selectedBarber) {
+      loadBarberWorkDays()
+    }
+  }, [selectedBarber])
+
+  useEffect(() => {
+    if (businessHours && selectedBarber && barberWorkDays.length > 0) {
       generateAvailableSlots()
     }
-  }, [businessHours])
+  }, [businessHours, selectedBarber, barberWorkDays])
+
+  const loadBarberWorkDays = async () => {
+    if (!selectedBarber) return
+    try {
+      const res = await fetch(`/api/work-schedules?barbershopId=${barbershop.id}&barberId=${selectedBarber.id}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      }).then(r => r.json())
+      
+      if (res.success && res.schedules) {
+        const activeDays = res.schedules
+          .filter((s: any) => s.isActive)
+          .map((s: any) => s.dayOfWeek)
+        setBarberWorkDays(activeDays)
+      }
+    } catch (error) {
+      console.error('Error loading barber work days:', error)
+      setBarberWorkDays([1, 2, 3, 4, 5])
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -116,7 +142,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   }
 
   const generateAvailableSlots = () => {
-    if (!businessHours) return
+    if (!businessHours || !selectedBarber) return
 
     setLoadingSlots(true)
     const slots: {date: string, day: string, slots: string[]}[] = []
@@ -130,7 +156,9 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       const dayKey = DAY_KEYS[dayOfWeek]
       const daySchedule = businessHours[dayKey]
       
-      if (daySchedule?.isOpen) {
+      const barberWorksThisDay = barberWorkDays.includes(dayOfWeek)
+      
+      if (daySchedule?.isOpen && barberWorksThisDay) {
         const dateStr = date.toISOString().split('T')[0]
         let dayName = DAY_NAMES[dayOfWeek]
         
