@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import { CalendarView } from "@/components/calendar-view"
 import { WorkScheduleConfig } from "@/components/work-schedule-config"
+import { BusinessHoursConfig } from "@/components/business-hours-config"
 
 export default function ManagerDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -641,6 +642,10 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {barbershop?.id && (
+        <BusinessHoursConfig barbershopId={barbershop.id} />
+      )}
 
       <Card>
         <CardHeader>
