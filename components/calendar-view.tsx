@@ -70,6 +70,14 @@ interface CalendarEvent {
   data: Appointment | TimeBlock
 }
 
+interface BusinessHours {
+  [key: string]: {
+    isOpen: boolean
+    openTime: string
+    closeTime: string
+  }
+}
+
 interface CalendarViewProps {
   barbershopId: string
   barberId?: string
@@ -77,14 +85,48 @@ interface CalendarViewProps {
   onAppointmentClick?: (appointment: Appointment) => void
 }
 
-const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => {
-  const hour = Math.floor(i / 2) + 7
-  const minutes = i % 2 === 0 ? '00' : '30'
-  return `${hour.toString().padStart(2, '0')}:${minutes}`
-}).filter(t => {
-  const hour = parseInt(t.split(':')[0])
-  return hour >= 7 && hour < 20
-})
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+const DEFAULT_BUSINESS_HOURS: BusinessHours = {
+  sunday: { isOpen: false, openTime: "09:00", closeTime: "18:00" },
+  monday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+  tuesday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+  wednesday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+  thursday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+  friday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+  saturday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
+}
+
+function generateTimeSlots(businessHours: BusinessHours): string[] {
+  let minOpen = 23
+  let maxClose = 0
+  
+  Object.values(businessHours).forEach(day => {
+    if (day.isOpen) {
+      const openHour = parseInt(day.openTime.split(':')[0])
+      const closeHour = parseInt(day.closeTime.split(':')[0])
+      const closeMin = parseInt(day.closeTime.split(':')[1])
+      
+      if (openHour < minOpen) minOpen = openHour
+      if (closeHour > maxClose || (closeHour === maxClose && closeMin > 0)) {
+        maxClose = closeMin > 0 ? closeHour + 1 : closeHour
+      }
+    }
+  })
+  
+  if (minOpen > maxClose) {
+    minOpen = 8
+    maxClose = 20
+  }
+  
+  const slots: string[] = []
+  for (let hour = minOpen; hour < maxClose; hour++) {
+    slots.push(`${hour.toString().padStart(2, '0')}:00`)
+    slots.push(`${hour.toString().padStart(2, '0')}:30`)
+  }
+  
+  return slots
+}
 
 const WEEK_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -128,12 +170,15 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([])
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [showBlockModal, setShowBlockModal] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null)
   const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([])
+  
+  const timeSlots = useMemo(() => generateTimeSlots(businessHours), [businessHours])
 
   const [blockForm, setBlockForm] = useState({
     title: '',
@@ -178,13 +223,21 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
         `/work-schedules?barbershopId=${barbershopId}${barberId ? `&barberId=${barberId}` : ''}`
       )
 
+      const hoursPromise = fetch(`/api/barbershop/business-hours?barbershopId=${barbershopId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      }).then(r => r.json())
+
       if (isManager) {
         const barbersPromise = apiClient.get<{ success: boolean; barbers: any[] }>(
           `/barbers?barbershopId=${barbershopId}`
         )
-        const [aptsRes, blocksRes, schedulesRes, barbersRes] = await Promise.all([
-          appointmentsPromise, blocksPromise, schedulesPromise, barbersPromise
+        const [aptsRes, blocksRes, schedulesRes, barbersRes, hoursRes] = await Promise.all([
+          appointmentsPromise, blocksPromise, schedulesPromise, barbersPromise, hoursPromise
         ])
+        
+        if (hoursRes.businessHours) {
+          setBusinessHours(hoursRes.businessHours)
+        }
 
         if (aptsRes.success && aptsRes.data) {
           const data = aptsRes.data as { success: boolean; appointments: Appointment[] }
@@ -209,9 +262,13 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
           setBarbers(data.barbers?.map((b: any) => ({ id: b.id, name: b.name })) || [])
         }
       } else {
-        const [aptsRes, blocksRes, schedulesRes] = await Promise.all([
-          appointmentsPromise, blocksPromise, schedulesPromise
+        const [aptsRes, blocksRes, schedulesRes, hoursRes] = await Promise.all([
+          appointmentsPromise, blocksPromise, schedulesPromise, hoursPromise
         ])
+        
+        if (hoursRes.businessHours) {
+          setBusinessHours(hoursRes.businessHours)
+        }
 
         if (aptsRes.success && aptsRes.data) {
           const data = aptsRes.data as { success: boolean; appointments: Appointment[] }
@@ -317,9 +374,23 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
     })
   }
 
-  const handlePrevWeek = () => setCurrentDate(d => subWeeks(d, 1))
-  const handleNextWeek = () => setCurrentDate(d => addWeeks(d, 1))
+  const handlePrev = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(d => subWeeks(d, 1))
+    } else {
+      setCurrentDate(d => addDays(d, -1))
+    }
+  }
+  const handleNext = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(d => addWeeks(d, 1))
+    } else {
+      setCurrentDate(d => addDays(d, 1))
+    }
+  }
   const handleToday = () => setCurrentDate(new Date())
+  
+  const displayDates = viewMode === 'week' ? weekDates : [currentDate]
 
   const handleSlotClick = (date: Date, time: string) => {
     if (isManager && !isSlotBlocked(date, time)) {
@@ -416,17 +487,20 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={handlePrevWeek}>
+              <Button variant="outline" size="icon" onClick={handlePrev}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="sm" onClick={handleToday}>
                 Hoje
               </Button>
-              <Button variant="outline" size="icon" onClick={handleNextWeek}>
+              <Button variant="outline" size="icon" onClick={handleNext}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <span className="text-sm font-medium ml-2">
-                {format(weekStart, "d 'de' MMMM", { locale: ptBR })} - {format(weekEnd, "d 'de' MMMM, yyyy", { locale: ptBR })}
+                {viewMode === 'week' 
+                  ? `${format(weekStart, "d 'de' MMMM", { locale: ptBR })} - ${format(weekEnd, "d 'de' MMMM, yyyy", { locale: ptBR })}`
+                  : format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })
+                }
               </span>
             </div>
 
@@ -464,12 +538,12 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
         <CardContent className="p-0">
           <div className="border rounded-lg overflow-hidden">
             <ScrollArea className="h-[600px]">
-              <div className="min-w-[800px]">
-                <div className="grid grid-cols-8 border-b bg-gray-50 sticky top-0 z-10">
+              <div className={viewMode === 'week' ? "min-w-[800px]" : "min-w-[400px]"}>
+                <div className={`grid border-b bg-gray-50 sticky top-0 z-10 ${viewMode === 'week' ? 'grid-cols-8' : 'grid-cols-2'}`}>
                   <div className="p-3 text-center text-sm font-medium text-gray-500 border-r">
                     <Clock className="h-4 w-4 mx-auto" />
                   </div>
-                  {weekDates.map((date, idx) => (
+                  {displayDates.map((date, idx) => (
                     <div 
                       key={idx} 
                       className={`p-3 text-center border-r last:border-r-0 ${
@@ -486,12 +560,12 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                   ))}
                 </div>
 
-                {TIME_SLOTS.map((time) => (
-                  <div key={time} className="grid grid-cols-8 border-b last:border-b-0">
+                {timeSlots.map((time) => (
+                  <div key={time} className={`grid border-b last:border-b-0 ${viewMode === 'week' ? 'grid-cols-8' : 'grid-cols-2'}`}>
                     <div className="p-2 text-center text-xs text-gray-500 border-r bg-gray-50">
                       {time}
                     </div>
-                    {weekDates.map((date, dayIdx) => {
+                    {displayDates.map((date, dayIdx) => {
                       const events = getEventsForSlot(date, time)
                       const blocked = isSlotBlocked(date, time)
                       const outsideSchedule = isOutsideWorkSchedule(date, time)
