@@ -13,10 +13,14 @@ import { withAuth } from '@/lib/middleware';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
-const createAppointmentSchema = insertAppointmentSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+const createAppointmentSchema = z.object({
+  barbershopId: z.string().uuid(),
+  barberId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  scheduledAt: z.string().transform((val) => new Date(val)),
+  duration: z.number().min(15).max(480),
+  totalPrice: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 // GET /api/appointments - Listar agendamentos
@@ -222,18 +226,76 @@ export const POST = withAuth(['client'])(async (req) => {
       );
     }
 
-    // Verificar se o horário está disponível
-    const conflictingAppointment = await db.query.appointments.findFirst({
+    // Verificar se o barbeiro existe e está ativo
+    const barber = await db.query.barbers.findFirst({
+      where: eq(barbers.id, data.barberId),
+    });
+
+    if (!barber || !barber.isActive) {
+      return NextResponse.json(
+        { error: 'Barbeiro não encontrado ou inativo' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar horário de trabalho do barbeiro
+    const scheduledDate = data.scheduledAt;
+    const dayOfWeek = scheduledDate.getDay();
+    const scheduledTime = scheduledDate.toTimeString().slice(0, 5);
+
+    // Buscar agenda de trabalho do barbeiro para o dia específico
+    const { barberWorkSchedules } = await import('@/lib/db/schema');
+    const daySchedule = await db.query.barberWorkSchedules.findFirst({
       where: and(
-        eq(appointments.barberId, data.barberId),
-        eq(appointments.scheduledAt, data.scheduledAt),
-        eq(appointments.status, 'confirmed')
+        eq(barberWorkSchedules.barberId, data.barberId),
+        eq(barberWorkSchedules.dayOfWeek, dayOfWeek),
+        eq(barberWorkSchedules.isActive, true)
       ),
     });
 
-    if (conflictingAppointment) {
+    if (!daySchedule) {
       return NextResponse.json(
-        { error: 'Horário não disponível' },
+        { error: 'O barbeiro não trabalha neste dia' },
+        { status: 400 }
+      );
+    }
+
+    const startTime = daySchedule.startTime;
+    const endTime = daySchedule.endTime;
+
+    if (scheduledTime < startTime || scheduledTime >= endTime) {
+      return NextResponse.json(
+        { error: `O barbeiro só atende entre ${startTime} e ${endTime} neste dia` },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se há conflito com agendamentos existentes do barbeiro
+    const appointmentEndTime = new Date(scheduledDate.getTime() + data.duration * 60000);
+    
+    const existingAppointments = await db
+      .select()
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.barberId, data.barberId),
+          gte(appointments.scheduledAt, new Date(scheduledDate.getTime() - 480 * 60000)),
+          lte(appointments.scheduledAt, appointmentEndTime)
+        )
+      );
+
+    const hasConflict = existingAppointments.some(apt => {
+      if (apt.status === 'cancelled' || apt.status === 'no_show') return false;
+      
+      const aptStart = new Date(apt.scheduledAt);
+      const aptEnd = new Date(aptStart.getTime() + apt.duration * 60000);
+      
+      return (scheduledDate < aptEnd && appointmentEndTime > aptStart);
+    });
+
+    if (hasConflict) {
+      return NextResponse.json(
+        { error: 'O barbeiro já possui um agendamento neste horário' },
         { status: 400 }
       );
     }
@@ -241,8 +303,14 @@ export const POST = withAuth(['client'])(async (req) => {
     const [newAppointment] = await db
       .insert(appointments)
       .values({
-        ...data,
+        barbershopId: data.barbershopId,
+        barberId: data.barberId,
+        serviceId: data.serviceId,
         clientId: client.id,
+        scheduledAt: scheduledDate,
+        duration: data.duration,
+        totalPrice: data.totalPrice || '0',
+        notes: data.notes || null,
         status: 'pending',
       })
       .returning();
