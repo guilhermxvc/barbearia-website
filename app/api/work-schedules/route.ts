@@ -179,8 +179,8 @@ export async function PUT(request: NextRequest) {
           barbershopId,
           barberId,
           dayOfWeek: schedule.dayOfWeek,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime,
+          startTime: schedule.startTime || '08:00',
+          endTime: schedule.endTime || '18:00',
           isActive: true,
         })
         .returning();

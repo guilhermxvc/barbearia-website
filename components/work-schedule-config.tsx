@@ -3,19 +3,22 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Clock, Save, Loader2, AlertCircle, Check } from "lucide-react"
+import { Clock, Save, Loader2, AlertCircle, Check, Calendar, Info } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 
 interface WorkSchedule {
   id?: string
   dayOfWeek: number
-  startTime: string
-  endTime: string
   isActive: boolean
+}
+
+interface BusinessHours {
+  [key: string]: {
+    enabled: boolean
+    openTime: string
+    closeTime: string
+  }
 }
 
 interface WorkScheduleConfigProps {
@@ -25,52 +28,55 @@ interface WorkScheduleConfigProps {
 }
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Domingo', short: 'Dom' },
-  { value: 1, label: 'Segunda-feira', short: 'Seg' },
-  { value: 2, label: 'Terça-feira', short: 'Ter' },
-  { value: 3, label: 'Quarta-feira', short: 'Qua' },
-  { value: 4, label: 'Quinta-feira', short: 'Qui' },
-  { value: 5, label: 'Sexta-feira', short: 'Sex' },
-  { value: 6, label: 'Sábado', short: 'Sáb' },
-]
-
-const DEFAULT_SCHEDULE: Omit<WorkSchedule, 'dayOfWeek'>[] = [
-  { startTime: '08:00', endTime: '18:00', isActive: false },
+  { value: 0, label: 'Domingo', short: 'Dom', key: 'sunday' },
+  { value: 1, label: 'Segunda-feira', short: 'Seg', key: 'monday' },
+  { value: 2, label: 'Terça-feira', short: 'Ter', key: 'tuesday' },
+  { value: 3, label: 'Quarta-feira', short: 'Qua', key: 'wednesday' },
+  { value: 4, label: 'Quinta-feira', short: 'Qui', key: 'thursday' },
+  { value: 5, label: 'Sexta-feira', short: 'Sex', key: 'friday' },
+  { value: 6, label: 'Sábado', short: 'Sáb', key: 'saturday' },
 ]
 
 export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkScheduleConfigProps) {
   const [schedules, setSchedules] = useState<WorkSchedule[]>(
     DAYS_OF_WEEK.map(day => ({
       dayOfWeek: day.value,
-      startTime: '08:00',
-      endTime: '18:00',
       isActive: day.value >= 1 && day.value <= 5
     }))
   )
+  const [businessHours, setBusinessHours] = useState<BusinessHours | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    loadSchedules()
+    loadData()
   }, [barberId, barbershopId])
 
-  const loadSchedules = async () => {
+  const loadData = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get<{ success: boolean; schedules: any[] }>(
-        `/work-schedules?barbershopId=${barbershopId}&barberId=${barberId}`
-      )
+      
+      const [schedulesRes, hoursRes] = await Promise.all([
+        apiClient.get<{ success: boolean; schedules: any[] }>(
+          `/work-schedules?barbershopId=${barbershopId}&barberId=${barberId}`
+        ),
+        fetch(`/api/barbershop/business-hours?barbershopId=${barbershopId}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        }).then(r => r.json())
+      ])
 
-      if (response.success && response.data) {
-        const data = response.data as { success: boolean; schedules: any[] }
+      if (hoursRes.businessHours) {
+        setBusinessHours(hoursRes.businessHours)
+      }
+
+      if (schedulesRes.success && schedulesRes.data) {
+        const data = schedulesRes.data as { success: boolean; schedules: any[] }
         if (data.schedules && data.schedules.length > 0) {
           const existingSchedules = data.schedules.map((s: any) => ({
             id: s.id,
             dayOfWeek: s.dayOfWeek,
-            startTime: s.startTime,
-            endTime: s.endTime,
             isActive: s.isActive
           }))
 
@@ -83,25 +89,25 @@ export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkS
         }
       }
     } catch (err) {
-      console.error('Error loading schedules:', err)
-      setError('Erro ao carregar jornadas de trabalho')
+      console.error('Error loading data:', err)
+      setError('Erro ao carregar dados')
     } finally {
       setLoading(false)
     }
   }
 
   const handleToggleDay = (dayOfWeek: number) => {
+    const day = DAYS_OF_WEEK.find(d => d.value === dayOfWeek)
+    if (day && businessHours) {
+      const shopDay = businessHours[day.key]
+      if (!shopDay?.enabled) {
+        return
+      }
+    }
+    
     setSchedules(prev => 
       prev.map(s => 
         s.dayOfWeek === dayOfWeek ? { ...s, isActive: !s.isActive } : s
-      )
-    )
-  }
-
-  const handleTimeChange = (dayOfWeek: number, field: 'startTime' | 'endTime', value: string) => {
-    setSchedules(prev => 
-      prev.map(s => 
-        s.dayOfWeek === dayOfWeek ? { ...s, [field]: value } : s
       )
     )
   }
@@ -117,8 +123,6 @@ export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkS
         barberId,
         schedules: schedules.map(s => ({
           dayOfWeek: s.dayOfWeek,
-          startTime: s.startTime,
-          endTime: s.endTime,
           isActive: s.isActive
         }))
       })
@@ -133,11 +137,29 @@ export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkS
     }
   }
 
+  const getShopHoursForDay = (dayOfWeek: number) => {
+    const day = DAYS_OF_WEEK.find(d => d.value === dayOfWeek)
+    if (day && businessHours && businessHours[day.key]?.enabled) {
+      return `${businessHours[day.key].openTime} - ${businessHours[day.key].closeTime}`
+    }
+    return null
+  }
+
+  const isShopOpenOnDay = (dayOfWeek: number) => {
+    const day = DAYS_OF_WEEK.find(d => d.value === dayOfWeek)
+    if (day && businessHours) {
+      return businessHours[day.key]?.enabled ?? false
+    }
+    return true
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
-      </div>
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+        </CardContent>
+      </Card>
     )
   }
 
@@ -145,95 +167,97 @@ export function WorkScheduleConfig({ barbershopId, barberId, barberName }: WorkS
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-amber-600" />
-          Jornada de Trabalho
-          {barberName && <span className="text-gray-500 font-normal">- {barberName}</span>}
+          <Calendar className="h-5 w-5 text-amber-600" />
+          {barberName ? `Dias de Trabalho - ${barberName}` : 'Meus Dias de Trabalho'}
         </CardTitle>
         <CardDescription>
-          Configure os dias e horários de trabalho
+          Selecione os dias em que você trabalha. O horário de atendimento segue o funcionamento da barbearia.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            {error}
+          <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm">{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4 flex items-center gap-2">
-            <Check className="h-5 w-5" />
-            Jornada de trabalho salva com sucesso!
+          <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
+            <Check className="h-4 w-4" />
+            <span className="text-sm">Jornada de trabalho salva com sucesso!</span>
           </div>
         )}
 
-        <div className="space-y-4">
-          {DAYS_OF_WEEK.map(day => {
-            const schedule = schedules.find(s => s.dayOfWeek === day.value)!
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+          <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+          <p className="text-sm text-blue-700">
+            O horário de atendimento é definido pelo dono da barbearia nas configurações. 
+            Você pode escolher quais dias trabalhar e bloquear horários específicos quando necessário.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {DAYS_OF_WEEK.map((day) => {
+            const shopOpen = isShopOpenOnDay(day.value)
+            const shopHours = getShopHoursForDay(day.value)
+            const schedule = schedules.find(s => s.dayOfWeek === day.value)
+            
             return (
               <div 
                 key={day.value} 
-                className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-lg border ${
-                  schedule.isActive ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'
+                className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                  !shopOpen 
+                    ? 'bg-gray-100 border-gray-200 opacity-60' 
+                    : schedule?.isActive 
+                      ? 'bg-amber-50 border-amber-200' 
+                      : 'bg-white border-gray-200'
                 }`}
               >
-                <div className="flex items-center justify-between sm:w-40">
-                  <Label className="font-medium">{day.label}</Label>
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-900">{day.label}</span>
+                  {shopOpen ? (
+                    <span className="text-sm text-gray-500 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {shopHours}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">Barbearia fechada</span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {schedule?.isActive && shopOpen && (
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                      Trabalhando
+                    </span>
+                  )}
                   <Switch
-                    checked={schedule.isActive}
+                    checked={schedule?.isActive && shopOpen}
                     onCheckedChange={() => handleToggleDay(day.value)}
+                    disabled={!shopOpen}
                   />
                 </div>
-
-                {schedule.isActive && (
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-gray-500 whitespace-nowrap">Das</Label>
-                      <Input
-                        type="time"
-                        value={schedule.startTime}
-                        onChange={(e) => handleTimeChange(day.value, 'startTime', e.target.value)}
-                        className="w-28"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-gray-500 whitespace-nowrap">às</Label>
-                      <Input
-                        type="time"
-                        value={schedule.endTime}
-                        onChange={(e) => handleTimeChange(day.value, 'endTime', e.target.value)}
-                        className="w-28"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {!schedule.isActive && (
-                  <div className="text-sm text-gray-500 italic">
-                    Não trabalha neste dia
-                  </div>
-                )}
               </div>
             )
           })}
         </div>
 
-        <div className="flex justify-end mt-6">
+        <div className="pt-4 border-t">
           <Button 
             onClick={handleSave} 
             disabled={saving}
-            className="bg-amber-600 hover:bg-amber-700"
+            className="w-full bg-amber-600 hover:bg-amber-700"
           >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 mr-2" />
-                Salvar Jornada
+                <Save className="mr-2 h-4 w-4" />
+                Salvar Dias de Trabalho
               </>
             )}
           </Button>
