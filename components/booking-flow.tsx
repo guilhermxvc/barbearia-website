@@ -5,15 +5,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Clock, DollarSign, User, Check } from "lucide-react"
+import { ArrowLeft, Clock, DollarSign, User, Check, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { appointmentsApi } from "@/lib/api/appointments"
 import { servicesApi } from "@/lib/api/services"
 import { barbersApi } from "@/lib/api/barbers"
 
+interface BusinessHours {
+  [key: string]: {
+    isOpen: boolean
+    openTime: string
+    closeTime: string
+  }
+}
+
 interface BookingFlowProps {
   barbershop: any
   onBack: () => void
+}
+
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+function generateTimeSlots(openTime: string, closeTime: string, intervalMinutes: number = 30): string[] {
+  const slots: string[] = []
+  const [openHour, openMin] = openTime.split(':').map(Number)
+  const [closeHour, closeMin] = closeTime.split(':').map(Number)
+  
+  let currentMinutes = openHour * 60 + openMin
+  const endMinutes = closeHour * 60 + closeMin
+  
+  while (currentMinutes < endMinutes) {
+    const hours = Math.floor(currentMinutes / 60)
+    const mins = currentMinutes % 60
+    slots.push(`${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`)
+    currentMinutes += intervalMinutes
+  }
+  
+  return slots
 }
 
 export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
@@ -27,7 +56,10 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   const [notes, setNotes] = useState("")
   const [services, setServices] = useState<any[]>([])
   const [barbers, setBarbers] = useState<any[]>([])
+  const [businessHours, setBusinessHours] = useState<BusinessHours | null>(null)
+  const [availableSlots, setAvailableSlots] = useState<{date: string, day: string, slots: string[]}[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingSlots, setLoadingSlots] = useState(false)
 
   useEffect(() => {
     if (barbershop?.id) {
@@ -35,13 +67,24 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
     }
   }, [barbershop?.id])
 
+  useEffect(() => {
+    if (businessHours) {
+      generateAvailableSlots()
+    }
+  }, [businessHours])
+
   const loadData = async () => {
     try {
       setLoading(true)
       
-      const [servicesRes, barbersRes] = await Promise.all([
+      const [servicesRes, barbersRes, hoursRes] = await Promise.all([
         servicesApi.list(barbershop.id),
-        barbersApi.getAll(barbershop.id)
+        barbersApi.getAll(barbershop.id),
+        fetch(`/api/barbershop/business-hours?barbershopId=${barbershop.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }).then(r => r.json())
       ])
       
       if (servicesRes.success && servicesRes.data) {
@@ -51,6 +94,20 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       if (barbersRes.success && barbersRes.data) {
         setBarbers(barbersRes.data)
       }
+
+      if (hoursRes.businessHours) {
+        setBusinessHours(hoursRes.businessHours)
+      } else {
+        setBusinessHours({
+          sunday: { isOpen: false, openTime: "09:00", closeTime: "18:00" },
+          monday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+          tuesday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+          wednesday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+          thursday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+          friday: { isOpen: true, openTime: "09:00", closeTime: "19:00" },
+          saturday: { isOpen: true, openTime: "09:00", closeTime: "17:00" },
+        })
+      }
     } catch (error) {
       console.error("Load data error:", error)
     } finally {
@@ -58,11 +115,52 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
     }
   }
 
-  const availableSlots = [
-    { date: "2024-01-16", day: "Hoje", slots: ["14:00", "14:30", "15:00", "16:30"] },
-    { date: "2024-01-17", day: "Amanhã", slots: ["09:00", "09:30", "10:00", "11:00", "14:00", "15:30"] },
-    { date: "2024-01-18", day: "Quinta", slots: ["08:30", "09:00", "10:30", "11:00", "14:30", "16:00"] },
-  ]
+  const generateAvailableSlots = () => {
+    if (!businessHours) return
+
+    setLoadingSlots(true)
+    const slots: {date: string, day: string, slots: string[]}[] = []
+    const today = new Date()
+    
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      
+      const dayOfWeek = date.getDay()
+      const dayKey = DAY_KEYS[dayOfWeek]
+      const daySchedule = businessHours[dayKey]
+      
+      if (daySchedule?.isOpen) {
+        const dateStr = date.toISOString().split('T')[0]
+        let dayName = DAY_NAMES[dayOfWeek]
+        
+        if (i === 0) dayName = 'Hoje'
+        else if (i === 1) dayName = 'Amanhã'
+        
+        const timeSlots = generateTimeSlots(daySchedule.openTime, daySchedule.closeTime, 30)
+        
+        if (i === 0) {
+          const currentHour = today.getHours()
+          const currentMin = today.getMinutes()
+          const currentMinutes = currentHour * 60 + currentMin + 60
+          
+          const filteredSlots = timeSlots.filter(slot => {
+            const [h, m] = slot.split(':').map(Number)
+            return h * 60 + m > currentMinutes
+          })
+          
+          if (filteredSlots.length > 0) {
+            slots.push({ date: dateStr, day: dayName, slots: filteredSlots })
+          }
+        } else {
+          slots.push({ date: dateStr, day: dayName, slots: timeSlots })
+        }
+      }
+    }
+    
+    setAvailableSlots(slots)
+    setLoadingSlots(false)
+  }
 
   const handleBooking = async () => {
     if (!selectedService || !selectedBarber || !selectedDateTime) {
@@ -240,16 +338,27 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
         <Card>
           <CardHeader>
             <CardTitle>Escolha Data e Hora</CardTitle>
-            <CardDescription>Selecione o melhor horário para você</CardDescription>
+            <CardDescription>Selecione o melhor horário para você (horários conforme funcionamento da barbearia)</CardDescription>
           </CardHeader>
           <CardContent>
+            {loadingSlots ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>Não há horários disponíveis nos próximos 14 dias.</p>
+                <p className="text-sm">A barbearia pode estar fechada ou sem horários configurados.</p>
+              </div>
+            ) : (
             <div className="space-y-6">
               {availableSlots.map((daySlots) => (
                 <div key={daySlots.date}>
                   <h3 className="font-semibold text-gray-900 mb-3">
-                    {daySlots.day} - {new Date(daySlots.date).toLocaleDateString("pt-BR")}
+                    {daySlots.day} - {new Date(daySlots.date + 'T12:00:00').toLocaleDateString("pt-BR")}
                   </h3>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
                     {daySlots.slots.map((slot) => (
                       <Button
                         key={`${daySlots.date}-${slot}`}
@@ -258,6 +367,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
                             ? "default"
                             : "outline"
                         }
+                        size="sm"
                         className={
                           selectedDateTime?.date === daySlots.date && selectedDateTime?.time === slot
                             ? "bg-amber-600 hover:bg-amber-700"
@@ -272,6 +382,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
                 </div>
               ))}
             </div>
+            )}
             <div className="flex justify-between mt-6">
               <Button variant="outline" onClick={() => setStep(2)}>
                 Voltar
