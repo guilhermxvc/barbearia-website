@@ -18,8 +18,8 @@ import { FinancialManagement } from "@/components/financial-management"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import { CalendarView } from "@/components/calendar-view"
-import { WorkScheduleConfig } from "@/components/work-schedule-config"
 import { BusinessHoursConfig } from "@/components/business-hours-config"
+import { TimeBlockManager } from "@/components/time-block-manager"
 
 export default function ManagerDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -645,6 +645,13 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
 
       {barbershop?.id && (
         <BusinessHoursConfig barbershopId={barbershop.id} />
+      )}
+
+      {barbershop?.id && (
+        <TimeBlockManager 
+          barbershopId={barbershop.id} 
+          isManager={true}
+        />
       )}
 
       <Card>

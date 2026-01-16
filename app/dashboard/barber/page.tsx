@@ -18,7 +18,7 @@ import { apiClient } from "@/lib/api"
 import { format, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarView } from "@/components/calendar-view"
-import { WorkScheduleConfig } from "@/components/work-schedule-config"
+import { TimeBlockManager } from "@/components/time-block-manager"
 
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -116,7 +116,7 @@ export default function BarberDashboard() {
 
 function ScheduleSection() {
   const { user } = useAuth()
-  const [showWorkSchedule, setShowWorkSchedule] = useState(false)
+  const [showTimeBlocks, setShowTimeBlocks] = useState(false)
 
   if (!user?.barber?.barbershopId || !user?.barber?.id) {
     return (
@@ -131,16 +131,16 @@ function ScheduleSection() {
       <div className="flex justify-end">
         <Button 
           variant="outline" 
-          onClick={() => setShowWorkSchedule(!showWorkSchedule)}
+          onClick={() => setShowTimeBlocks(!showTimeBlocks)}
           className="border-amber-300 text-amber-700 hover:bg-amber-50"
         >
           <Clock className="h-4 w-4 mr-2" />
-          {showWorkSchedule ? 'Ver Calendário' : 'Configurar Jornada'}
+          {showTimeBlocks ? 'Ver Calendário' : 'Bloquear Horário'}
         </Button>
       </div>
 
-      {showWorkSchedule ? (
-        <WorkScheduleConfig 
+      {showTimeBlocks ? (
+        <TimeBlockManager 
           barbershopId={user.barber.barbershopId} 
           barberId={user.barber.id}
         />
