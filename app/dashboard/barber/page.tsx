@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, User, Star, TrendingUp, Loader2 } from "lucide-react"
+import { Calendar, User, Star, TrendingUp, Loader2 } from "lucide-react"
 import { BarberSidebar } from "@/components/barber-sidebar"
 import { BarberClients } from "@/components/barber-clients"
 import { BarberProfile } from "@/components/barber-profile"
@@ -116,7 +116,6 @@ export default function BarberDashboard() {
 
 function ScheduleSection() {
   const { user } = useAuth()
-  const [showTimeBlocks, setShowTimeBlocks] = useState(false)
 
   if (!user?.barber?.barbershopId || !user?.barber?.id) {
     return (
@@ -128,28 +127,15 @@ function ScheduleSection() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button 
-          variant="outline" 
-          onClick={() => setShowTimeBlocks(!showTimeBlocks)}
-          className="border-amber-300 text-amber-700 hover:bg-amber-50"
-        >
-          <Clock className="h-4 w-4 mr-2" />
-          {showTimeBlocks ? 'Ver Calendário' : 'Bloquear Horário'}
-        </Button>
-      </div>
-
-      {showTimeBlocks ? (
-        <TimeBlockManager 
-          barbershopId={user.barber.barbershopId} 
-          barberId={user.barber.id}
-        />
-      ) : (
-        <CalendarView 
-          barbershopId={user.barber.barbershopId} 
-          barberId={user.barber.id}
-        />
-      )}
+      <CalendarView 
+        barbershopId={user.barber.barbershopId} 
+        barberId={user.barber.id}
+      />
+      
+      <TimeBlockManager 
+        barbershopId={user.barber.barbershopId} 
+        barberId={user.barber.id}
+      />
     </div>
   )
 }
