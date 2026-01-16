@@ -505,23 +505,22 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
             </div>
 
             <div className="flex items-center gap-2">
-              {isManager && (
-                <Button 
-                  onClick={() => {
-                    setBlockForm(prev => ({
-                      ...prev,
-                      startDate: format(new Date(), 'yyyy-MM-dd'),
-                      endDate: format(new Date(), 'yyyy-MM-dd')
-                    }))
-                    setShowBlockModal(true)
-                  }}
-                  size="sm"
-                  className="bg-amber-600 hover:bg-amber-700"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Bloquear Horário
-                </Button>
-              )}
+              <Button 
+                onClick={() => {
+                  setBlockForm(prev => ({
+                    ...prev,
+                    startDate: format(new Date(), 'yyyy-MM-dd'),
+                    endDate: format(new Date(), 'yyyy-MM-dd'),
+                    barberId: isManager ? undefined : barberId
+                  }))
+                  setShowBlockModal(true)
+                }}
+                size="sm"
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Bloquear Horário
+              </Button>
               <Select value={viewMode} onValueChange={(v: 'week' | 'day') => setViewMode(v)}>
                 <SelectTrigger className="w-32">
                   <SelectValue />

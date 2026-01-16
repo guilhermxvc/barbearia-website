@@ -18,7 +18,6 @@ import { apiClient } from "@/lib/api"
 import { format, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarView } from "@/components/calendar-view"
-import { TimeBlockManager } from "@/components/time-block-manager"
 
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -128,11 +127,6 @@ function ScheduleSection() {
   return (
     <div className="space-y-6">
       <CalendarView 
-        barbershopId={user.barber.barbershopId} 
-        barberId={user.barber.id}
-      />
-      
-      <TimeBlockManager 
         barbershopId={user.barber.barbershopId} 
         barberId={user.barber.id}
       />
