@@ -61,8 +61,9 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   const [availableSlots, setAvailableSlots] = useState<{date: string, day: string, dayShort: string, dayNumber: string, month: string, slots: string[]}[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
-  const [barberWorkDays, setBarberWorkDays] = useState<number[]>([])
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [timeBlocks, setTimeBlocks] = useState<any[]>([])
+  const [existingAppointments, setExistingAppointments] = useState<any[]>([])
 
   useEffect(() => {
     if (barbershop?.id) {
@@ -71,35 +72,10 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   }, [barbershop?.id])
 
   useEffect(() => {
-    if (selectedBarber) {
-      loadBarberWorkDays()
+    if (selectedBarber && businessHours) {
+      loadBarberAvailability()
     }
-  }, [selectedBarber])
-
-  useEffect(() => {
-    if (businessHours && selectedBarber && barberWorkDays.length > 0) {
-      generateAvailableSlots()
-    }
-  }, [businessHours, selectedBarber, barberWorkDays])
-
-  const loadBarberWorkDays = async () => {
-    if (!selectedBarber) return
-    try {
-      const res = await fetch(`/api/work-schedules?barbershopId=${barbershop.id}&barberId=${selectedBarber.id}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-      }).then(r => r.json())
-      
-      if (res.success && res.schedules) {
-        const activeDays = res.schedules
-          .filter((s: any) => s.isActive)
-          .map((s: any) => s.dayOfWeek)
-        setBarberWorkDays(activeDays)
-      }
-    } catch (error) {
-      console.error('Error loading barber work days:', error)
-      setBarberWorkDays([1, 2, 3, 4, 5])
-    }
-  }
+  }, [selectedBarber, businessHours])
 
   const loadData = async () => {
     try {
@@ -143,10 +119,44 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
     }
   }
 
-  const generateAvailableSlots = () => {
+  const loadBarberAvailability = async () => {
     if (!businessHours || !selectedBarber) return
 
     setLoadingSlots(true)
+    
+    try {
+      const today = new Date()
+      const endDate = new Date(today)
+      endDate.setDate(today.getDate() + 30)
+      
+      const startDateStr = today.toISOString().split('T')[0]
+      const endDateStr = endDate.toISOString().split('T')[0]
+      
+      const [blocksRes, appointmentsRes] = await Promise.all([
+        fetch(`/api/time-blocks?barbershopId=${barbershop.id}&barberId=${selectedBarber.id}&startDate=${startDateStr}&endDate=${endDateStr}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        }).then(r => r.json()),
+        fetch(`/api/appointments?barbershopId=${barbershop.id}&barberId=${selectedBarber.id}&startDate=${startDateStr}&endDate=${endDateStr}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        }).then(r => r.json())
+      ])
+      
+      const blocks = blocksRes.success ? (blocksRes.data?.timeBlocks || blocksRes.timeBlocks || []) : []
+      const appointments = appointmentsRes.success ? (appointmentsRes.data?.appointments || appointmentsRes.appointments || []) : []
+      
+      setTimeBlocks(blocks)
+      setExistingAppointments(appointments)
+      
+      generateAvailableSlotsWithFilters(blocks, appointments)
+    } catch (error) {
+      console.error('Error loading barber availability:', error)
+      generateAvailableSlotsWithFilters([], [])
+    }
+  }
+
+  const generateAvailableSlotsWithFilters = (blocks: any[], appointments: any[]) => {
+    if (!businessHours || !selectedBarber) return
+
     const slots: {date: string, day: string, dayShort: string, dayNumber: string, month: string, slots: string[]}[] = []
     const today = new Date()
     
@@ -161,9 +171,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       const dayKey = DAY_KEYS[dayOfWeek]
       const daySchedule = businessHours[dayKey]
       
-      const barberWorksThisDay = barberWorkDays.length === 0 || barberWorkDays.includes(dayOfWeek)
-      
-      if (daySchedule?.isOpen && barberWorksThisDay) {
+      if (daySchedule?.isOpen) {
         const dateStr = date.toISOString().split('T')[0]
         let dayName = DAY_NAMES[dayOfWeek]
         
@@ -172,34 +180,43 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
         
         const timeSlots = generateTimeSlots(daySchedule.openTime, daySchedule.closeTime, 30)
         
-        if (i === 0) {
-          const currentHour = today.getHours()
-          const currentMin = today.getMinutes()
-          const currentMinutes = currentHour * 60 + currentMin + 60
+        const filteredSlots = timeSlots.filter(slot => {
+          const slotDateTime = new Date(`${dateStr}T${slot}:00`)
           
-          const filteredSlots = timeSlots.filter(slot => {
-            const [h, m] = slot.split(':').map(Number)
-            return h * 60 + m > currentMinutes
-          })
-          
-          if (filteredSlots.length > 0) {
-            slots.push({ 
-              date: dateStr, 
-              day: dayName, 
-              dayShort: DAY_SHORT[dayOfWeek],
-              dayNumber: date.getDate().toString(),
-              month: MONTHS[date.getMonth()],
-              slots: filteredSlots 
-            })
+          if (i === 0) {
+            const currentTime = new Date()
+            currentTime.setMinutes(currentTime.getMinutes() + 60)
+            if (slotDateTime <= currentTime) return false
           }
-        } else {
+          
+          const isBlocked = blocks.some(block => {
+            if (block.barberId !== null && block.barberId !== selectedBarber.id) return false
+            
+            const blockStart = new Date(block.startTime)
+            const blockEnd = new Date(block.endTime)
+            return slotDateTime >= blockStart && slotDateTime < blockEnd
+          })
+          if (isBlocked) return false
+          
+          const hasAppointment = appointments.some(apt => {
+            if (apt.status === 'cancelled' || apt.status === 'no_show') return false
+            const aptStart = new Date(apt.scheduledAt)
+            const aptEnd = new Date(aptStart.getTime() + (apt.duration || 30) * 60000)
+            return slotDateTime >= aptStart && slotDateTime < aptEnd
+          })
+          if (hasAppointment) return false
+          
+          return true
+        })
+        
+        if (filteredSlots.length > 0) {
           slots.push({ 
             date: dateStr, 
             day: dayName, 
             dayShort: DAY_SHORT[dayOfWeek],
             dayNumber: date.getDate().toString(),
             month: MONTHS[date.getMonth()],
-            slots: timeSlots 
+            slots: filteredSlots 
           })
         }
       }
@@ -403,7 +420,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
               <div className="text-center py-12 text-gray-500">
                 <Clock className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                 <p className="text-lg font-medium">Não há horários disponíveis</p>
-                <p className="text-sm mt-2">O barbeiro pode não ter dias de trabalho configurados ou a barbearia está fechada.</p>
+                <p className="text-sm mt-2">A barbearia pode estar fechada ou todos os horários já foram preenchidos.</p>
               </div>
             ) : (
               <div className="space-y-6">
