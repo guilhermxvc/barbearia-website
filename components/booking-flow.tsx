@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Clock, DollarSign, User, Check, Loader2 } from "lucide-react"
+import { ArrowLeft, Clock, DollarSign, User, Check, Loader2, ChevronLeft, ChevronRight, Calendar } from "lucide-react"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { useAuth } from "@/contexts/AuthContext"
 import { appointmentsApi } from "@/lib/api/appointments"
 import { servicesApi } from "@/lib/api/services"
@@ -57,10 +58,11 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
   const [services, setServices] = useState<any[]>([])
   const [barbers, setBarbers] = useState<any[]>([])
   const [businessHours, setBusinessHours] = useState<BusinessHours | null>(null)
-  const [availableSlots, setAvailableSlots] = useState<{date: string, day: string, slots: string[]}[]>([])
+  const [availableSlots, setAvailableSlots] = useState<{date: string, day: string, dayShort: string, dayNumber: string, month: string, slots: string[]}[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [barberWorkDays, setBarberWorkDays] = useState<number[]>([])
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   useEffect(() => {
     if (barbershop?.id) {
@@ -145,10 +147,13 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
     if (!businessHours || !selectedBarber) return
 
     setLoadingSlots(true)
-    const slots: {date: string, day: string, slots: string[]}[] = []
+    const slots: {date: string, day: string, dayShort: string, dayNumber: string, month: string, slots: string[]}[] = []
     const today = new Date()
     
-    for (let i = 0; i < 14; i++) {
+    const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    for (let i = 0; i < 30; i++) {
       const date = new Date(today)
       date.setDate(today.getDate() + i)
       
@@ -156,7 +161,7 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       const dayKey = DAY_KEYS[dayOfWeek]
       const daySchedule = businessHours[dayKey]
       
-      const barberWorksThisDay = barberWorkDays.includes(dayOfWeek)
+      const barberWorksThisDay = barberWorkDays.length === 0 || barberWorkDays.includes(dayOfWeek)
       
       if (daySchedule?.isOpen && barberWorksThisDay) {
         const dateStr = date.toISOString().split('T')[0]
@@ -178,15 +183,32 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
           })
           
           if (filteredSlots.length > 0) {
-            slots.push({ date: dateStr, day: dayName, slots: filteredSlots })
+            slots.push({ 
+              date: dateStr, 
+              day: dayName, 
+              dayShort: DAY_SHORT[dayOfWeek],
+              dayNumber: date.getDate().toString(),
+              month: MONTHS[date.getMonth()],
+              slots: filteredSlots 
+            })
           }
         } else {
-          slots.push({ date: dateStr, day: dayName, slots: timeSlots })
+          slots.push({ 
+            date: dateStr, 
+            day: dayName, 
+            dayShort: DAY_SHORT[dayOfWeek],
+            dayNumber: date.getDate().toString(),
+            month: MONTHS[date.getMonth()],
+            slots: timeSlots 
+          })
         }
       }
     }
     
     setAvailableSlots(slots)
+    if (slots.length > 0 && !selectedDay) {
+      setSelectedDay(slots[0].date)
+    }
     setLoadingSlots(false)
   }
 
@@ -361,55 +383,116 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
         </Card>
       )}
 
-      {/* Step 3: Escolher Data e Hora */}
+      {/* Step 3: Escolher Data e Hora - Estilo Booksy */}
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Escolha Data e Hora</CardTitle>
-            <CardDescription>Selecione o melhor horário para você (horários conforme funcionamento da barbearia)</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-amber-600" />
+              Escolha Data e Hora
+            </CardTitle>
+            <CardDescription>Selecione o dia e depois o horário disponível</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingSlots ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                <span className="ml-3 text-gray-600">Carregando horários...</span>
               </div>
             ) : availableSlots.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p>Não há horários disponíveis nos próximos 14 dias.</p>
-                <p className="text-sm">A barbearia pode estar fechada ou sem horários configurados.</p>
+              <div className="text-center py-12 text-gray-500">
+                <Clock className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-medium">Não há horários disponíveis</p>
+                <p className="text-sm mt-2">O barbeiro pode não ter dias de trabalho configurados ou a barbearia está fechada.</p>
               </div>
             ) : (
-            <div className="space-y-6">
-              {availableSlots.map((daySlots) => (
-                <div key={daySlots.date}>
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    {daySlots.day} - {new Date(daySlots.date + 'T12:00:00').toLocaleDateString("pt-BR")}
-                  </h3>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                    {daySlots.slots.map((slot) => (
-                      <Button
-                        key={`${daySlots.date}-${slot}`}
-                        variant={
-                          selectedDateTime?.date === daySlots.date && selectedDateTime?.time === slot
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        className={
-                          selectedDateTime?.date === daySlots.date && selectedDateTime?.time === slot
-                            ? "bg-amber-600 hover:bg-amber-700"
-                            : ""
-                        }
-                        onClick={() => setSelectedDateTime({ date: daySlots.date, time: slot, day: daySlots.day })}
-                      >
-                        {slot}
-                      </Button>
-                    ))}
-                  </div>
+              <div className="space-y-6">
+                {/* Seletor de Dias - Estilo Booksy */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Selecione o dia:</p>
+                  <ScrollArea className="w-full whitespace-nowrap">
+                    <div className="flex gap-2 pb-3">
+                      {availableSlots.map((daySlots) => {
+                        const isSelected = selectedDay === daySlots.date
+                        const isToday = daySlots.day === 'Hoje'
+                        return (
+                          <button
+                            key={daySlots.date}
+                            onClick={() => {
+                              setSelectedDay(daySlots.date)
+                              setSelectedDateTime(null)
+                            }}
+                            className={`flex-shrink-0 flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all min-w-[70px] ${
+                              isSelected
+                                ? 'border-amber-600 bg-amber-50 text-amber-700'
+                                : 'border-gray-200 hover:border-amber-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-xs font-medium ${isSelected ? 'text-amber-600' : 'text-gray-500'}`}>
+                              {isToday ? 'Hoje' : daySlots.dayShort}
+                            </span>
+                            <span className={`text-xl font-bold ${isSelected ? 'text-amber-700' : 'text-gray-900'}`}>
+                              {daySlots.dayNumber}
+                            </span>
+                            <span className={`text-xs ${isSelected ? 'text-amber-600' : 'text-gray-400'}`}>
+                              {daySlots.month}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
                 </div>
-              ))}
-            </div>
+
+                {/* Horários do Dia Selecionado */}
+                {selectedDay && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-3">
+                      Horários disponíveis para{' '}
+                      <span className="text-amber-600 font-semibold">
+                        {availableSlots.find(s => s.date === selectedDay)?.day}
+                      </span>:
+                    </p>
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                      {availableSlots.find(s => s.date === selectedDay)?.slots.map((slot) => {
+                        const isSlotSelected = selectedDateTime?.date === selectedDay && selectedDateTime?.time === slot
+                        return (
+                          <Button
+                            key={`${selectedDay}-${slot}`}
+                            variant="outline"
+                            size="sm"
+                            className={`h-11 font-medium ${
+                              isSlotSelected
+                                ? 'bg-amber-600 text-white border-amber-600 hover:bg-amber-700'
+                                : 'hover:border-amber-400 hover:bg-amber-50'
+                            }`}
+                            onClick={() => setSelectedDateTime({ 
+                              date: selectedDay, 
+                              time: slot, 
+                              day: availableSlots.find(s => s.date === selectedDay)?.day 
+                            })}
+                          >
+                            {slot}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumo da Seleção */}
+                {selectedDateTime && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
+                    <div className="flex items-center gap-2 text-amber-800">
+                      <Check className="h-5 w-5" />
+                      <span className="font-medium">
+                        Selecionado: {selectedDateTime.day}, {new Date(selectedDateTime.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {selectedDateTime.time}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             <div className="flex justify-between mt-6">
               <Button variant="outline" onClick={() => setStep(2)}>
