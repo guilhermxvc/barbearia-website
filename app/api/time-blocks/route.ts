@@ -14,7 +14,12 @@ function getUserFromToken(request: NextRequest) {
   
   const token = authHeader.split(' ')[1];
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; userType: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; userId?: string; email: string; userType: string };
+    return {
+      userId: decoded.id || decoded.userId,
+      email: decoded.email,
+      userType: decoded.userType
+    };
   } catch {
     return null;
   }

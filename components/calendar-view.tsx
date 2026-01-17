@@ -423,9 +423,13 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
         ? new Date(`${blockForm.endDate}T23:59:59`)
         : new Date(`${blockForm.endDate}T${blockForm.endTime}:00`)
 
+      // Se é barbeiro (não é manager), usa seu próprio barberId
+      // Se é manager, usa o barberId selecionado ou null (toda barbearia)
+      const finalBarberId = !isManager ? barberId : (blockForm.barberId || null)
+
       const response = await apiClient.post('/time-blocks', {
         barbershopId,
-        barberId: blockForm.barberId || null,
+        barberId: finalBarberId,
         title: blockForm.title,
         description: blockForm.description,
         startDate: startDateTime.toISOString(),
