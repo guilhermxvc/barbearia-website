@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -175,6 +177,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   const [error, setError] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [showBlockModal, setShowBlockModal] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; appointmentId: string | null }>({ show: false, appointmentId: null })
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null)
   const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([])
   
@@ -467,16 +470,23 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   }
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm('Tem certeza que deseja remover este agendamento da agenda?')) return
+    setDeleteConfirmation({ show: true, appointmentId })
+  }
+
+  const confirmDeleteAppointment = async () => {
+    if (!deleteConfirmation.appointmentId) return
     
     try {
-      const response = await apiClient.delete(`/appointments/${appointmentId}`)
+      const response = await apiClient.delete(`/appointments/${deleteConfirmation.appointmentId}`)
       if (response.success) {
         setSelectedEvent(null)
+        setDeleteConfirmation({ show: false, appointmentId: null })
+        toast.success("Agendamento removido da agenda")
         loadData()
       }
     } catch (err) {
       console.error('Error deleting appointment:', err)
+      toast.error("Erro ao remover agendamento")
     }
   }
 
@@ -942,6 +952,24 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação para Remoção */}
+      <AlertDialog open={deleteConfirmation.show} onOpenChange={(open: boolean) => !open && setDeleteConfirmation({ show: false, appointmentId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Agendamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover este agendamento da agenda? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAppointment} className="bg-red-600 hover:bg-red-700">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

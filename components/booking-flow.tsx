@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { appointmentsApi } from "@/lib/api/appointments"
 import { servicesApi } from "@/lib/api/services"
 import { barbersApi } from "@/lib/api/barbers"
+import { toast } from "sonner"
 
 interface BusinessHours {
   [key: string]: {
@@ -231,12 +232,12 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
 
   const handleBooking = async () => {
     if (!selectedService || !selectedBarber || !selectedDateTime) {
-      alert("Por favor, complete todos os passos do agendamento")
+      toast.error("Por favor, complete todos os passos do agendamento")
       return
     }
 
     if (!clientId) {
-      alert("Erro: Cliente não identificado. Faça login novamente.")
+      toast.error("Erro: Cliente não identificado. Faça login novamente.")
       return
     }
 
@@ -257,14 +258,16 @@ export function BookingFlow({ barbershop, onBack }: BookingFlowProps) {
       const response = await appointmentsApi.create(appointmentData)
       
       if (response.success) {
-        alert("Agendamento realizado com sucesso!")
+        toast.success("Agendamento realizado com sucesso!", {
+          description: `${selectedDateTime.day}, ${new Date(selectedDateTime.date + 'T12:00:00').toLocaleDateString('pt-BR')} às ${selectedDateTime.time}`,
+        })
         onBack()
       } else {
-        alert(response.error || "Erro ao criar agendamento")
+        toast.error(response.error || "Erro ao criar agendamento")
       }
     } catch (error) {
       console.error("Booking error:", error)
-      alert("Erro ao processar agendamento. Tente novamente.")
+      toast.error("Erro ao processar agendamento. Tente novamente.")
     }
   }
 
