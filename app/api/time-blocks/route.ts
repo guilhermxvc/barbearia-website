@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { timeBlocks, barbers, users } from '@/lib/db/schema';
-import { eq, and, gte, lte, or } from 'drizzle-orm';
+import { eq, and, gte, lte, or, isNull } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'barbershop-secret-key';
@@ -35,14 +35,41 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const barbershopId = searchParams.get('barbershopId');
     const barberId = searchParams.get('barberId');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
 
     if (!barbershopId) {
       return NextResponse.json({ success: false, error: 'ID da barbearia é obrigatório' }, { status: 400 });
     }
 
-    let query = db.select({
+    // Build conditions array
+    const conditions = [
+      eq(timeBlocks.barbershopId, barbershopId),
+      eq(timeBlocks.isActive, true)
+    ];
+
+    // If barberId is provided, filter for blocks that apply to this barber
+    // (either specific to the barber OR barbershop-wide with barberId = null)
+    if (barberId) {
+      conditions.push(
+        or(
+          eq(timeBlocks.barberId, barberId),
+          isNull(timeBlocks.barberId)
+        )!
+      );
+    }
+
+    // Add date range filter if provided
+    if (startDateParam && endDateParam) {
+      const startDate = new Date(startDateParam);
+      const endDate = new Date(endDateParam);
+      endDate.setHours(23, 59, 59, 999);
+      
+      conditions.push(gte(timeBlocks.endDate, startDate));
+      conditions.push(lte(timeBlocks.startDate, endDate));
+    }
+
+    const blocks = await db.select({
       block: timeBlocks,
       barber: barbers,
       user: users
@@ -50,22 +77,28 @@ export async function GET(request: NextRequest) {
       .from(timeBlocks)
       .leftJoin(barbers, eq(timeBlocks.barberId, barbers.id))
       .leftJoin(users, eq(barbers.userId, users.id))
-      .where(and(
-        eq(timeBlocks.barbershopId, barbershopId),
-        eq(timeBlocks.isActive, true)
-      ));
-
-    const blocks = await query;
+      .where(and(...conditions));
 
     const formattedBlocks = blocks.map(b => ({
-      ...b.block,
+      id: b.block.id,
+      barbershopId: b.block.barbershopId,
+      barberId: b.block.barberId,
+      title: b.block.title,
+      description: b.block.description,
+      startDate: b.block.startDate,
+      endDate: b.block.endDate,
+      startTime: b.block.startDate, // Alias for frontend compatibility
+      endTime: b.block.endDate,     // Alias for frontend compatibility
+      allDay: b.block.allDay,
+      blockType: b.block.blockType,
+      isActive: b.block.isActive,
       barber: b.barber ? {
         id: b.barber.id,
         name: b.user?.firstName + ' ' + b.user?.lastName
       } : null
     }));
 
-    return NextResponse.json({ success: true, blocks: formattedBlocks });
+    return NextResponse.json({ success: true, timeBlocks: formattedBlocks, blocks: formattedBlocks });
   } catch (error) {
     console.error('Error fetching time blocks:', error);
     return NextResponse.json({ success: false, error: 'Erro ao buscar bloqueios' }, { status: 500 });
