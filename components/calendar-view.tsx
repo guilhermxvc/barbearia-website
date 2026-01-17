@@ -710,38 +710,20 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                     )}
 
                     <div className="flex gap-2 pt-4 border-t">
-                      {apt.status === 'pending' && (
-                        <Button 
-                          onClick={() => handleUpdateAppointmentStatus(apt.id, 'confirmed')}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          Confirmar
-                        </Button>
-                      )}
-                      {apt.status === 'confirmed' && (
-                        <Button 
-                          onClick={() => handleUpdateAppointmentStatus(apt.id, 'in_progress')}
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          Iniciar
-                        </Button>
-                      )}
-                      {apt.status === 'in_progress' && (
-                        <Button 
-                          onClick={() => handleUpdateAppointmentStatus(apt.id, 'completed')}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Concluir
-                        </Button>
-                      )}
-                      {['pending', 'confirmed'].includes(apt.status) && (
+                      {['confirmed', 'in_progress'].includes(apt.status) && (
                         <Button 
                           variant="outline"
                           onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
-                          Cancelar
+                          Desmarcar Agendamento
                         </Button>
+                      )}
+                      {apt.status === 'completed' && (
+                        <p className="text-sm text-gray-500">Atendimento concluído</p>
+                      )}
+                      {apt.status === 'cancelled' && (
+                        <p className="text-sm text-gray-500">Agendamento cancelado</p>
                       )}
                     </div>
                   </>
