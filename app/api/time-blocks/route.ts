@@ -74,6 +74,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
     }
 
+    if (!user.userId) {
+      console.error('User ID not found in token:', user);
+      return NextResponse.json({ success: false, error: 'Usuário inválido no token' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { barbershopId, barberId, title, description, startDate, endDate, allDay, blockType } = body;
 

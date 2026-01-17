@@ -410,9 +410,18 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   }
 
   const handleCreateBlock = async () => {
+    if (!blockForm.title || !blockForm.startDate || !blockForm.endDate || !blockForm.blockType) {
+      toast.error("Preencha todos os campos obrigatórios")
+      return
+    }
+
     try {
-      const startDateTime = new Date(`${blockForm.startDate}T${blockForm.startTime}:00`)
-      const endDateTime = new Date(`${blockForm.endDate}T${blockForm.endTime}:00`)
+      const startDateTime = blockForm.allDay 
+        ? new Date(`${blockForm.startDate}T00:00:00`)
+        : new Date(`${blockForm.startDate}T${blockForm.startTime}:00`)
+      const endDateTime = blockForm.allDay
+        ? new Date(`${blockForm.endDate}T23:59:59`)
+        : new Date(`${blockForm.endDate}T${blockForm.endTime}:00`)
 
       const response = await apiClient.post('/time-blocks', {
         barbershopId,
@@ -426,6 +435,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
       })
 
       if (response.success) {
+        toast.success("Bloqueio criado com sucesso!")
         setShowBlockModal(false)
         setBlockForm({
           title: '',
@@ -439,9 +449,12 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
           barberId: undefined
         })
         loadData()
+      } else {
+        toast.error(response.error || "Erro ao criar bloqueio")
       }
     } catch (err) {
       console.error('Error creating block:', err)
+      toast.error("Erro ao criar bloqueio")
     }
   }
 
