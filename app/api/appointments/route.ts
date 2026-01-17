@@ -260,7 +260,9 @@ export const POST = withAuth(['client'])(async (req) => {
     const businessHours = barbershop.businessHours as Record<string, any> | null;
     if (businessHours && businessHours[dayKey]) {
       const dayHours = businessHours[dayKey];
-      if (!dayHours.enabled) {
+      const isOpen = dayHours.isOpen ?? dayHours.enabled ?? false;
+      
+      if (!isOpen) {
         return NextResponse.json(
           { error: 'A barbearia está fechada neste dia' },
           { status: 400 }
@@ -276,23 +278,6 @@ export const POST = withAuth(['client'])(async (req) => {
           { status: 400 }
         );
       }
-    }
-
-    // Verificar se o barbeiro trabalha neste dia
-    const { barberWorkSchedules } = await import('@/lib/db/schema');
-    const barberDaySchedule = await db.query.barberWorkSchedules.findFirst({
-      where: and(
-        eq(barberWorkSchedules.barberId, data.barberId),
-        eq(barberWorkSchedules.dayOfWeek, dayOfWeek),
-        eq(barberWorkSchedules.isActive, true)
-      ),
-    });
-
-    if (!barberDaySchedule) {
-      return NextResponse.json(
-        { error: 'O barbeiro não trabalha neste dia' },
-        { status: 400 }
-      );
     }
 
     // Verificar se há bloqueio de horário para o barbeiro
