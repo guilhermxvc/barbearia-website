@@ -207,6 +207,15 @@ export const DELETE = withAuth(['manager', 'barber', 'client'])(async (req, cont
       }
     }
 
+    // Se já está cancelado, deletar definitivamente; caso contrário, apenas cancelar
+    if (appointment.status === 'cancelled') {
+      await db.delete(appointments).where(eq(appointments.id, id));
+      return NextResponse.json({
+        success: true,
+        message: 'Agendamento removido da agenda',
+      });
+    }
+
     // Cancelar o agendamento
     const [cancelledAppointment] = await db
       .update(appointments)

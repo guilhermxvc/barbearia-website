@@ -466,6 +466,20 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
     }
   }
 
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (!confirm('Tem certeza que deseja remover este agendamento da agenda?')) return
+    
+    try {
+      const response = await apiClient.delete(`/appointments/${appointmentId}`)
+      if (response.success) {
+        setSelectedEvent(null)
+        loadData()
+      }
+    } catch (err) {
+      console.error('Error deleting appointment:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -723,7 +737,13 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                         <p className="text-sm text-gray-500">Atendimento concluído</p>
                       )}
                       {apt.status === 'cancelled' && (
-                        <p className="text-sm text-gray-500">Agendamento cancelado</p>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleDeleteAppointment(apt.id)}
+                          className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                        >
+                          Limpar da Agenda
+                        </Button>
                       )}
                     </div>
                   </>
