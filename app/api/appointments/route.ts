@@ -10,8 +10,36 @@ import {
   insertAppointmentSchema,
 } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
-import { eq, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+
+async function updateAppointmentStatusesAutomatically() {
+  const now = new Date();
+  
+  const activeAppointments = await db
+    .select()
+    .from(appointments)
+    .where(
+      inArray(appointments.status, ['confirmed', 'in_progress'])
+    );
+  
+  for (const apt of activeAppointments) {
+    const scheduledAt = new Date(apt.scheduledAt);
+    const endTime = new Date(scheduledAt.getTime() + apt.duration * 60000);
+    
+    if (apt.status === 'confirmed' && now >= scheduledAt && now < endTime) {
+      await db
+        .update(appointments)
+        .set({ status: 'in_progress', updatedAt: now })
+        .where(eq(appointments.id, apt.id));
+    } else if ((apt.status === 'confirmed' || apt.status === 'in_progress') && now >= endTime) {
+      await db
+        .update(appointments)
+        .set({ status: 'completed', updatedAt: now })
+        .where(eq(appointments.id, apt.id));
+    }
+  }
+}
 
 const createAppointmentSchema = z.object({
   barbershopId: z.string().uuid(),
@@ -26,6 +54,8 @@ const createAppointmentSchema = z.object({
 // GET /api/appointments - Listar agendamentos
 export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
   try {
+    await updateAppointmentStatusesAutomatically();
+    
     const { searchParams } = new URL(req.url);
     const barbershopId = searchParams.get('barbershopId');
     const barberId = searchParams.get('barberId');
@@ -349,7 +379,7 @@ export const POST = withAuth(['client'])(async (req) => {
         duration: data.duration,
         totalPrice: data.totalPrice || '0',
         notes: data.notes || null,
-        status: 'pending',
+        status: 'confirmed',
       })
       .returning();
 
