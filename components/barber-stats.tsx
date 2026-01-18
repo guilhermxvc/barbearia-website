@@ -216,20 +216,6 @@ export function BarberStats() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            
-            {topService && (
-              <div className="mt-4 p-3 bg-amber-50 rounded-lg flex items-center gap-3">
-                <div className="h-8 w-8 bg-amber-100 rounded-full flex items-center justify-center">
-                  <Scissors className="h-4 w-4 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-amber-800 font-medium">
-                    Campeão do mês: <span className="font-bold">{topService.name}</span>
-                  </p>
-                  <p className="text-xs text-amber-600">{topService.count} vezes realizado</p>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       ) : (
