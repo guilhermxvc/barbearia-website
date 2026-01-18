@@ -28,9 +28,8 @@ export function BarberReports() {
 
       const response = await apiClient.get(`/appointments?barberId=${user.barber.id}`)
 
-      if (response.success && response.appointments) {
-        setAppointments(response.appointments)
-      }
+      const appointmentsData = response.data?.appointments || response.appointments || []
+      setAppointments(appointmentsData)
     } catch (error) {
       console.error("Erro ao carregar relatórios:", error)
     } finally {
