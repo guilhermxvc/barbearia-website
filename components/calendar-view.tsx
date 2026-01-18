@@ -308,10 +308,16 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
       const end = new Date(start.getTime() + apt.duration * 60000)
       
       if (start >= weekStart && start <= weekEnd) {
+        // Para managers: mostra nome do barbeiro (quem vai atender)
+        // Para barbeiros: mostra nome do cliente (quem vai ser atendido)
+        const displayTitle = isManager 
+          ? (apt.barber?.name || 'Barbeiro')
+          : (apt.client?.name || 'Cliente')
+        
         events.push({
           id: apt.id,
           type: 'appointment',
-          title: apt.client?.name || 'Cliente',
+          title: displayTitle,
           subtitle: apt.service?.name,
           start,
           end,
