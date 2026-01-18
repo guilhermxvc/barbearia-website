@@ -46,11 +46,10 @@ export function BarberStats() {
 
   const completedAppointments = appointments.filter((a) => a.status === "completed")
   const totalRevenue = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
-  const commission = totalRevenue * ((user?.barber?.commissionRate || 0) / 100)
 
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid md:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -83,18 +82,6 @@ export function BarberStats() {
                 <p className="text-2xl font-bold text-gray-900">R$ {totalRevenue.toFixed(2)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Minha Comissão ({user?.barber?.commissionRate}%)</p>
-                <p className="text-2xl font-bold text-amber-900">R$ {commission.toFixed(2)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>

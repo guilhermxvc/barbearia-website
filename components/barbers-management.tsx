@@ -202,7 +202,6 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
                           </div>
 
                           <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
-                            <span>Comissão: {barber.commissionRate}%</span>
                             <Badge variant={barber.isActive ? "default" : "secondary"}>
                               {barber.isActive ? "Ativo" : "Inativo"}
                             </Badge>
@@ -345,7 +344,6 @@ function BarberForm({ barber, onClose, onSave }: {
 }) {
   const [formData, setFormData] = useState({
     specialties: Array.isArray(barber.specialties) ? barber.specialties : [],
-    commissionRate: barber.commissionRate || "40.00",
     isActive: barber.isActive,
   })
 
@@ -403,18 +401,6 @@ function BarberForm({ barber, onClose, onSave }: {
             Adicionar Especialidade
           </Button>
         </div>
-      </div>
-
-      <div>
-        <Label htmlFor="commissionRate">Taxa de Comissão (%)</Label>
-        <Input
-          id="commissionRate"
-          type="number"
-          step="0.01"
-          value={formData.commissionRate}
-          onChange={(e) => setFormData({ ...formData, commissionRate: e.target.value })}
-          placeholder="40.00"
-        />
       </div>
 
       <div className="flex items-center space-x-2">

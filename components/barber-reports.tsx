@@ -62,11 +62,10 @@ export function BarberReports() {
 
   const completedAppointments = appointments.filter((a) => a.status === "completed")
   const totalRevenue = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
-  const commission = totalRevenue * ((user?.barber?.commissionRate || 0) / 100)
 
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -87,20 +86,6 @@ export function BarberReports() {
                 <p className="text-3xl font-bold text-gray-900">R$ {totalRevenue.toFixed(2)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Minha Comissão ({user.barber.commissionRate}%)
-                </p>
-                <p className="text-3xl font-bold text-amber-900">R$ {commission.toFixed(2)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
@@ -144,9 +129,6 @@ export function BarberReports() {
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
                       R$ {Number(appointment.totalPrice || 0).toFixed(2)}
-                    </p>
-                    <p className="text-sm text-amber-600">
-                      Comissão: R$ {(Number(appointment.totalPrice || 0) * ((user?.barber?.commissionRate || 0) / 100)).toFixed(2)}
                     </p>
                     <Badge className="bg-green-100 text-green-800 mt-1">Completado</Badge>
                   </div>
