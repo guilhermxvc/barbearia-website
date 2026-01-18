@@ -74,7 +74,7 @@ export function BarberStats() {
   
   const totalRevenue = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
 
-  const uniqueClients = new Set(monthAppointments.map(a => a.clientId)).size
+  const uniqueClients = new Set(completedAppointments.map(a => a.clientId)).size
 
   const serviceCount: Record<string, number> = {}
   completedAppointments.forEach(a => {
