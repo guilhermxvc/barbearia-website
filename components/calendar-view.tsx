@@ -218,8 +218,9 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
         `/appointments?barbershopId=${barbershopId}${barberId ? `&barberId=${barberId}` : ''}`
       )
 
+      // For barbers, only fetch their own blocks. For managers, fetch all blocks.
       const blocksPromise = apiClient.get<{ success: boolean; blocks: TimeBlock[] }>(
-        `/time-blocks?barbershopId=${barbershopId}`
+        `/time-blocks?barbershopId=${barbershopId}${!isManager && barberId ? `&barberId=${barberId}` : ''}`
       )
 
       const schedulesPromise = apiClient.get<{ success: boolean; schedules: any[] }>(
