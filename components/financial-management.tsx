@@ -600,11 +600,92 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         </TabsContent>
 
         <TabsContent value="accounts-payable" className="space-y-4">
+          {/* Seção de Comissões dos Barbeiros */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-amber-600" />
+                    Comissões dos Barbeiros
+                  </CardTitle>
+                  <CardDescription>Valores a pagar para cada barbeiro baseado nos serviços realizados</CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Total de Comissões</p>
+                  <p className="text-2xl font-bold text-amber-600">R$ {totalPendingCommissions.toFixed(2)}</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Agrupar vendas por barbeiro para calcular comissões
+                const barberCommissionsSummary: Record<string, { name: string; total: number; services: number }> = {}
+                
+                filteredSales.forEach(sale => {
+                  const barberName = sale.barber_name
+                  if (!barberCommissionsSummary[barberName]) {
+                    barberCommissionsSummary[barberName] = { name: barberName, total: 0, services: 0 }
+                  }
+                  barberCommissionsSummary[barberName].total += sale.commission_value
+                  barberCommissionsSummary[barberName].services += 1
+                })
+                
+                const barbersList = Object.values(barberCommissionsSummary).sort((a, b) => b.total - a.total)
+                
+                if (barbersList.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>Nenhuma comissão registrada no período</p>
+                    </div>
+                  )
+                }
+                
+                return (
+                  <div className="space-y-3">
+                    {barbersList.map((barber, index) => (
+                      <div key={barber.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold">
+                            {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                          </div>
+                          <div>
+                            <p className="font-medium">{barber.name}</p>
+                            <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''} realizado{barber.services !== 1 ? 's' : ''}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">R$ {barber.total.toFixed(2)}</p>
+                          <p className="text-xs text-gray-400">a pagar</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total a Pagar</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Comissões</CardTitle>
+                <DollarSign className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">
+                  R$ {totalPendingCommissions.toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Para {uniqueBarbers.length} barbeiro{uniqueBarbers.length !== 1 ? 's' : ''}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Outras Contas</CardTitle>
+                <Clock className="h-4 w-4 text-gray-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -617,18 +698,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                 <p className="text-xs text-muted-foreground">
                   {payments.filter((p) => p.status === "pending").length} contas pendentes
                 </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contas Vencidas</CardTitle>
-                <Clock className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {payments.filter((p) => p.status === "overdue").length}
-                </div>
-                <p className="text-xs text-muted-foreground">Requer atenção imediata</p>
               </CardContent>
             </Card>
             <Card>
