@@ -75,7 +75,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   const [totalPendingCommissions, setTotalPendingCommissions] = useState(0)
   const [barbers, setBarbers] = useState<any[]>([])
   const [uniqueBarbers, setUniqueBarbers] = useState<string[]>([])
-  const [salesFilters, setSalesFilters] = useState({ type: "all", barber: "all", startDate: "", endDate: "" })
+  const [salesFilters, setSalesFilters] = useState({ service: "all", barber: "all", month: "" })
   const [allSales, setAllSales] = useState<Sale[]>([])
   const [filteredSales, setFilteredSales] = useState<Sale[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
@@ -174,27 +174,27 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   useEffect(() => {
     let filtered = [...allSales]
     
-    if (salesFilters.type !== 'all') {
-      filtered = filtered.filter(s => s.payment_status === salesFilters.type)
+    if (salesFilters.service !== 'all') {
+      filtered = filtered.filter(s => s.service_name === salesFilters.service)
     }
     
     if (salesFilters.barber !== 'all') {
       filtered = filtered.filter(s => s.barber_name === salesFilters.barber)
     }
     
-    if (salesFilters.startDate) {
-      const start = new Date(salesFilters.startDate)
-      filtered = filtered.filter(s => new Date(s.sale_date) >= start)
-    }
-    
-    if (salesFilters.endDate) {
-      const end = new Date(salesFilters.endDate)
-      end.setHours(23, 59, 59, 999)
-      filtered = filtered.filter(s => new Date(s.sale_date) <= end)
+    if (salesFilters.month) {
+      filtered = filtered.filter(s => {
+        const saleDate = new Date(s.sale_date)
+        const saleMonth = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`
+        return saleMonth === salesFilters.month
+      })
     }
     
     setFilteredSales(filtered)
   }, [salesFilters, allSales])
+  
+  // Get unique services for filter
+  const uniqueServices = [...new Set(allSales.map(s => s.service_name))].sort()
 
   const openBarberModal = (barber: BarberCommissions) => {
     setSelectedBarberForModal(barber)
@@ -492,20 +492,23 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+              <div className="grid gap-4 md:grid-cols-3 mb-6">
                 <div>
-                  <Label htmlFor="type-filter">Status de Pagamento</Label>
+                  <Label htmlFor="service-filter">Serviços e Produtos</Label>
                   <Select
-                    value={salesFilters.type}
-                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, type: value }))}
+                    value={salesFilters.service}
+                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, service: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="paid">Pagos</SelectItem>
-                      <SelectItem value="pending">Pendentes</SelectItem>
+                      {uniqueServices.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -529,21 +532,12 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="start-date">Data Inicial</Label>
+                  <Label htmlFor="month-filter">Mês</Label>
                   <Input
-                    id="start-date"
-                    type="date"
-                    value={salesFilters.startDate}
-                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-date">Data Final</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={salesFilters.endDate}
-                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+                    id="month-filter"
+                    type="month"
+                    value={salesFilters.month}
+                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, month: e.target.value }))}
                   />
                 </div>
               </div>
