@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { apiClient } from "@/lib/api/client"
 import { toast } from "sonner"
 import {
@@ -23,6 +24,8 @@ import {
   CheckCircle,
   Loader2,
   Save,
+  Search,
+  Percent,
 } from "lucide-react"
 
 interface Sale {
@@ -78,10 +81,11 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   const [selectedPaymentMonth, setSelectedPaymentMonth] = useState("")
   
   const [barberServiceCommissions, setBarberServiceCommissions] = useState<BarberCommissions[]>([])
-  const [editingCommission, setEditingCommission] = useState<{barberId: string, serviceId: string} | null>(null)
-  const [editingRate, setEditingRate] = useState("")
   const [savingCommission, setSavingCommission] = useState(false)
-  const [selectedBarberTab, setSelectedBarberTab] = useState<string>("")
+  const [barberSearchFilter, setBarberSearchFilter] = useState("")
+  const [selectedBarberForModal, setSelectedBarberForModal] = useState<BarberCommissions | null>(null)
+  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false)
+  const [editedCommissions, setEditedCommissions] = useState<Record<string, string>>({})
 
   const loadData = useCallback(async () => {
     if (!barbershopId) return
@@ -108,9 +112,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       const commissionsList: BarberCommissions[] = commissionsData.data?.commissions || []
       if (commissionsData.success && commissionsList.length > 0) {
         setBarberServiceCommissions(commissionsList)
-        if (!selectedBarberTab) {
-          setSelectedBarberTab(commissionsList[0].barberId)
-        }
       }
 
       if (salesData.success && salesData.data?.sales) {
@@ -162,7 +163,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     } finally {
       setLoading(false)
     }
-  }, [barbershopId, selectedBarberTab])
+  }, [barbershopId])
 
   useEffect(() => {
     loadData()
@@ -193,55 +194,65 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     setFilteredSales(filtered)
   }, [salesFilters, allSales])
 
-  const handleEditCommission = (barberId: string, serviceId: string, currentRate: string) => {
-    setEditingCommission({ barberId, serviceId })
-    setEditingRate(currentRate)
+  const openBarberModal = (barber: BarberCommissions) => {
+    setSelectedBarberForModal(barber)
+    const initialRates: Record<string, string> = {}
+    barber.services.forEach(s => {
+      initialRates[s.serviceId] = s.commissionRate
+    })
+    setEditedCommissions(initialRates)
+    setIsCommissionModalOpen(true)
   }
 
-  const handleSaveCommission = async () => {
-    if (!editingCommission) return
+  const closeBarberModal = () => {
+    setIsCommissionModalOpen(false)
+    setSelectedBarberForModal(null)
+    setEditedCommissions({})
+  }
+
+  const handleSaveAllCommissions = async () => {
+    if (!selectedBarberForModal) return
     
     setSavingCommission(true)
     try {
-      const response = await apiClient.post('/barber-service-commissions', {
-        barbershopId,
-        barberId: editingCommission.barberId,
-        serviceId: editingCommission.serviceId,
-        commissionRate: parseFloat(editingRate)
-      }) as { success: boolean }
-
-      if (response.success) {
-        setBarberServiceCommissions(prev => prev.map(bc => {
-          if (bc.barberId === editingCommission.barberId) {
-            return {
-              ...bc,
-              services: bc.services.map(s => {
-                if (s.serviceId === editingCommission.serviceId) {
-                  return { ...s, commissionRate: editingRate }
-                }
-                return s
-              })
-            }
+      const promises = Object.entries(editedCommissions).map(([serviceId, rate]) =>
+        apiClient.post('/barber-service-commissions', {
+          barbershopId,
+          barberId: selectedBarberForModal.barberId,
+          serviceId,
+          commissionRate: parseFloat(rate)
+        })
+      )
+      
+      await Promise.all(promises)
+      
+      setBarberServiceCommissions(prev => prev.map(bc => {
+        if (bc.barberId === selectedBarberForModal.barberId) {
+          return {
+            ...bc,
+            services: bc.services.map(s => ({
+              ...s,
+              commissionRate: editedCommissions[s.serviceId] || s.commissionRate
+            }))
           }
-          return bc
-        }))
-        toast.success('Comissão atualizada com sucesso')
-        setEditingCommission(null)
-        setEditingRate("")
-        loadData()
-      }
+        }
+        return bc
+      }))
+      
+      toast.success('Comissões salvas com sucesso')
+      closeBarberModal()
+      loadData()
     } catch (error) {
-      console.error('Error saving commission:', error)
-      toast.error('Erro ao salvar comissão')
+      console.error('Error saving commissions:', error)
+      toast.error('Erro ao salvar comissões')
     } finally {
       setSavingCommission(false)
     }
   }
 
-  const cancelEditCommission = () => {
-    setEditingCommission(null)
-    setEditingRate("")
-  }
+  const filteredBarbers = barberServiceCommissions.filter(bc =>
+    bc.barberName.toLowerCase().includes(barberSearchFilter.toLowerCase())
+  )
 
   if (loading) {
     return (
@@ -251,8 +262,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       </div>
     )
   }
-
-  const selectedBarberCommissions = barberServiceCommissions.find(bc => bc.barberId === selectedBarberTab)
 
   return (
     <div className="space-y-6">
@@ -307,173 +316,163 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         </TabsList>
 
         <TabsContent value="commissions" className="space-y-4">
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-amber-50/30">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <CardTitle className="text-xl">Comissões por Barbeiro</CardTitle>
-                  <CardDescription>Configure a porcentagem de comissão de cada barbeiro para cada serviço</CardDescription>
+                  <CardTitle>Comissões por Barbeiro</CardTitle>
+                  <CardDescription>Clique em um barbeiro para definir as taxas de comissão de cada serviço</CardDescription>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar barbeiro..."
+                    value={barberSearchFilter}
+                    onChange={(e) => setBarberSearchFilter(e.target.value)}
+                    className="pl-9 w-full sm:w-64"
+                  />
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent>
               {barberServiceCommissions.length === 0 ? (
-                <div className="text-center py-12 px-4">
-                  <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <Receipt className="h-10 w-10 text-amber-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-gray-800">Nenhum barbeiro ou serviço cadastrado</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">Cadastre barbeiros e serviços para configurar as comissões individuais.</p>
+                <div className="text-center py-8">
+                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum barbeiro cadastrado</h3>
+                  <p className="text-muted-foreground">Cadastre barbeiros e serviços para configurar as comissões.</p>
+                </div>
+              ) : filteredBarbers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum barbeiro encontrado</h3>
+                  <p className="text-muted-foreground">Tente buscar por outro nome.</p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="flex flex-wrap gap-2">
-                    {barberServiceCommissions.map((bc) => (
-                      <button
-                        key={bc.barberId}
-                        onClick={() => setSelectedBarberTab(bc.barberId)}
-                        className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
-                          selectedBarberTab === bc.barberId
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/30 scale-105'
-                            : 'bg-white border border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50'
-                        }`}
+                <div className="divide-y">
+                  {filteredBarbers.map((barber) => {
+                    const avgCommission = barber.services.length > 0
+                      ? barber.services.reduce((acc: number, s: BarberServiceCommission) => acc + parseFloat(s.commissionRate), 0) / barber.services.length
+                      : 0
+                    
+                    return (
+                      <div
+                        key={barber.barberId}
+                        onClick={() => openBarberModal(barber)}
+                        className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          selectedBarberTab === bc.barberId
-                            ? 'bg-white/20 text-white'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {bc.barberName.charAt(0).toUpperCase()}
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                            {barber.barberName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{barber.barberName}</h4>
+                            <p className="text-sm text-gray-500">{barber.services.length} serviços</p>
+                          </div>
                         </div>
-                        {bc.barberName}
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedBarberCommissions && (
-                    <div className="mt-6">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
-                          {selectedBarberCommissions.barberName.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-800">
-                            {selectedBarberCommissions.barberName}
-                          </h3>
-                          <p className="text-sm text-gray-500">{selectedBarberCommissions.services.length} serviços configurados</p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500">Comissão média</p>
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                              {avgCommission.toFixed(0)}%
+                            </Badge>
+                          </div>
+                          <Edit className="h-4 w-4 text-gray-400" />
                         </div>
                       </div>
-                      
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {selectedBarberCommissions.services.map((service) => {
-                          const isEditing = editingCommission?.barberId === selectedBarberCommissions.barberId && 
-                                           editingCommission?.serviceId === service.serviceId
-                          const price = parseFloat(service.servicePrice)
-                          const rate = parseFloat(service.commissionRate)
-                          const commissionValue = price * (rate / 100)
-                          
-                          return (
-                            <div 
-                              key={service.serviceId} 
-                              className={`relative p-5 rounded-2xl border-2 transition-all duration-300 ${
-                                isEditing 
-                                  ? 'border-amber-400 bg-amber-50 shadow-lg shadow-amber-100' 
-                                  : 'border-gray-100 bg-white hover:border-amber-200 hover:shadow-md'
-                              }`}
-                            >
-                              <div className="flex justify-between items-start mb-4">
-                                <h4 className="font-semibold text-gray-800 text-lg">{service.serviceName}</h4>
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1">
-                                    <Button 
-                                      size="sm" 
-                                      onClick={handleSaveCommission}
-                                      disabled={savingCommission}
-                                      className="h-8 w-8 p-0 bg-green-500 hover:bg-green-600"
-                                    >
-                                      {savingCommission ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <CheckCircle className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline"
-                                      onClick={cancelEditCommission}
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    onClick={() => handleEditCommission(
-                                      selectedBarberCommissions.barberId, 
-                                      service.serviceId, 
-                                      service.commissionRate
-                                    )}
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                              
-                              <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-gray-500">Preço do Serviço</span>
-                                  <span className="font-medium text-gray-700">R$ {price.toFixed(2)}</span>
-                                </div>
-                                
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-gray-500">Taxa de Comissão</span>
-                                  {isEditing ? (
-                                    <div className="flex items-center gap-1">
-                                      <Input
-                                        type="number"
-                                        value={editingRate}
-                                        onChange={(e) => setEditingRate(e.target.value)}
-                                        className="w-16 h-8 text-center text-sm font-semibold"
-                                        min="0"
-                                        max="100"
-                                      />
-                                      <span className="text-sm font-medium text-gray-600">%</span>
-                                    </div>
-                                  ) : (
-                                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-3 py-1 text-sm font-bold">
-                                      {rate}%
-                                    </Badge>
-                                  )}
-                                </div>
-                                
-                                <div className="pt-3 border-t border-gray-100">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-gray-600">Comissão</span>
-                                    <span className="text-lg font-bold text-green-600">
-                                      R$ {isEditing 
-                                        ? (price * (parseFloat(editingRate || '0') / 100)).toFixed(2)
-                                        : commissionValue.toFixed(2)
-                                      }
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
+
+          <Dialog open={isCommissionModalOpen} onOpenChange={setIsCommissionModalOpen}>
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  {selectedBarberForModal && (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                        {selectedBarberForModal.barberName.charAt(0).toUpperCase()}
+                      </div>
+                      <span>Comissões de {selectedBarberForModal.barberName}</span>
+                    </>
+                  )}
+                </DialogTitle>
+                <DialogDescription>
+                  Defina a porcentagem de comissão para cada serviço
+                </DialogDescription>
+              </DialogHeader>
+              
+              {selectedBarberForModal && (
+                <div className="space-y-4 mt-4">
+                  {selectedBarberForModal.services.map((service) => {
+                    const price = parseFloat(service.servicePrice)
+                    const rate = parseFloat(editedCommissions[service.serviceId] || service.commissionRate)
+                    const commissionValue = price * (rate / 100)
+                    
+                    return (
+                      <div key={service.serviceId} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-medium">{service.serviceName}</h4>
+                            <p className="text-sm text-gray-500">Preço: R$ {price.toFixed(2)}</p>
+                          </div>
+                          <span className="text-green-600 font-semibold">
+                            R$ {commissionValue.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Label className="text-sm text-gray-600 min-w-fit">Comissão:</Label>
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              type="number"
+                              value={editedCommissions[service.serviceId] || service.commissionRate}
+                              onChange={(e) => setEditedCommissions(prev => ({
+                                ...prev,
+                                [service.serviceId]: e.target.value
+                              }))}
+                              className="w-20 text-center"
+                              min="0"
+                              max="100"
+                            />
+                            <Percent className="h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={closeBarberModal}
+                      className="flex-1"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSaveAllCommissions}
+                      disabled={savingCommission}
+                      className="flex-1 bg-amber-600 hover:bg-amber-700"
+                    >
+                      {savingCommission ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Salvar Comissões
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="sales" className="space-y-4">
