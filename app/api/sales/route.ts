@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sales, barbershops, barbers, commissions, insertSaleSchema } from '@/lib/db/schema';
+import { sales, barbershops, barbers, clients, users, commissions, appointments, services, insertSaleSchema } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
-import { eq, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-// GET /api/sales - Listar vendas
+// GET /api/sales - Listar vendas com informações completas
 export const GET = withAuth(['manager', 'barber'])(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
@@ -21,11 +21,9 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
       );
     }
 
-    // Verificar autorização baseada no tipo de usuário
     const userRole = req.user!.userType;
     
     if (userRole === 'manager') {
-      // Manager deve ser o dono da barbearia
       const barbershop = await db.query.barbershops.findFirst({
         where: eq(barbershops.id, barbershopId),
       });
@@ -37,7 +35,6 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
         );
       }
     } else if (userRole === 'barber') {
-      // Barbeiro só pode ver vendas da sua barbearia
       const barber = await db.query.barbers.findFirst({
         where: and(
           eq(barbers.userId, req.user!.id),
@@ -73,9 +70,80 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
       .where(and(...whereConditions))
       .orderBy(desc(sales.createdAt));
 
+    const salesWithDetails = await Promise.all(
+      salesList.map(async (sale) => {
+        let barberInfo = null;
+        let clientInfo = null;
+        let appointmentInfo = null;
+        let serviceInfo = null;
+
+        if (sale.barberId) {
+          const barber = await db.query.barbers.findFirst({
+            where: eq(barbers.id, sale.barberId),
+          });
+          if (barber) {
+            const user = await db.query.users.findFirst({
+              where: eq(users.id, barber.userId),
+            });
+            barberInfo = { id: barber.id, name: user?.name || `${user?.firstName} ${user?.lastName}` };
+          }
+        }
+
+        if (sale.clientId) {
+          const client = await db.query.clients.findFirst({
+            where: eq(clients.id, sale.clientId),
+          });
+          if (client) {
+            const user = await db.query.users.findFirst({
+              where: eq(users.id, client.userId),
+            });
+            clientInfo = { id: client.id, name: user?.name || `${user?.firstName} ${user?.lastName}` };
+          }
+        }
+
+        if (sale.appointmentId) {
+          const appointment = await db.query.appointments.findFirst({
+            where: eq(appointments.id, sale.appointmentId),
+          });
+          if (appointment) {
+            const service = await db.query.services.findFirst({
+              where: eq(services.id, appointment.serviceId),
+            });
+            appointmentInfo = {
+              id: appointment.id,
+              scheduledAt: appointment.scheduledAt,
+              serviceName: service?.name,
+            };
+            serviceInfo = service ? { id: service.id, name: service.name } : null;
+          }
+        }
+
+        return {
+          ...sale,
+          barber: barberInfo,
+          client: clientInfo,
+          appointment: appointmentInfo,
+          service: serviceInfo,
+        };
+      })
+    );
+
+    const totalRevenue = salesList.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0);
+    
+    const paymentMethodStats = salesList.reduce((acc, sale) => {
+      const method = sale.paymentMethod || 'other';
+      acc[method] = (acc[method] || 0) + parseFloat(sale.totalAmount);
+      return acc;
+    }, {} as Record<string, number>);
+
     return NextResponse.json({
       success: true,
-      sales: salesList,
+      sales: salesWithDetails,
+      stats: {
+        totalRevenue,
+        totalSales: salesList.length,
+        paymentMethodStats,
+      }
     });
   } catch (error) {
     console.error('Get sales error:', error);
