@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { appointments, barbershops, barbers, clients, sales, paymentMethodEnum } from '@/lib/db/schema';
+import { appointments, barbershops, barbers, clients } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
 import { eq, and } from 'drizzle-orm';
 
@@ -79,27 +79,11 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
     const { params } = context;
     const { id } = params;
     const body = await req.json();
-    const { status, notes, paymentMethod } = body;
+    const { status, notes } = body;
 
-    if (!status || !['pending', 'confirmed', 'in_progress', 'finished', 'completed', 'cancelled', 'no_show'].includes(status)) {
+    if (!status || !['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(status)) {
       return NextResponse.json(
         { error: 'Status inválido' },
-        { status: 400 }
-      );
-    }
-
-    // Se status é 'completed', paymentMethod é obrigatório
-    if (status === 'completed' && !paymentMethod) {
-      return NextResponse.json(
-        { error: 'Método de pagamento é obrigatório para concluir' },
-        { status: 400 }
-      );
-    }
-
-    // Validar método de pagamento
-    if (paymentMethod && !paymentMethodEnum.includes(paymentMethod)) {
-      return NextResponse.json(
-        { error: 'Método de pagamento inválido' },
         { status: 400 }
       );
     }
@@ -143,48 +127,15 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
       }
     }
 
-    // Atualizar o agendamento
-    const updateData: any = {
-      status: status as any,
-      notes: notes || appointment.notes,
-      updatedAt: new Date(),
-    };
-    
-    if (paymentMethod) {
-      updateData.paymentMethod = paymentMethod;
-    }
-
     const [updatedAppointment] = await db
       .update(appointments)
-      .set(updateData)
+      .set({
+        status: status as any,
+        notes: notes || appointment.notes,
+        updatedAt: new Date(),
+      })
       .where(eq(appointments.id, id))
       .returning();
-
-    // Se o status mudou para 'completed', criar uma venda (sale) para o financeiro
-    // Só criar se ainda não existe uma venda para este agendamento
-    if (status === 'completed' && paymentMethod) {
-      const existingSale = await db.query.sales.findFirst({
-        where: eq(sales.appointmentId, appointment.id),
-      });
-
-      if (!existingSale) {
-        await db.insert(sales).values({
-          barbershopId: appointment.barbershopId,
-          clientId: appointment.clientId,
-          barberId: appointment.barberId,
-          appointmentId: appointment.id,
-          items: JSON.stringify([{
-            type: 'service',
-            serviceId: appointment.serviceId,
-            quantity: 1,
-            price: appointment.totalPrice
-          }]),
-          totalAmount: appointment.totalPrice,
-          discount: '0.00',
-          paymentMethod: paymentMethod,
-        });
-      }
-    }
 
     return NextResponse.json({
       success: true,
