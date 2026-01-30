@@ -128,6 +128,7 @@ export const appointments = pgTable('appointments', {
   status: text('status', { enum: appointmentStatusEnum }).default('pending'),
   notes: text('notes'),
   totalPrice: decimal('total_price', { precision: 8, scale: 2 }).notNull(),
+  paymentMethod: text('payment_method'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -157,6 +158,17 @@ export const commissions = pgTable('commissions', {
   isPaid: boolean('is_paid').default(false),
   paidAt: timestamp('paid_at'),
   createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Barber service commission rates table (comissão por barbeiro e serviço)
+export const barberServiceCommissions = pgTable('barber_service_commissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  serviceId: uuid('service_id').references(() => services.id).notNull(),
+  commissionRate: decimal('commission_rate', { precision: 5, scale: 2 }).notNull().default('50.00'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 // Notifications table

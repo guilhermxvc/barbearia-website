@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { apiClient } from "@/lib/api/client"
 import { toast } from "sonner"
 import {
@@ -17,13 +16,13 @@ import {
   Users,
   Calendar,
   Receipt,
-  Plus,
   Edit,
   Clock,
   Filter,
   X,
   CheckCircle,
   Loader2,
+  Save,
 } from "lucide-react"
 
 interface Sale {
@@ -38,15 +37,17 @@ interface Sale {
   barber_name: string
 }
 
-interface Commission {
-  id: string
-  barber_name: string
-  period_start: string
-  period_end: string
-  total_sales: number
-  commission_rate: number
-  total_commission: number
-  payment_status: string
+interface BarberServiceCommission {
+  serviceId: string
+  serviceName: string
+  servicePrice: string
+  commissionRate: string
+}
+
+interface BarberCommissions {
+  barberId: string
+  barberName: string
+  services: BarberServiceCommission[]
 }
 
 interface Payment {
@@ -67,53 +68,77 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   const [loading, setLoading] = useState(true)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalCommissions, setTotalCommissions] = useState(0)
-  const [commissions, setCommissions] = useState<Commission[]>([])
   const [totalPendingCommissions, setTotalPendingCommissions] = useState(0)
-  const [filteredPendingCommissions, setFilteredPendingCommissions] = useState<any[]>([])
   const [barbers, setBarbers] = useState<any[]>([])
   const [uniqueBarbers, setUniqueBarbers] = useState<string[]>([])
-  const [isAddingCommission, setIsAddingCommission] = useState(false)
-  const [editingCommission, setEditingCommission] = useState<string | null>(null)
-  const [newCommissionPercentage, setNewCommissionPercentage] = useState("")
   const [salesFilters, setSalesFilters] = useState({ type: "all", barber: "all", startDate: "", endDate: "" })
   const [allSales, setAllSales] = useState<Sale[]>([])
   const [filteredSales, setFilteredSales] = useState<Sale[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [selectedPaymentMonth, setSelectedPaymentMonth] = useState("")
-  const [newCommissionBarber, setNewCommissionBarber] = useState("")
-  const [newCommissionRate, setNewCommissionRate] = useState("50")
+  
+  const [barberServiceCommissions, setBarberServiceCommissions] = useState<BarberCommissions[]>([])
+  const [editingCommission, setEditingCommission] = useState<{barberId: string, serviceId: string} | null>(null)
+  const [editingRate, setEditingRate] = useState("")
+  const [savingCommission, setSavingCommission] = useState(false)
+  const [selectedBarberTab, setSelectedBarberTab] = useState<string>("")
 
   const loadData = useCallback(async () => {
     if (!barbershopId) return
     
     setLoading(true)
     try {
-      const [salesResponse, barbersResponse] = await Promise.all([
+      const [salesResponse, barbersResponse, commissionsResponse] = await Promise.all([
         apiClient.get(`/sales?barbershopId=${barbershopId}`),
-        apiClient.get(`/barbers?barbershopId=${barbershopId}`)
+        apiClient.get(`/barbers?barbershopId=${barbershopId}`),
+        apiClient.get(`/barber-service-commissions?barbershopId=${barbershopId}`)
       ])
 
       const salesData = salesResponse as { success: boolean; data?: { sales?: any[] } }
       const barbersData = barbersResponse as { success: boolean; data?: { barbers?: any[] } }
+      const commissionsData = commissionsResponse as { success: boolean; data?: { commissions?: BarberCommissions[] } }
 
       if (barbersData.success && barbersData.data?.barbers) {
         setBarbers(barbersData.data.barbers)
       }
 
+      if (commissionsData.success && commissionsData.data?.commissions) {
+        setBarberServiceCommissions(commissionsData.data.commissions)
+        if (commissionsData.data.commissions.length > 0 && !selectedBarberTab) {
+          setSelectedBarberTab(commissionsData.data.commissions[0].barberId)
+        }
+      }
+
       if (salesData.success && salesData.data?.sales) {
         const rawSales = salesData.data.sales
         
-        const transformedSales: Sale[] = rawSales.map((sale: any) => ({
-          id: sale.id,
-          sale_date: sale.createdAt,
-          client_name: sale.clientName || 'Cliente',
-          service_name: sale.serviceName || 'Serviço',
-          service_price: parseFloat(sale.totalAmount || '0'),
-          commission_rate: 50,
-          commission_value: parseFloat(sale.totalAmount || '0') * 0.5,
-          payment_status: 'paid',
-          barber_name: sale.barberName || 'Barbeiro',
-        }))
+        const transformedSales: Sale[] = rawSales.map((sale: any) => {
+          const barberComm = commissionsData.success && commissionsData.data?.commissions 
+            ? commissionsData.data.commissions.find(bc => bc.barberName === sale.barberName)
+            : null
+          
+          let commRate = 50
+          if (barberComm) {
+            const serviceComm = barberComm.services.find(s => s.serviceName === sale.serviceName)
+            if (serviceComm) {
+              commRate = parseFloat(serviceComm.commissionRate)
+            }
+          }
+          
+          const price = parseFloat(sale.totalAmount || '0')
+          
+          return {
+            id: sale.id,
+            sale_date: sale.createdAt,
+            client_name: sale.clientName || 'Cliente',
+            service_name: sale.serviceName || 'Serviço',
+            service_price: price,
+            commission_rate: commRate,
+            commission_value: price * (commRate / 100),
+            payment_status: 'paid',
+            barber_name: sale.barberName || 'Barbeiro',
+          }
+        })
 
         setAllSales(transformedSales)
         setFilteredSales(transformedSales)
@@ -124,36 +149,8 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         const barberNames = [...new Set(transformedSales.map(s => s.barber_name))]
         setUniqueBarbers(barberNames)
 
-        const barberCommissions: Record<string, { total: number; count: number }> = {}
-        transformedSales.forEach(sale => {
-          if (!barberCommissions[sale.barber_name]) {
-            barberCommissions[sale.barber_name] = { total: 0, count: 0 }
-          }
-          barberCommissions[sale.barber_name].total += sale.service_price
-          barberCommissions[sale.barber_name].count++
-        })
-
-        const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-
-        const calculatedCommissions: Commission[] = Object.entries(barberCommissions).map(([name, data], index) => ({
-          id: `commission-${index}`,
-          barber_name: name,
-          period_start: startOfMonth.toISOString(),
-          period_end: endOfMonth.toISOString(),
-          total_sales: data.total,
-          commission_rate: 50,
-          total_commission: data.total * 0.5,
-          payment_status: 'pending',
-        }))
-
-        setCommissions(calculatedCommissions)
-        
-        const totalComm = calculatedCommissions.reduce((acc, c) => acc + c.total_commission, 0)
-        setTotalCommissions(0)
+        const totalComm = transformedSales.reduce((acc, s) => acc + s.commission_value, 0)
         setTotalPendingCommissions(totalComm)
-        setFilteredPendingCommissions(calculatedCommissions)
       }
     } catch (error) {
       console.error('Error loading financial data:', error)
@@ -161,7 +158,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     } finally {
       setLoading(false)
     }
-  }, [barbershopId])
+  }, [barbershopId, selectedBarberTab])
 
   useEffect(() => {
     loadData()
@@ -192,70 +189,54 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     setFilteredSales(filtered)
   }, [salesFilters, allSales])
 
-  const updateCommission = (id: string, newPercentage: number) => {
-    setCommissions(prev => prev.map(c => {
-      if (c.id === id) {
-        return {
-          ...c,
-          commission_rate: newPercentage,
-          total_commission: c.total_sales * (newPercentage / 100)
-        }
-      }
-      return c
-    }))
-    setEditingCommission(null)
-    setNewCommissionPercentage("")
-    toast.success('Taxa de comissão atualizada')
+  const handleEditCommission = (barberId: string, serviceId: string, currentRate: string) => {
+    setEditingCommission({ barberId, serviceId })
+    setEditingRate(currentRate)
   }
 
-  const markCommissionAsPaid = (commission: Commission) => {
-    setCommissions(prev => prev.map(c => {
-      if (c.id === commission.id) {
-        return { ...c, payment_status: 'paid' }
-      }
-      return c
-    }))
+  const handleSaveCommission = async () => {
+    if (!editingCommission) return
     
-    const paidCommission = commissions.find(c => c.id === commission.id)
-    if (paidCommission) {
-      setTotalCommissions(prev => prev + paidCommission.total_commission)
-      setTotalPendingCommissions(prev => prev - paidCommission.total_commission)
-    }
-    
-    toast.success('Comissão marcada como paga')
-  }
+    setSavingCommission(true)
+    try {
+      const response = await apiClient.post('/barber-service-commissions', {
+        barbershopId,
+        barberId: editingCommission.barberId,
+        serviceId: editingCommission.serviceId,
+        commissionRate: parseFloat(editingRate)
+      }) as { success: boolean }
 
-  const handleAddCommission = () => {
-    if (!newCommissionBarber || !newCommissionRate) {
-      toast.error('Selecione um barbeiro e defina a taxa')
-      return
-    }
-    
-    const barber = barbers.find(b => b.id === newCommissionBarber)
-    if (!barber) return
-    
-    const existingIndex = commissions.findIndex(c => c.barber_name === barber.name)
-    
-    if (existingIndex >= 0) {
-      const rate = parseInt(newCommissionRate)
-      setCommissions(prev => prev.map((c, i) => {
-        if (i === existingIndex) {
-          return {
-            ...c,
-            commission_rate: rate,
-            total_commission: c.total_sales * (rate / 100)
+      if (response.success) {
+        setBarberServiceCommissions(prev => prev.map(bc => {
+          if (bc.barberId === editingCommission.barberId) {
+            return {
+              ...bc,
+              services: bc.services.map(s => {
+                if (s.serviceId === editingCommission.serviceId) {
+                  return { ...s, commissionRate: editingRate }
+                }
+                return s
+              })
+            }
           }
-        }
-        return c
-      }))
-      toast.success('Taxa de comissão atualizada')
-    } else {
-      toast.info('Este barbeiro ainda não tem vendas registradas')
+          return bc
+        }))
+        toast.success('Comissão atualizada com sucesso')
+        setEditingCommission(null)
+        setEditingRate("")
+        loadData()
+      }
+    } catch (error) {
+      console.error('Error saving commission:', error)
+      toast.error('Erro ao salvar comissão')
+    } finally {
+      setSavingCommission(false)
     }
-    
-    setIsAddingCommission(false)
-    setNewCommissionBarber("")
-    setNewCommissionRate("50")
+  }
+
+  const cancelEditCommission = () => {
+    setEditingCommission(null)
+    setEditingRate("")
   }
 
   if (loading) {
@@ -266,6 +247,8 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       </div>
     )
   }
+
+  const selectedBarberCommissions = barberServiceCommissions.find(bc => bc.barberId === selectedBarberTab)
 
   return (
     <div className="space-y-6">
@@ -287,7 +270,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">R$ {totalCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{commissions.filter(c => c.payment_status === 'paid').length} comissões pagas</p>
+            <p className="text-xs text-muted-foreground">Comissões já pagas</p>
           </CardContent>
         </Card>
         <Card>
@@ -297,7 +280,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">R$ {totalPendingCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{commissions.filter(c => c.payment_status === 'pending').length} barbeiros</p>
+            <p className="text-xs text-muted-foreground">A pagar aos barbeiros</p>
           </CardContent>
         </Card>
         <Card>
@@ -322,108 +305,133 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         <TabsContent value="commissions" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Comissões dos Barbeiros</CardTitle>
-                  <CardDescription>Gerencie as porcentagens de comissão por barbeiro e serviço</CardDescription>
-                </div>
-                <Button onClick={() => setIsAddingCommission(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Comissão
-                </Button>
+              <div>
+                <CardTitle>Comissões por Barbeiro e Serviço</CardTitle>
+                <CardDescription>Configure a porcentagem de comissão de cada barbeiro para cada serviço</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
-              {commissions.length === 0 ? (
+              {barberServiceCommissions.length === 0 ? (
                 <div className="text-center py-8">
                   <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma comissão encontrada</h3>
-                  <p className="text-muted-foreground">As comissões serão calculadas automaticamente quando houver vendas.</p>
+                  <h3 className="text-lg font-semibold mb-2">Nenhum barbeiro ou serviço cadastrado</h3>
+                  <p className="text-muted-foreground">Cadastre barbeiros e serviços para configurar as comissões.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Barbeiro</th>
-                        <th className="text-left p-2">Período</th>
-                        <th className="text-left p-2">Total de Vendas</th>
-                        <th className="text-left p-2">Taxa de Comissão (%)</th>
-                        <th className="text-left p-2">Valor da Comissão</th>
-                        <th className="text-left p-2">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commissions.map((commission) => (
-                        <tr key={commission.id} className="border-b">
-                          <td className="p-2 font-medium">{commission.barber_name}</td>
-                          <td className="p-2">
-                            {new Date(commission.period_start).toLocaleDateString("pt-BR")} -{" "}
-                            {new Date(commission.period_end).toLocaleDateString("pt-BR")}
-                          </td>
-                          <td className="p-2">R$ {commission.total_sales.toFixed(2)}</td>
-                          <td className="p-2">
-                            {editingCommission === commission.id ? (
-                              <div className="flex items-center space-x-2">
-                                <Input
-                                  type="number"
-                                  value={newCommissionPercentage}
-                                  onChange={(e) => setNewCommissionPercentage(e.target.value)}
-                                  className="w-20"
-                                  placeholder="%"
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    updateCommission(commission.id, Number.parseInt(newCommissionPercentage))
-                                  }
-                                >
-                                  <Receipt className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setEditingCommission(null)
-                                    setNewCommissionPercentage("")
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <span>{commission.commission_rate}%</span>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setEditingCommission(commission.id)
-                                    setNewCommissionPercentage(commission.commission_rate.toString())
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-2">R$ {commission.total_commission.toFixed(2)}</td>
-                          <td className="p-2">
-                            {commission.payment_status === "pending" ? (
-                              <Button size="sm" onClick={() => markCommissionAsPaid(commission)}>
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Marcar como Pago
-                              </Button>
-                            ) : (
-                              <Badge variant="secondary" className="bg-green-100 text-green-700">
-                                Pago
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Selecione o Barbeiro</Label>
+                    <Select value={selectedBarberTab} onValueChange={setSelectedBarberTab}>
+                      <SelectTrigger className="w-full md:w-64">
+                        <SelectValue placeholder="Selecione um barbeiro" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {barberServiceCommissions.map((bc) => (
+                          <SelectItem key={bc.barberId} value={bc.barberId}>
+                            {bc.barberName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedBarberCommissions && (
+                    <div className="mt-4">
+                      <h3 className="text-lg font-semibold mb-4">
+                        Comissões de {selectedBarberCommissions.barberName}
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left p-3 font-medium">Serviço</th>
+                              <th className="text-left p-3 font-medium">Preço do Serviço</th>
+                              <th className="text-left p-3 font-medium">Taxa de Comissão (%)</th>
+                              <th className="text-left p-3 font-medium">Valor da Comissão</th>
+                              <th className="text-left p-3 font-medium">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedBarberCommissions.services.map((service) => {
+                              const isEditing = editingCommission?.barberId === selectedBarberCommissions.barberId && 
+                                               editingCommission?.serviceId === service.serviceId
+                              const price = parseFloat(service.servicePrice)
+                              const rate = parseFloat(service.commissionRate)
+                              const commissionValue = price * (rate / 100)
+                              
+                              return (
+                                <tr key={service.serviceId} className="border-b hover:bg-gray-50">
+                                  <td className="p-3 font-medium">{service.serviceName}</td>
+                                  <td className="p-3">R$ {price.toFixed(2)}</td>
+                                  <td className="p-3">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          value={editingRate}
+                                          onChange={(e) => setEditingRate(e.target.value)}
+                                          className="w-20"
+                                          min="0"
+                                          max="100"
+                                        />
+                                        <span>%</span>
+                                      </div>
+                                    ) : (
+                                      <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                                        {rate}%
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-semibold text-green-600">
+                                    R$ {isEditing 
+                                      ? (price * (parseFloat(editingRate || '0') / 100)).toFixed(2)
+                                      : commissionValue.toFixed(2)
+                                    }
+                                  </td>
+                                  <td className="p-3">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-2">
+                                        <Button 
+                                          size="sm" 
+                                          onClick={handleSaveCommission}
+                                          disabled={savingCommission}
+                                        >
+                                          {savingCommission ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Save className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline"
+                                          onClick={cancelEditCommission}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost"
+                                        onClick={() => handleEditCommission(
+                                          selectedBarberCommissions.barberId, 
+                                          service.serviceId, 
+                                          service.commissionRate
+                                        )}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -515,10 +523,11 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                         <th className="text-left p-2">Data</th>
                         <th className="text-left p-2">Cliente</th>
                         <th className="text-left p-2">Serviço</th>
+                        <th className="text-left p-2">Barbeiro</th>
                         <th className="text-left p-2">Valor do Serviço</th>
-                        <th className="text-left p-2">Taxa de Comissão (%)</th>
+                        <th className="text-left p-2">Comissão (%)</th>
                         <th className="text-left p-2">Valor da Comissão</th>
-                        <th className="text-left p-2">Status de Pagamento</th>
+                        <th className="text-left p-2">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -526,7 +535,8 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                         <tr key={sale.id} className="border-b">
                           <td className="p-2">{new Date(sale.sale_date).toLocaleDateString("pt-BR")}</td>
                           <td className="p-2 font-medium">{sale.client_name}</td>
-                          <td className="p-2 font-medium">{sale.service_name}</td>
+                          <td className="p-2">{sale.service_name}</td>
+                          <td className="p-2">{sale.barber_name}</td>
                           <td className="p-2">R$ {sale.service_price.toFixed(2)}</td>
                           <td className="p-2">{sale.commission_rate}%</td>
                           <td className="p-2 font-semibold text-green-600">R$ {sale.commission_value.toFixed(2)}</td>
@@ -710,53 +720,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={isAddingCommission} onOpenChange={setIsAddingCommission}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Comissão</DialogTitle>
-            <DialogDescription>
-              Configure a taxa de comissão para um barbeiro
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Barbeiro</Label>
-              <Select value={newCommissionBarber} onValueChange={setNewCommissionBarber}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um barbeiro" />
-                </SelectTrigger>
-                <SelectContent>
-                  {barbers.map((barber) => (
-                    <SelectItem key={barber.id} value={barber.id}>
-                      {barber.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Taxa de Comissão (%)</Label>
-              <Input
-                type="number"
-                value={newCommissionRate}
-                onChange={(e) => setNewCommissionRate(e.target.value)}
-                min="0"
-                max="100"
-                placeholder="50"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddingCommission(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAddCommission}>
-              Salvar Comissão
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
