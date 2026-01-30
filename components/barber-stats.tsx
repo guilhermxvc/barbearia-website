@@ -17,9 +17,16 @@ import { apiClient } from "@/lib/api"
 import { startOfMonth, endOfMonth, isWithinInterval } from "date-fns"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
 
+interface ServiceCommission {
+  serviceId: string
+  serviceName: string
+  commissionRate: string
+}
+
 export function BarberStats() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState<any[]>([])
+  const [commissions, setCommissions] = useState<ServiceCommission[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -38,17 +45,39 @@ export function BarberStats() {
       const monthStart = startOfMonth(now).toISOString().split('T')[0]
       const monthEnd = endOfMonth(now).toISOString().split('T')[0]
 
-      const response = await apiClient.get(
-        `/appointments?barberId=${user.barber.id}&startDate=${monthStart}&endDate=${monthEnd}`
-      )
+      // Fetch appointments and commissions in parallel
+      const [appointmentsRes, commissionsRes] = await Promise.all([
+        apiClient.get(
+          `/appointments?barberId=${user.barber.id}&startDate=${monthStart}&endDate=${monthEnd}`
+        ),
+        apiClient.get(`/barber-service-commissions?barberId=${user.barber.id}`)
+      ])
 
-      const appointmentsData = response.data?.appointments || response.appointments || []
+      const appointmentsData = (appointmentsRes as any).data?.appointments || (appointmentsRes as any).appointments || []
       setAppointments(appointmentsData)
+      
+      // Get commissions for this barber
+      const commissionsData = (commissionsRes as any).data?.commissions || (commissionsRes as any).commissions || []
+      if (commissionsData.length > 0) {
+        setCommissions(commissionsData[0]?.services || [])
+      }
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error)
     } finally {
       setLoading(false)
     }
+  }
+  
+  // Calculate commission value for a completed appointment
+  const calculateCommission = (appointment: any): number => {
+    const servicePrice = Number(appointment.totalPrice) || 0
+    const serviceName = appointment.service?.name || ''
+    
+    // Find the commission rate for this service
+    const serviceComm = commissions.find(c => c.serviceName === serviceName)
+    const commissionRate = serviceComm ? parseFloat(serviceComm.commissionRate) : 50 // Default 50%
+    
+    return servicePrice * (commissionRate / 100)
   }
 
   if (loading) {
@@ -72,7 +101,8 @@ export function BarberStats() {
   )
   const completedAppointments = monthAppointments.filter((a) => a.status === "completed")
   
-  const totalRevenue = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
+  // Calculate total earnings based on commission rates (not full service price)
+  const totalEarnings = completedAppointments.reduce((sum, a) => sum + calculateCommission(a), 0)
 
   const uniqueClients = new Set(completedAppointments.map(a => a.clientId)).size
 
@@ -144,12 +174,12 @@ export function BarberStats() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 font-medium">Faturamento</p>
-                <p className="text-2xl font-bold text-gray-900">R$ {totalRevenue.toFixed(0)}</p>
-                <p className="text-xs text-gray-400">no mês</p>
+                <p className="text-xs text-gray-500 font-medium">Seus Ganhos</p>
+                <p className="text-2xl font-bold text-green-600">R$ {totalEarnings.toFixed(2)}</p>
+                <p className="text-xs text-gray-400">comissões no mês</p>
               </div>
-              <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-amber-600" />
+              <div className="h-10 w-10 bg-green-50 rounded-full flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
