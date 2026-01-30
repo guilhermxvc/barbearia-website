@@ -37,6 +37,7 @@ interface Sale {
   commission_rate: number
   commission_value: number
   payment_status: string
+  payment_method: string
   barber_name: string
 }
 
@@ -141,6 +142,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
             commission_rate: commRate,
             commission_value: price * (commRate / 100),
             payment_status: 'paid',
+            payment_method: sale.paymentMethod || 'Não informado',
             barber_name: sale.barberName || 'Barbeiro',
           }
         })
@@ -556,31 +558,36 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Data</th>
-                        <th className="text-left p-2">Cliente</th>
-                        <th className="text-left p-2">Serviço</th>
-                        <th className="text-left p-2">Barbeiro</th>
-                        <th className="text-left p-2">Valor do Serviço</th>
-                        <th className="text-left p-2">Comissão (%)</th>
-                        <th className="text-left p-2">Valor da Comissão</th>
-                        <th className="text-left p-2">Status</th>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Data</th>
+                        <th className="text-left p-3 font-medium">Cliente</th>
+                        <th className="text-left p-3 font-medium">Serviço</th>
+                        <th className="text-left p-3 font-medium">Barbeiro</th>
+                        <th className="text-left p-3 font-medium">Valor</th>
+                        <th className="text-left p-3 font-medium">Pagamento</th>
+                        <th className="text-left p-3 font-medium">Comissão</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSales.map((sale) => (
-                        <tr key={sale.id} className="border-b">
-                          <td className="p-2">{new Date(sale.sale_date).toLocaleDateString("pt-BR")}</td>
-                          <td className="p-2 font-medium">{sale.client_name}</td>
-                          <td className="p-2">{sale.service_name}</td>
-                          <td className="p-2">{sale.barber_name}</td>
-                          <td className="p-2">R$ {sale.service_price.toFixed(2)}</td>
-                          <td className="p-2">{sale.commission_rate}%</td>
-                          <td className="p-2 font-semibold text-green-600">R$ {sale.commission_value.toFixed(2)}</td>
-                          <td className="p-2">
-                            <Badge variant={sale.payment_status === "paid" ? "default" : "secondary"}>
-                              {sale.payment_status === "paid" ? "Pago" : "Pendente"}
+                        <tr key={sale.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3">{new Date(sale.sale_date).toLocaleDateString("pt-BR")}</td>
+                          <td className="p-3 font-medium">{sale.client_name}</td>
+                          <td className="p-3">{sale.service_name}</td>
+                          <td className="p-3">{sale.barber_name}</td>
+                          <td className="p-3 font-medium">R$ {sale.service_price.toFixed(2)}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="capitalize">
+                              {sale.payment_method === 'credit_card' ? 'Cartão Crédito' :
+                               sale.payment_method === 'debit_card' ? 'Cartão Débito' :
+                               sale.payment_method === 'pix' ? 'PIX' :
+                               sale.payment_method === 'cash' || sale.payment_method === 'dinheiro' ? 'Dinheiro' :
+                               sale.payment_method}
                             </Badge>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-green-600 font-medium">R$ {sale.commission_value.toFixed(2)}</span>
+                            <span className="text-gray-400 text-sm ml-1">({sale.commission_rate}%)</span>
                           </td>
                         </tr>
                       ))}

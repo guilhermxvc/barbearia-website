@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { appointments, barbershops, barbers, clients } from '@/lib/db/schema';
+import { appointments, barbershops, barbers, clients, sales, services, barberServiceCommissions, commissions } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
 import { eq, and } from 'drizzle-orm';
 
@@ -79,7 +79,7 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
     const { params } = context;
     const { id } = params;
     const body = await req.json();
-    const { status, notes } = body;
+    const { status, notes, paymentMethod } = body;
 
     if (!status || !['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(status)) {
       return NextResponse.json(
@@ -91,6 +91,9 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
     // Verificar se o agendamento existe
     const appointment = await db.query.appointments.findFirst({
       where: eq(appointments.id, id),
+      with: {
+        service: true,
+      }
     });
 
     if (!appointment) {
@@ -101,8 +104,8 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
     }
 
     // Verificar permissões
+    let currentBarber = null;
     if (req.user!.userType === 'manager') {
-      // Manager pode atualizar qualquer agendamento da sua barbearia
       const barbershop = await db.query.barbershops.findFirst({
         where: eq(barbershops.id, appointment.barbershopId),
       });
@@ -114,7 +117,6 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
         );
       }
     } else if (req.user!.userType === 'barber') {
-      // Barbeiro só pode atualizar seus próprios agendamentos
       const barber = await db.query.barbers.findFirst({
         where: eq(barbers.userId, req.user!.id),
       });
@@ -125,6 +127,7 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
           { status: 403 }
         );
       }
+      currentBarber = barber;
     }
 
     const [updatedAppointment] = await db
@@ -136,6 +139,57 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
       })
       .where(eq(appointments.id, id))
       .returning();
+
+    // Se o status mudou para completed, criar registro de venda
+    if (status === 'completed' && appointment.status !== 'completed') {
+      // Buscar o preço do serviço
+      const service = appointment.service;
+      const servicePrice = service?.price || '0';
+      
+      // Verificar se já existe uma venda para este agendamento
+      const existingSale = await db.query.sales.findFirst({
+        where: eq(sales.appointmentId, id),
+      });
+
+      if (!existingSale) {
+        // Criar registro de venda
+        const [newSale] = await db
+          .insert(sales)
+          .values({
+            barbershopId: appointment.barbershopId,
+            clientId: appointment.clientId,
+            barberId: appointment.barberId,
+            appointmentId: id,
+            items: JSON.stringify([{ serviceId: appointment.serviceId, serviceName: service?.name, price: servicePrice }]),
+            totalAmount: servicePrice,
+            paymentMethod: paymentMethod || 'dinheiro',
+          })
+          .returning();
+
+        // Calcular e registrar comissão
+        if (appointment.barberId && appointment.serviceId) {
+          // Buscar taxa de comissão específica do barbeiro para o serviço
+          const barberCommission = await db.query.barberServiceCommissions.findFirst({
+            where: and(
+              eq(barberServiceCommissions.barberId, appointment.barberId),
+              eq(barberServiceCommissions.serviceId, appointment.serviceId)
+            ),
+          });
+
+          // Usa a taxa específica ou 50% como padrão
+          const commissionRate = barberCommission?.commissionRate || '50';
+          const commissionAmount = (parseFloat(servicePrice) * parseFloat(commissionRate)) / 100;
+
+          await db.insert(commissions).values({
+            barbershopId: appointment.barbershopId,
+            barberId: appointment.barberId,
+            saleId: newSale.id,
+            amount: commissionAmount.toFixed(2),
+            rate: commissionRate,
+          });
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
