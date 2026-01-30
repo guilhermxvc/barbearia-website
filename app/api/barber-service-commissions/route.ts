@@ -77,9 +77,11 @@ export const GET = withAuth(['manager'])(async (req) => {
 
     return NextResponse.json({
       success: true,
-      commissions: fullCommissions,
-      barbers: barbersList,
-      services: servicesList,
+      data: {
+        commissions: fullCommissions,
+        barbers: barbersList,
+        services: servicesList,
+      },
     });
   } catch (error) {
     console.error('Get barber service commissions error:', error);
@@ -112,6 +114,36 @@ export const POST = withAuth(['manager'])(async (req) => {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
+      );
+    }
+
+    // Verificar se o barbeiro pertence à barbearia
+    const barber = await db.query.barbers.findFirst({
+      where: and(
+        eq(barbers.id, barberId),
+        eq(barbers.barbershopId, barbershopId)
+      ),
+    });
+
+    if (!barber) {
+      return NextResponse.json(
+        { error: 'Barbeiro não encontrado nesta barbearia' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se o serviço pertence à barbearia
+    const service = await db.query.services.findFirst({
+      where: and(
+        eq(services.id, serviceId),
+        eq(services.barbershopId, barbershopId)
+      ),
+    });
+
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Serviço não encontrado nesta barbearia' },
+        { status: 400 }
       );
     }
 
@@ -180,9 +212,25 @@ export const PUT = withAuth(['manager'])(async (req) => {
       );
     }
 
+    // Buscar barbeiros e serviços válidos da barbearia
+    const validBarbers = await db.query.barbers.findMany({
+      where: eq(barbers.barbershopId, barbershopId),
+    });
+    const validServices = await db.query.services.findMany({
+      where: eq(services.barbershopId, barbershopId),
+    });
+    
+    const validBarberIds = new Set(validBarbers.map(b => b.id));
+    const validServiceIds = new Set(validServices.map(s => s.id));
+
     // Atualizar todas as comissões
     for (const comm of commissions) {
       const { barberId, serviceId, commissionRate } = comm;
+      
+      // Verificar se barbeiro e serviço pertencem à barbearia
+      if (!validBarberIds.has(barberId) || !validServiceIds.has(serviceId)) {
+        continue; // Pular comissões inválidas
+      }
       
       const existing = await db.query.barberServiceCommissions.findFirst({
         where: and(
