@@ -307,132 +307,166 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         </TabsList>
 
         <TabsContent value="commissions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Comissões por Barbeiro e Serviço</CardTitle>
-                <CardDescription>Configure a porcentagem de comissão de cada barbeiro para cada serviço</CardDescription>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-amber-50/30">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Comissões por Barbeiro</CardTitle>
+                  <CardDescription>Configure a porcentagem de comissão de cada barbeiro para cada serviço</CardDescription>
+                </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               {barberServiceCommissions.length === 0 ? (
-                <div className="text-center py-8">
-                  <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum barbeiro ou serviço cadastrado</h3>
-                  <p className="text-muted-foreground">Cadastre barbeiros e serviços para configurar as comissões.</p>
+                <div className="text-center py-12 px-4">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <Receipt className="h-10 w-10 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 text-gray-800">Nenhum barbeiro ou serviço cadastrado</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">Cadastre barbeiros e serviços para configurar as comissões individuais.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div>
-                    <Label>Selecione o Barbeiro</Label>
-                    <Select value={selectedBarberTab} onValueChange={setSelectedBarberTab}>
-                      <SelectTrigger className="w-full md:w-64">
-                        <SelectValue placeholder="Selecione um barbeiro" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {barberServiceCommissions.map((bc) => (
-                          <SelectItem key={bc.barberId} value={bc.barberId}>
-                            {bc.barberName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-2">
+                    {barberServiceCommissions.map((bc) => (
+                      <button
+                        key={bc.barberId}
+                        onClick={() => setSelectedBarberTab(bc.barberId)}
+                        className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
+                          selectedBarberTab === bc.barberId
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/30 scale-105'
+                            : 'bg-white border border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                          selectedBarberTab === bc.barberId
+                            ? 'bg-white/20 text-white'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {bc.barberName.charAt(0).toUpperCase()}
+                        </div>
+                        {bc.barberName}
+                      </button>
+                    ))}
                   </div>
 
                   {selectedBarberCommissions && (
-                    <div className="mt-4">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Comissões de {selectedBarberCommissions.barberName}
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b bg-gray-50">
-                              <th className="text-left p-3 font-medium">Serviço</th>
-                              <th className="text-left p-3 font-medium">Preço do Serviço</th>
-                              <th className="text-left p-3 font-medium">Taxa de Comissão (%)</th>
-                              <th className="text-left p-3 font-medium">Valor da Comissão</th>
-                              <th className="text-left p-3 font-medium">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedBarberCommissions.services.map((service) => {
-                              const isEditing = editingCommission?.barberId === selectedBarberCommissions.barberId && 
-                                               editingCommission?.serviceId === service.serviceId
-                              const price = parseFloat(service.servicePrice)
-                              const rate = parseFloat(service.commissionRate)
-                              const commissionValue = price * (rate / 100)
+                    <div className="mt-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+                          {selectedBarberCommissions.barberName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800">
+                            {selectedBarberCommissions.barberName}
+                          </h3>
+                          <p className="text-sm text-gray-500">{selectedBarberCommissions.services.length} serviços configurados</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {selectedBarberCommissions.services.map((service) => {
+                          const isEditing = editingCommission?.barberId === selectedBarberCommissions.barberId && 
+                                           editingCommission?.serviceId === service.serviceId
+                          const price = parseFloat(service.servicePrice)
+                          const rate = parseFloat(service.commissionRate)
+                          const commissionValue = price * (rate / 100)
+                          
+                          return (
+                            <div 
+                              key={service.serviceId} 
+                              className={`relative p-5 rounded-2xl border-2 transition-all duration-300 ${
+                                isEditing 
+                                  ? 'border-amber-400 bg-amber-50 shadow-lg shadow-amber-100' 
+                                  : 'border-gray-100 bg-white hover:border-amber-200 hover:shadow-md'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start mb-4">
+                                <h4 className="font-semibold text-gray-800 text-lg">{service.serviceName}</h4>
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1">
+                                    <Button 
+                                      size="sm" 
+                                      onClick={handleSaveCommission}
+                                      disabled={savingCommission}
+                                      className="h-8 w-8 p-0 bg-green-500 hover:bg-green-600"
+                                    >
+                                      {savingCommission ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={cancelEditCommission}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => handleEditCommission(
+                                      selectedBarberCommissions.barberId, 
+                                      service.serviceId, 
+                                      service.commissionRate
+                                    )}
+                                    className="h-8 w-8 p-0 text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                               
-                              return (
-                                <tr key={service.serviceId} className="border-b hover:bg-gray-50">
-                                  <td className="p-3 font-medium">{service.serviceName}</td>
-                                  <td className="p-3">R$ {price.toFixed(2)}</td>
-                                  <td className="p-3">
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-2">
-                                        <Input
-                                          type="number"
-                                          value={editingRate}
-                                          onChange={(e) => setEditingRate(e.target.value)}
-                                          className="w-20"
-                                          min="0"
-                                          max="100"
-                                        />
-                                        <span>%</span>
-                                      </div>
-                                    ) : (
-                                      <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-                                        {rate}%
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="p-3 font-semibold text-green-600">
-                                    R$ {isEditing 
-                                      ? (price * (parseFloat(editingRate || '0') / 100)).toFixed(2)
-                                      : commissionValue.toFixed(2)
-                                    }
-                                  </td>
-                                  <td className="p-3">
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-2">
-                                        <Button 
-                                          size="sm" 
-                                          onClick={handleSaveCommission}
-                                          disabled={savingCommission}
-                                        >
-                                          {savingCommission ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <Save className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                        <Button 
-                                          size="sm" 
-                                          variant="outline"
-                                          onClick={cancelEditCommission}
-                                        >
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <Button 
-                                        size="sm" 
-                                        variant="ghost"
-                                        onClick={() => handleEditCommission(
-                                          selectedBarberCommissions.barberId, 
-                                          service.serviceId, 
-                                          service.commissionRate
-                                        )}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-500">Preço do Serviço</span>
+                                  <span className="font-medium text-gray-700">R$ {price.toFixed(2)}</span>
+                                </div>
+                                
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-500">Taxa de Comissão</span>
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        type="number"
+                                        value={editingRate}
+                                        onChange={(e) => setEditingRate(e.target.value)}
+                                        className="w-16 h-8 text-center text-sm font-semibold"
+                                        min="0"
+                                        max="100"
+                                      />
+                                      <span className="text-sm font-medium text-gray-600">%</span>
+                                    </div>
+                                  ) : (
+                                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-3 py-1 text-sm font-bold">
+                                      {rate}%
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                <div className="pt-3 border-t border-gray-100">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-gray-600">Comissão</span>
+                                    <span className="text-lg font-bold text-green-600">
+                                      R$ {isEditing 
+                                        ? (price * (parseFloat(editingRate || '0') / 100)).toFixed(2)
+                                        : commissionValue.toFixed(2)
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
