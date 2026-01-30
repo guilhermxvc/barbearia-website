@@ -270,8 +270,15 @@ export const POST = withAuth(['client'])(async (req) => {
 
     // Verificar horário de funcionamento da barbearia e disponibilidade do barbeiro
     const scheduledDate = data.scheduledAt;
-    const dayOfWeek = scheduledDate.getDay();
-    const scheduledTime = scheduledDate.toTimeString().slice(0, 5);
+    
+    // Usar timezone de São Paulo (GMT-3) para validação de horário comercial
+    const brOptions = { timeZone: 'America/Sao_Paulo' };
+    const brDateStr = scheduledDate.toLocaleDateString('en-CA', brOptions); // YYYY-MM-DD
+    const brTimeStr = scheduledDate.toLocaleTimeString('en-GB', { ...brOptions, hour: '2-digit', minute: '2-digit', hour12: false }); // HH:MM
+    const brDayOfWeek = new Date(brDateStr + 'T12:00:00').getDay();
+    
+    const dayOfWeek = brDayOfWeek;
+    const scheduledTime = brTimeStr;
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayKey = dayNames[dayOfWeek];
 
