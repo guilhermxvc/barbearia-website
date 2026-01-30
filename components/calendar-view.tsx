@@ -136,6 +136,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 border-l-4 border-l-yellow-500 text-yellow-800',
   confirmed: 'bg-blue-100 border-l-4 border-l-blue-500 text-blue-800',
   in_progress: 'bg-amber-100 border-l-4 border-l-amber-500 text-amber-800',
+  finished: 'bg-orange-100 border-l-4 border-l-orange-500 text-orange-800',
   completed: 'bg-green-100 border-l-4 border-l-green-500 text-green-800',
   cancelled: 'bg-red-100 border-l-4 border-l-red-500 text-red-800',
   no_show: 'bg-gray-100 border-l-4 border-l-gray-500 text-gray-800',
@@ -153,6 +154,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendente',
   confirmed: 'Confirmado',
   in_progress: 'Em Andamento',
+  finished: 'Finalizado',
   completed: 'Concluído',
   cancelled: 'Cancelado',
   no_show: 'Não Compareceu',
@@ -757,7 +759,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-4 border-t">
+                    <div className="flex flex-col gap-2 pt-4 border-t">
                       {['confirmed', 'in_progress'].includes(apt.status) && (
                         <Button 
                           variant="outline"
@@ -767,8 +769,33 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                           Desmarcar Agendamento
                         </Button>
                       )}
+                      {apt.status === 'finished' && (
+                        <div className="space-y-2">
+                          <p className="text-sm text-orange-600 font-medium">
+                            Atendimento finalizado. Confirme se foi realizado:
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'completed')}
+                              className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                            >
+                              Concluir
+                            </Button>
+                            <Button 
+                              variant="outline"
+                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'no_show')}
+                              className="text-red-600 border-red-300 hover:bg-red-50 flex-1"
+                            >
+                              Não Compareceu
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       {apt.status === 'completed' && (
-                        <p className="text-sm text-gray-500">Atendimento concluído</p>
+                        <p className="text-sm text-green-600">Atendimento concluído e contabilizado</p>
+                      )}
+                      {apt.status === 'no_show' && (
+                        <p className="text-sm text-gray-500">Cliente não compareceu</p>
                       )}
                       {apt.status === 'cancelled' && (
                         <Button 

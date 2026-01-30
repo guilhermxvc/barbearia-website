@@ -35,7 +35,7 @@ async function updateAppointmentStatusesAutomatically() {
     } else if ((apt.status === 'confirmed' || apt.status === 'in_progress') && now >= endTime) {
       await db
         .update(appointments)
-        .set({ status: 'completed', updatedAt: now })
+        .set({ status: 'finished', updatedAt: now })
         .where(eq(appointments.id, apt.id));
     }
   }

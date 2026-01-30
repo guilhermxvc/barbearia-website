@@ -6,7 +6,7 @@ import { z } from 'zod';
 // Enums
 export const userTypeEnum = ['manager', 'barber', 'client'] as const;
 export const subscriptionPlanEnum = ['basico', 'profissional', 'premium'] as const;
-export const appointmentStatusEnum = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+export const appointmentStatusEnum = ['pending', 'confirmed', 'in_progress', 'finished', 'completed', 'cancelled', 'no_show'] as const;
 export const requestStatusEnum = ['pending', 'approved', 'rejected', 'cancelled'] as const;
 
 // Subscription Plans table (separada para fácil manutenção)
