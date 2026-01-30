@@ -5,11 +5,65 @@ import { withAuth } from '@/lib/middleware';
 import { eq, and } from 'drizzle-orm';
 
 // GET /api/barber-service-commissions - Listar comissões por barbeiro/serviço
-export const GET = withAuth(['manager'])(async (req) => {
+export const GET = withAuth(['manager', 'barber'])(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const barbershopId = searchParams.get('barbershopId');
+    const barberId = searchParams.get('barberId');
 
+    // Se for barbeiro buscando suas próprias comissões
+    if (barberId && req.user!.userType === 'barber') {
+      // Buscar o barbeiro do usuário
+      const barber = await db.query.barbers.findFirst({
+        where: eq(barbers.id, barberId),
+      });
+
+      if (!barber) {
+        return NextResponse.json(
+          { error: 'Barbeiro não encontrado' },
+          { status: 404 }
+        );
+      }
+
+      // Buscar serviços da barbearia do barbeiro
+      const servicesList = await db
+        .select()
+        .from(services)
+        .where(and(
+          eq(services.barbershopId, barber.barbershopId),
+          eq(services.isActive, true)
+        ));
+
+      // Buscar comissões do barbeiro
+      const commissionsList = await db
+        .select()
+        .from(barberServiceCommissions)
+        .where(eq(barberServiceCommissions.barberId, barberId));
+
+      // Criar mapa de comissões
+      const commissionMap: Record<string, string> = {};
+      commissionsList.forEach(c => {
+        commissionMap[c.serviceId] = c.commissionRate;
+      });
+
+      // Montar estrutura de comissões do barbeiro
+      const barberCommissions = [{
+        barberId: barber.id,
+        barberName: req.user!.name || 'Barbeiro',
+        services: servicesList.map(service => ({
+          serviceId: service.id,
+          serviceName: service.name,
+          servicePrice: service.price,
+          commissionRate: commissionMap[service.id] || '50.00',
+        }))
+      }];
+
+      return NextResponse.json({
+        commissions: barberCommissions,
+      });
+    }
+
+    // Manager buscando comissões da barbearia
     if (!barbershopId) {
       return NextResponse.json(
         { error: 'ID da barbearia é obrigatório' },

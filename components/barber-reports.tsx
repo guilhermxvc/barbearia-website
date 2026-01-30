@@ -9,9 +9,16 @@ import { apiClient } from "@/lib/api"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
+interface ServiceCommission {
+  serviceId: string
+  serviceName: string
+  commissionRate: string
+}
+
 export function BarberReports() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState<any[]>([])
+  const [commissions, setCommissions] = useState<ServiceCommission[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,15 +33,42 @@ export function BarberReports() {
         return
       }
 
-      const response = await apiClient.get(`/appointments?barberId=${user.barber.id}`)
+      // Fetch appointments and commissions in parallel
+      const [appointmentsRes, commissionsRes] = await Promise.all([
+        apiClient.get(`/appointments?barberId=${user.barber.id}`),
+        apiClient.get(`/barber-service-commissions?barberId=${user.barber.id}`)
+      ])
 
-      const appointmentsData = response.data?.appointments || response.appointments || []
+      const appointmentsData = (appointmentsRes as any).data?.appointments || (appointmentsRes as any).appointments || []
       setAppointments(appointmentsData)
+      
+      // Get commissions for this barber
+      const commissionsData = (commissionsRes as any).data?.commissions || (commissionsRes as any).commissions || []
+      if (commissionsData.length > 0) {
+        setCommissions(commissionsData[0]?.services || [])
+      }
     } catch (error) {
       console.error("Erro ao carregar relatórios:", error)
     } finally {
       setLoading(false)
     }
+  }
+  
+  // Calculate commission for a single appointment
+  const getCommissionValue = (appointment: any): number => {
+    const servicePrice = Number(appointment.totalPrice) || 0
+    const serviceName = appointment.service?.name || ''
+    
+    const serviceComm = commissions.find(c => c.serviceName === serviceName)
+    const commissionRate = serviceComm ? parseFloat(serviceComm.commissionRate) : 50
+    
+    return servicePrice * (commissionRate / 100)
+  }
+  
+  const getCommissionRate = (appointment: any): number => {
+    const serviceName = appointment.service?.name || ''
+    const serviceComm = commissions.find(c => c.serviceName === serviceName)
+    return serviceComm ? parseFloat(serviceComm.commissionRate) : 50
   }
 
   if (loading) {
@@ -60,7 +94,9 @@ export function BarberReports() {
   }
 
   const completedAppointments = appointments.filter((a) => a.status === "completed")
-  const totalRevenue = completedAppointments.reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)
+  
+  // Calculate total earnings based on commissions (not full service price)
+  const totalEarnings = completedAppointments.reduce((sum, a) => sum + getCommissionValue(a), 0)
 
   return (
     <div className="space-y-6">
@@ -81,8 +117,9 @@ export function BarberReports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Faturamento Total</p>
-                <p className="text-3xl font-bold text-gray-900">R$ {totalRevenue.toFixed(2)}</p>
+                <p className="text-sm font-medium text-gray-600">Seus Ganhos</p>
+                <p className="text-3xl font-bold text-green-600">R$ {totalEarnings.toFixed(2)}</p>
+                <p className="text-xs text-gray-400">comissões acumuladas</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
             </div>
@@ -126,8 +163,11 @@ export function BarberReports() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">
-                      R$ {Number(appointment.totalPrice || 0).toFixed(2)}
+                    <p className="font-semibold text-green-600">
+                      R$ {getCommissionValue(appointment).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {getCommissionRate(appointment)}% de R$ {Number(appointment.totalPrice || 0).toFixed(2)}
                     </p>
                     <Badge className="bg-green-100 text-green-800 mt-1">Completado</Badge>
                   </div>
