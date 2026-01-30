@@ -123,7 +123,7 @@ export default function ManagerDashboard() {
         return isFeatureAvailable("products") ? <ProductsManagement /> : <UpgradePrompt feature="Gestão de Estoque" />
       case "financial":
         return isFeatureAvailable("financial") ? (
-          <FinancialManagement />
+          <FinancialManagement barbershopId={user?.barbershop?.id || ''} />
         ) : (
           <UpgradePrompt feature="Sistema Financeiro" />
         )

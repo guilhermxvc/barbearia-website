@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sales, barbershops, barbers, commissions, insertSaleSchema } from '@/lib/db/schema';
+import { sales, barbershops, barbers, commissions, insertSaleSchema, clients, users, appointments, services } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
@@ -67,15 +67,63 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
       whereConditions.push(lte(sales.createdAt, new Date(endDate)));
     }
 
-    const salesList = await db
-      .select()
+    const barberUsers = db.$with('barberUsers').as(
+      db.select({
+        barberId: barbers.id,
+        barberName: users.name,
+      }).from(barbers).leftJoin(users, eq(barbers.userId, users.id))
+    )
+
+    const clientUsers = db.$with('clientUsers').as(
+      db.select({
+        clientId: clients.id,
+        clientName: users.name,
+      }).from(clients).leftJoin(users, eq(clients.userId, users.id))
+    )
+
+    const salesList = await db.with(barberUsers, clientUsers)
+      .select({
+        id: sales.id,
+        barbershopId: sales.barbershopId,
+        clientId: sales.clientId,
+        barberId: sales.barberId,
+        appointmentId: sales.appointmentId,
+        items: sales.items,
+        totalAmount: sales.totalAmount,
+        discount: sales.discount,
+        paymentMethod: sales.paymentMethod,
+        createdAt: sales.createdAt,
+        barberName: barberUsers.barberName,
+        clientName: clientUsers.clientName,
+      })
       .from(sales)
+      .leftJoin(barberUsers, eq(sales.barberId, barberUsers.barberId))
+      .leftJoin(clientUsers, eq(sales.clientId, clientUsers.clientId))
       .where(and(...whereConditions))
       .orderBy(desc(sales.createdAt));
 
+    const salesWithDetails = await Promise.all(
+      salesList.map(async (sale) => {
+        let serviceName = 'Serviço'
+        if (sale.appointmentId) {
+          const appointment = await db.query.appointments.findFirst({
+            where: eq(appointments.id, sale.appointmentId),
+            with: { service: true }
+          })
+          if (appointment?.service) {
+            serviceName = appointment.service.name
+          }
+        }
+        return {
+          ...sale,
+          serviceName,
+        }
+      })
+    )
+
     return NextResponse.json({
       success: true,
-      sales: salesList,
+      sales: salesWithDetails,
     });
   } catch (error) {
     console.error('Get sales error:', error);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,99 +8,390 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { apiClient } from "@/lib/api/client"
 import {
   DollarSign,
   TrendingUp,
   Users,
-  Calendar,
+  CreditCard,
   Receipt,
   Plus,
-  Edit,
-  Clock,
+  Calendar,
   Filter,
-  X,
-  CheckCircle,
+  Loader2,
+  Banknote,
+  Smartphone,
 } from "lucide-react"
+import { format, startOfMonth, endOfMonth, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
-// ... existing interfaces ...
+interface Sale {
+  id: string
+  barbershopId: string
+  clientId: string | null
+  barberId: string | null
+  appointmentId: string | null
+  items: string | null
+  totalAmount: string
+  discount: string
+  paymentMethod: string | null
+  createdAt: string
+  barberName?: string
+  clientName?: string
+  serviceName?: string
+}
 
-export function FinancialManagement() {
-  const [totalRevenue, setTotalRevenue] = useState(0)
-  const [totalCommissions, setTotalCommissions] = useState(0)
-  const [commissions, setCommissions] = useState([])
-  const [totalPendingCommissions, setTotalPendingCommissions] = useState(0)
-  const [filteredPendingCommissions, setFilteredPendingCommissions] = useState([])
-  const [barbers, setBarbers] = useState([])
-  const [uniqueBarbers, setUniqueBarbers] = useState([])
-  const [isAddingCommission, setIsAddingCommission] = useState(false)
-  const [editingCommission, setEditingCommission] = useState(null)
-  const [newCommissionPercentage, setNewCommissionPercentage] = useState("")
-  const [salesFilters, setSalesFilters] = useState({ type: "all", barber: "all", startDate: "", endDate: "" })
-  const [filteredSales, setFilteredSales] = useState([])
-  const [payments, setPayments] = useState([])
-  const [selectedPaymentMonth, setSelectedPaymentMonth] = useState("")
+interface Barber {
+  id: string
+  name: string
+  commissionRate?: number
+}
 
-  // ... existing useEffect and loadMockData ...
+interface Commission {
+  id: string
+  barberId: string
+  barberName: string
+  totalSales: number
+  commissionRate: number
+  commissionAmount: number
+  isPaid: boolean
+  period: string
+}
 
-  const updateCommission = (id, newPercentage) => {
-    // ... existing updateCommission logic ...
+interface FinancialManagementProps {
+  barbershopId: string
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  credit_card: 'Crédito',
+  debit_card: 'Débito',
+  pix: 'Pix',
+  cash: 'Dinheiro',
+}
+
+const PAYMENT_METHOD_COLORS: Record<string, string> = {
+  credit_card: 'bg-blue-100 text-blue-800',
+  debit_card: 'bg-green-100 text-green-800',
+  pix: 'bg-teal-100 text-teal-800',
+  cash: 'bg-amber-100 text-amber-800',
+}
+
+const PAYMENT_METHOD_ICONS: Record<string, React.ReactNode> = {
+  credit_card: <CreditCard className="h-4 w-4" />,
+  debit_card: <CreditCard className="h-4 w-4" />,
+  pix: <Smartphone className="h-4 w-4" />,
+  cash: <Banknote className="h-4 w-4" />,
+}
+
+export function FinancialManagement({ barbershopId }: FinancialManagementProps) {
+  const [loading, setLoading] = useState(true)
+  const [sales, setSales] = useState<Sale[]>([])
+  const [barbers, setBarbers] = useState<Barber[]>([])
+  const [commissions, setCommissions] = useState<Commission[]>([])
+  
+  const [filterBarber, setFilterBarber] = useState<string>("all")
+  const [filterStartDate, setFilterStartDate] = useState<string>("")
+  const [filterEndDate, setFilterEndDate] = useState<string>("")
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all")
+  
+  const [showCommissionModal, setShowCommissionModal] = useState(false)
+  const [selectedBarberForCommission, setSelectedBarberForCommission] = useState<string>("")
+  const [commissionRate, setCommissionRate] = useState<string>("50")
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [salesResponse, barbersResponse] = await Promise.all([
+        apiClient.get(`/sales?barbershopId=${barbershopId}`),
+        apiClient.get(`/barbers?barbershopId=${barbershopId}`)
+      ])
+
+      const salesData = salesResponse as { success: boolean; data?: { sales?: any[] } }
+      const barbersData = barbersResponse as { success: boolean; data?: { barbers?: any[] } }
+
+      if (salesData.success && salesData.data?.sales) {
+        setSales(salesData.data.sales.map((sale: any) => ({
+          ...sale,
+          barberName: sale.barberName || 'N/A',
+          clientName: sale.clientName || 'N/A',
+          serviceName: sale.serviceName || 'Serviço',
+        })))
+      }
+
+      if (barbersData.success && barbersData.data?.barbers) {
+        setBarbers(barbersData.data.barbers)
+      }
+    } catch (error) {
+      console.error('Error loading financial data:', error)
+      toast.error('Erro ao carregar dados financeiros')
+    } finally {
+      setLoading(false)
+    }
+  }, [barbershopId])
+
+  useEffect(() => {
+    if (barbershopId) {
+      loadData()
+    }
+  }, [barbershopId, loadData])
+
+  const filteredSales = sales.filter(sale => {
+    if (filterBarber !== "all" && sale.barberId !== filterBarber) return false
+    if (filterPaymentMethod !== "all" && sale.paymentMethod !== filterPaymentMethod) return false
+    if (filterStartDate) {
+      const saleDate = new Date(sale.createdAt)
+      const startDate = new Date(filterStartDate)
+      if (saleDate < startDate) return false
+    }
+    if (filterEndDate) {
+      const saleDate = new Date(sale.createdAt)
+      const endDate = new Date(filterEndDate)
+      endDate.setHours(23, 59, 59, 999)
+      if (saleDate > endDate) return false
+    }
+    return true
+  })
+
+  const totalRevenue = filteredSales.reduce((acc, sale) => acc + parseFloat(sale.totalAmount || '0'), 0)
+  
+  const revenueByPaymentMethod = filteredSales.reduce((acc, sale) => {
+    const method = sale.paymentMethod || 'other'
+    acc[method] = (acc[method] || 0) + parseFloat(sale.totalAmount || '0')
+    return acc
+  }, {} as Record<string, number>)
+
+  const barberSalesSummary = barbers.map(barber => {
+    const barberSales = filteredSales.filter(s => s.barberId === barber.id)
+    const totalSales = barberSales.reduce((acc, s) => acc + parseFloat(s.totalAmount || '0'), 0)
+    const rate = barber.commissionRate || 50
+    return {
+      barberId: barber.id,
+      barberName: barber.name,
+      totalSales,
+      commissionRate: rate,
+      commissionAmount: totalSales * (rate / 100),
+      salesCount: barberSales.length,
+    }
+  }).filter(b => b.salesCount > 0)
+
+  const totalCommissions = barberSalesSummary.reduce((acc, b) => acc + b.commissionAmount, 0)
+
+  const handleAddCommission = async () => {
+    if (!selectedBarberForCommission || !commissionRate) {
+      toast.error('Selecione um barbeiro e defina a taxa')
+      return
+    }
+    toast.success(`Taxa de comissão de ${commissionRate}% configurada para o barbeiro`)
+    setShowCommissionModal(false)
+    setSelectedBarberForCommission("")
+    setCommissionRate("50")
   }
 
-  const markCommissionAsPaid = (commission) => {
-    // ... existing markCommissionAsPaid logic ...
+  const clearFilters = () => {
+    setFilterBarber("all")
+    setFilterStartDate("")
+    setFilterEndDate("")
+    setFilterPaymentMethod("all")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+        <span className="ml-2 text-gray-600">Carregando dados financeiros...</span>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">+12% em relação ao mês anterior</p>
+            <div className="text-2xl font-bold text-green-600">
+              R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">{filteredSales.length} vendas registradas</p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Cartão de Crédito</CardTitle>
+            <CreditCard className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totalCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{commissions.length} comissões ativas</p>
+            <div className="text-2xl font-bold text-blue-600">
+              R$ {(revenueByPaymentMethod['credit_card'] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filteredSales.filter(s => s.paymentMethod === 'credit_card').length} transações
+            </p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Comissões Pendentes</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Cartão de Débito</CardTitle>
+            <CreditCard className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totalPendingCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{filteredPendingCommissions.length} barbeiros</p>
+            <div className="text-2xl font-bold text-emerald-600">
+              R$ {(revenueByPaymentMethod['debit_card'] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filteredSales.filter(s => s.paymentMethod === 'debit_card').length} transações
+            </p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="border-l-4 border-l-teal-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Barbeiros Ativos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Pix</CardTitle>
+            <Smartphone className="h-4 w-4 text-teal-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{barbers.length}</div>
-            <p className="text-xs text-muted-foreground">{uniqueBarbers.length} com vendas este mês</p>
+            <div className="text-2xl font-bold text-teal-600">
+              R$ {(revenueByPaymentMethod['pix'] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filteredSales.filter(s => s.paymentMethod === 'pix').length} transações
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="commissions" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="commissions">Comissões</TabsTrigger>
+      <Tabs defaultValue="sales" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="sales">Histórico de Vendas</TabsTrigger>
-          <TabsTrigger value="accounts-payable">Contas a Pagar</TabsTrigger>
+          <TabsTrigger value="commissions">Comissões</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="sales" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Histórico de Vendas</CardTitle>
+                  <CardDescription>Todas as vendas registradas da barbearia</CardDescription>
+                </div>
+                <Button variant="outline" onClick={clearFilters} size="sm">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Limpar Filtros
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <Label>Barbeiro</Label>
+                  <Select value={filterBarber} onValueChange={setFilterBarber}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos os barbeiros" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os barbeiros</SelectItem>
+                      {barbers.map(barber => (
+                        <SelectItem key={barber.id} value={barber.id}>{barber.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Forma de Pagamento</Label>
+                  <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas as formas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as formas</SelectItem>
+                      <SelectItem value="credit_card">Crédito</SelectItem>
+                      <SelectItem value="debit_card">Débito</SelectItem>
+                      <SelectItem value="pix">Pix</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Data Inicial</Label>
+                  <Input 
+                    type="date" 
+                    value={filterStartDate} 
+                    onChange={(e) => setFilterStartDate(e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <Label>Data Final</Label>
+                  <Input 
+                    type="date" 
+                    value={filterEndDate} 
+                    onChange={(e) => setFilterEndDate(e.target.value)} 
+                  />
+                </div>
+              </div>
+
+              {filteredSales.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Receipt className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhuma venda encontrada</p>
+                  <p className="text-sm">As vendas serão registradas automaticamente quando os atendimentos forem concluídos</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Data/Hora</th>
+                        <th className="text-left p-3 font-medium">Serviço</th>
+                        <th className="text-left p-3 font-medium">Cliente</th>
+                        <th className="text-left p-3 font-medium">Barbeiro</th>
+                        <th className="text-left p-3 font-medium">Pagamento</th>
+                        <th className="text-right p-3 font-medium">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSales.map((sale) => (
+                        <tr key={sale.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3">
+                            <div className="text-sm font-medium">
+                              {format(new Date(sale.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {format(new Date(sale.createdAt), "HH:mm", { locale: ptBR })}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="font-medium">{sale.serviceName}</span>
+                          </td>
+                          <td className="p-3">{sale.clientName}</td>
+                          <td className="p-3">{sale.barberName}</td>
+                          <td className="p-3">
+                            {sale.paymentMethod && (
+                              <Badge className={`${PAYMENT_METHOD_COLORS[sale.paymentMethod] || 'bg-gray-100 text-gray-800'} flex items-center gap-1 w-fit`}>
+                                {PAYMENT_METHOD_ICONS[sale.paymentMethod]}
+                                {PAYMENT_METHOD_LABELS[sale.paymentMethod] || sale.paymentMethod}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="font-bold text-green-600">
+                              R$ {parseFloat(sale.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="commissions" className="space-y-4">
           <Card>
@@ -108,379 +399,113 @@ export function FinancialManagement() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Comissões dos Barbeiros</CardTitle>
-                  <CardDescription>Gerencie as porcentagens de comissão por barbeiro e serviço</CardDescription>
+                  <CardDescription>Resumo de vendas e comissões por barbeiro</CardDescription>
                 </div>
-                <Button onClick={() => setIsAddingCommission(true)}>
+                <Button onClick={() => setShowCommissionModal(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Comissão
+                  Configurar Comissão
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Barbeiro</th>
-                      <th className="text-left p-2">Período</th>
-                      <th className="text-left p-2">Total de Vendas</th>
-                      <th className="text-left p-2">Taxa de Comissão (%)</th>
-                      <th className="text-left p-2">Valor da Comissão</th>
-                      <th className="text-left p-2">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commissions.map((commission) => (
-                      <tr key={commission.id} className="border-b">
-                        <td className="p-2 font-medium">{commission.barber_name}</td>
-                        <td className="p-2">
-                          {new Date(commission.period_start).toLocaleDateString("pt-BR")} -{" "}
-                          {new Date(commission.period_end).toLocaleDateString("pt-BR")}
-                        </td>
-                        <td className="p-2">R$ {commission.total_sales.toFixed(2)}</td>
-                        <td className="p-2">
-                          {editingCommission === commission.id ? (
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                type="number"
-                                value={newCommissionPercentage}
-                                onChange={(e) => setNewCommissionPercentage(e.target.value)}
-                                className="w-20"
-                                placeholder="%"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  updateCommission(commission.id, Number.parseInt(newCommissionPercentage))
-                                }
-                              >
-                                <Receipt className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingCommission(null)
-                                  setNewCommissionPercentage("")
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <span>{commission.commission_rate}%</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditingCommission(commission.id)
-                                  setNewCommissionPercentage(commission.commission_rate.toString())
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-2">R$ {commission.total_commission.toFixed(2)}</td>
-                        <td className="p-2">
-                          {commission.payment_status === "pending" ? (
-                            <Button size="sm" onClick={() => markCommissionAsPaid(commission)}>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Marcar como Pago
-                            </Button>
-                          ) : (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700">
-                              Pago
-                            </Badge>
-                          )}
-                        </td>
+              {barberSalesSummary.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhuma venda registrada por barbeiros</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Barbeiro</th>
+                        <th className="text-center p-3 font-medium">Vendas</th>
+                        <th className="text-right p-3 font-medium">Total Vendas</th>
+                        <th className="text-center p-3 font-medium">Taxa (%)</th>
+                        <th className="text-right p-3 font-medium">Comissão</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ... existing dialog for adding commission ... */}
-        </TabsContent>
-
-        <TabsContent value="sales" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Histórico de Vendas</CardTitle>
-                  <CardDescription>Visualize todas as vendas realizadas e comissões geradas</CardDescription>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Filtros ativos</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-                <div>
-                  <Label htmlFor="type-filter">Status de Pagamento</Label>
-                  <Select
-                    value={salesFilters.type}
-                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, type: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="paid">Pagos</SelectItem>
-                      <SelectItem value="pending">Pendentes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="barber-filter">Barbeiro</Label>
-                  <Select
-                    value={salesFilters.barber}
-                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, barber: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {uniqueBarbers.map((barber) => (
-                        <SelectItem key={barber} value={barber}>
-                          {barber}
-                        </SelectItem>
+                    </thead>
+                    <tbody>
+                      {barberSalesSummary.map((summary) => (
+                        <tr key={summary.barberId} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{summary.barberName}</td>
+                          <td className="p-3 text-center">
+                            <Badge variant="secondary">{summary.salesCount}</Badge>
+                          </td>
+                          <td className="p-3 text-right">
+                            R$ {summary.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3 text-center">
+                            <Badge className="bg-amber-100 text-amber-800">{summary.commissionRate}%</Badge>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="font-bold text-amber-600">
+                              R$ {summary.commissionAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                        </tr>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="start-date">Data Inicial</Label>
-                  <Input
-                    id="start-date"
-                    type="date"
-                    value={salesFilters.startDate}
-                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-date">Data Final</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={salesFilters.endDate}
-                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, endDate: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Data</th>
-                      <th className="text-left p-2">Cliente</th>
-                      <th className="text-left p-2">Serviço</th>
-                      <th className="text-left p-2">Valor do Serviço</th>
-                      <th className="text-left p-2">Taxa de Comissão (%)</th>
-                      <th className="text-left p-2">Valor da Comissão</th>
-                      <th className="text-left p-2">Status de Pagamento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSales.map((sale) => (
-                      <tr key={sale.id} className="border-b">
-                        <td className="p-2">{new Date(sale.sale_date).toLocaleDateString("pt-BR")}</td>
-                        <td className="p-2 font-medium">{sale.client_name}</td>
-                        <td className="p-2 font-medium">{sale.service_name}</td>
-                        <td className="p-2">R$ {sale.service_price.toFixed(2)}</td>
-                        <td className="p-2">{sale.commission_rate}%</td>
-                        <td className="p-2 font-semibold text-green-600">R$ {sale.commission_value.toFixed(2)}</td>
-                        <td className="p-2">
-                          <Badge variant={sale.payment_status === "paid" ? "default" : "secondary"}>
-                            {sale.payment_status === "paid" ? "Pago" : "Pendente"}
-                          </Badge>
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="p-3" colSpan={2}>Total</td>
+                        <td className="p-3 text-right">
+                          R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right text-amber-600">
+                          R$ {totalCommissions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="accounts-payable" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total a Pagar</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  R${" "}
-                  {payments
-                    .filter((p) => p.status === "pending")
-                    .reduce((sum, p) => sum + p.amount, 0)
-                    .toFixed(2)}
+                    </tfoot>
+                  </table>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {payments.filter((p) => p.status === "pending").length} contas pendentes
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contas Vencidas</CardTitle>
-                <Clock className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {payments.filter((p) => p.status === "overdue").length}
-                </div>
-                <p className="text-xs text-muted-foreground">Requer atenção imediata</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pagamentos Realizados</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {payments.filter((p) => p.status === "paid").length}
-                </div>
-                <p className="text-xs text-muted-foreground">No mês atual</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Contas a Pagar</CardTitle>
-                  <CardDescription>Gerencie as contas a pagar da barbearia</CardDescription>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="payment-month">Mês:</Label>
-                  <Input
-                    id="payment-month"
-                    type="month"
-                    value={selectedPaymentMonth}
-                    onChange={(e) => setSelectedPaymentMonth(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {payments.filter((p) => p.status === "pending").length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
-                      <Clock className="mr-2 h-5 w-5 text-orange-500" />
-                      Contas Pendentes
-                    </h3>
-                    <div className="grid gap-4">
-                      {payments
-                        .filter((p) => p.status === "pending")
-                        .map((payment) => (
-                          <Card key={payment.id} className="border-l-4 border-l-orange-500">
-                            <CardContent className="pt-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                  <div className="h-12 w-12 bg-orange-100 text-orange-700 flex items-center justify-center rounded-full font-semibold">
-                                    {payment.supplier
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold">{payment.supplier}</h4>
-                                    <p className="text-sm text-muted-foreground">{payment.description}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Vencimento: {new Date(payment.due_date).toLocaleDateString("pt-BR")}
-                                    </p>
-                                    <Badge variant="outline">{payment.category}</Badge>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-2xl font-bold text-orange-600">R$ {payment.amount.toFixed(2)}</p>
-                                  <Button size="sm" className="mt-2">
-                                    Marcar como Pago
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {payments.filter((p) => p.status === "paid").length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
-                      <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
-                      Pagamentos Realizados
-                    </h3>
-                    <div className="grid gap-4">
-                      {payments
-                        .filter((p) => p.status === "paid")
-                        .map((payment) => (
-                          <Card key={payment.id} className="border-l-4 border-l-green-500">
-                            <CardContent className="pt-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                  <div className="h-12 w-12 bg-green-100 text-green-700 flex items-center justify-center rounded-full font-semibold">
-                                    {payment.supplier
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold">{payment.supplier}</h4>
-                                    <p className="text-sm text-muted-foreground">{payment.description}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Pago em: {new Date(payment.due_date).toLocaleDateString("pt-BR")}
-                                    </p>
-                                    <Badge variant="outline">{payment.category}</Badge>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-2xl font-bold text-green-600">R$ {payment.amount.toFixed(2)}</p>
-                                  <Badge variant="secondary" className="bg-green-100 text-green-700 mt-2">
-                                    Pago
-                                  </Badge>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {payments.length === 0 && (
-                  <div className="text-center py-8">
-                    <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhuma conta encontrada</h3>
-                    <p className="text-muted-foreground">Não há contas a pagar ou pagas para o mês selecionado.</p>
-                  </div>
-                )}
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* ... existing dialog for adding commission ... */}
+      <Dialog open={showCommissionModal} onOpenChange={setShowCommissionModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configurar Taxa de Comissão</DialogTitle>
+            <DialogDescription>
+              Defina a porcentagem de comissão para um barbeiro
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Barbeiro</Label>
+              <Select value={selectedBarberForCommission} onValueChange={setSelectedBarberForCommission}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um barbeiro" />
+                </SelectTrigger>
+                <SelectContent>
+                  {barbers.map(barber => (
+                    <SelectItem key={barber.id} value={barber.id}>{barber.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Taxa de Comissão (%)</Label>
+              <Input 
+                type="number" 
+                value={commissionRate} 
+                onChange={(e) => setCommissionRate(e.target.value)}
+                min="0"
+                max="100"
+                placeholder="50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCommissionModal(false)}>Cancelar</Button>
+            <Button onClick={handleAddCommission}>Salvar Comissão</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
