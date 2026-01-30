@@ -182,6 +182,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; appointmentId: string | null }>({ show: false, appointmentId: null })
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null)
   const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([])
+  const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>("all")
   
   const timeSlots = useMemo(() => generateTimeSlots(businessHours), [businessHours])
 
@@ -305,15 +306,20 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   const calendarEvents = useMemo((): CalendarEvent[] => {
     const events: CalendarEvent[] = []
 
-    appointments.forEach(apt => {
+    // Filtrar appointments pelo barbeiro selecionado (se manager e filtro ativo)
+    const filteredAppointments = isManager && selectedBarberFilter !== "all"
+      ? appointments.filter(apt => apt.barber?.id === selectedBarberFilter)
+      : appointments
+
+    filteredAppointments.forEach(apt => {
       const start = new Date(apt.scheduledAt)
       const end = new Date(start.getTime() + apt.duration * 60000)
       
       if (start >= weekStart && start <= weekEnd) {
-        // Para managers: mostra nome do barbeiro (quem vai atender)
+        // Para managers: se filtro ativo mostra cliente, senão mostra barbeiro
         // Para barbeiros: mostra nome do cliente (quem vai ser atendido)
         const displayTitle = isManager 
-          ? (apt.barber?.name || 'Barbeiro')
+          ? (selectedBarberFilter !== "all" ? (apt.client?.name || 'Cliente') : (apt.barber?.name || 'Barbeiro'))
           : (apt.client?.name || 'Cliente')
         
         events.push({
@@ -329,7 +335,13 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
       }
     })
 
-    timeBlocks.forEach(block => {
+    // Filtrar time blocks pelo barbeiro selecionado (se manager e filtro ativo)
+    // Blocos sem barberId (toda barbearia) sempre aparecem
+    const filteredBlocks = isManager && selectedBarberFilter !== "all"
+      ? timeBlocks.filter(block => !block.barberId || block.barberId === selectedBarberFilter)
+      : timeBlocks
+
+    filteredBlocks.forEach(block => {
       const start = new Date(block.startDate)
       const end = new Date(block.endDate)
       
@@ -349,7 +361,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
     })
 
     return events
-  }, [appointments, timeBlocks, weekStart, weekEnd])
+  }, [appointments, timeBlocks, weekStart, weekEnd, isManager, selectedBarberFilter])
 
   const getEventsForSlot = (date: Date, time: string): CalendarEvent[] => {
     const [hours, minutes] = time.split(':').map(Number)
@@ -554,14 +566,30 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isManager && barbers.length > 0 && (
+                <Select value={selectedBarberFilter} onValueChange={setSelectedBarberFilter}>
+                  <SelectTrigger className="w-44">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filtrar barbeiro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os barbeiros</SelectItem>
+                    {barbers.map(barber => (
+                      <SelectItem key={barber.id} value={barber.id}>
+                        {barber.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button 
                 onClick={() => {
                   setBlockForm(prev => ({
                     ...prev,
                     startDate: format(new Date(), 'yyyy-MM-dd'),
                     endDate: format(new Date(), 'yyyy-MM-dd'),
-                    barberId: isManager ? undefined : barberId
+                    barberId: isManager ? (selectedBarberFilter !== "all" ? selectedBarberFilter : undefined) : barberId
                   }))
                   setShowBlockModal(true)
                 }}
