@@ -75,7 +75,12 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   const [totalPendingCommissions, setTotalPendingCommissions] = useState(0)
   const [barbers, setBarbers] = useState<any[]>([])
   const [uniqueBarbers, setUniqueBarbers] = useState<string[]>([])
-  const [salesFilters, setSalesFilters] = useState({ service: "all", barber: "all", month: "" })
+  const [salesFilters, setSalesFilters] = useState(() => {
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return { service: "all", barber: "all", month: currentMonth }
+  })
+  const [services, setServices] = useState<any[]>([])
   const [allSales, setAllSales] = useState<Sale[]>([])
   const [filteredSales, setFilteredSales] = useState<Sale[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
@@ -93,20 +98,30 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     
     setLoading(true)
     try {
-      const [salesResponse, barbersResponse, commissionsResponse] = await Promise.all([
+      const [salesResponse, barbersResponse, commissionsResponse, servicesResponse] = await Promise.all([
         apiClient.get(`/sales?barbershopId=${barbershopId}`),
         apiClient.get(`/barbers?barbershopId=${barbershopId}`),
-        apiClient.get(`/barber-service-commissions?barbershopId=${barbershopId}`)
+        apiClient.get(`/barber-service-commissions?barbershopId=${barbershopId}`),
+        apiClient.get(`/services?barbershopId=${barbershopId}`)
       ])
 
       const salesData = salesResponse as { success: boolean; data?: any }
       const barbersData = barbersResponse as { success: boolean; data?: any }
       const commissionsData = commissionsResponse as { success: boolean; data?: any }
+      const servicesData = servicesResponse as { success: boolean; data?: any }
 
-      // A API retorna { barbers: [...] } e o apiClient wrapa em { success, data: {...} }
-      // Então barbersData.data contém { success, barbers: [...] }
+      // Processar barbeiros
       if (barbersData.success && barbersData.data?.barbers) {
-        setBarbers(barbersData.data.barbers)
+        const barbersList = barbersData.data.barbers
+        setBarbers(barbersList)
+        // Usar nomes dos barbeiros da API para o filtro
+        const barberNames = barbersList.map((b: any) => b.user?.name || b.name || 'Barbeiro').filter(Boolean)
+        setUniqueBarbers(barberNames)
+      }
+      
+      // Processar serviços
+      if (servicesData.success && servicesData.data?.services) {
+        setServices(servicesData.data.services)
       }
 
       // A API retorna { commissions: [...] } e o apiClient wrapa em { success, data: {...} }
@@ -153,9 +168,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         const total = transformedSales.reduce((acc, s) => acc + s.service_price, 0)
         setTotalRevenue(total)
 
-        const barberNames = [...new Set(transformedSales.map(s => s.barber_name))]
-        setUniqueBarbers(barberNames)
-
         const totalComm = transformedSales.reduce((acc, s) => acc + s.commission_value, 0)
         setTotalPendingCommissions(totalComm)
       }
@@ -192,9 +204,6 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     
     setFilteredSales(filtered)
   }, [salesFilters, allSales])
-  
-  // Get unique services for filter
-  const uniqueServices = [...new Set(allSales.map(s => s.service_name))].sort()
 
   const openBarberModal = (barber: BarberCommissions) => {
     setSelectedBarberForModal(barber)
@@ -504,9 +513,9 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {uniqueServices.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.name}>
+                          {service.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
