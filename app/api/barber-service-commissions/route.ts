@@ -76,12 +76,9 @@ export const GET = withAuth(['manager'])(async (req) => {
     }));
 
     return NextResponse.json({
-      success: true,
-      data: {
-        commissions: fullCommissions,
-        barbers: barbersList,
-        services: servicesList,
-      },
+      commissions: fullCommissions,
+      barbers: barbersList,
+      services: servicesList,
     });
   } catch (error) {
     console.error('Get barber service commissions error:', error);

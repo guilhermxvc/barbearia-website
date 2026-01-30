@@ -94,18 +94,22 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         apiClient.get(`/barber-service-commissions?barbershopId=${barbershopId}`)
       ])
 
-      const salesData = salesResponse as { success: boolean; data?: { sales?: any[] } }
-      const barbersData = barbersResponse as { success: boolean; data?: { barbers?: any[] } }
-      const commissionsData = commissionsResponse as { success: boolean; data?: { commissions?: BarberCommissions[] } }
+      const salesData = salesResponse as { success: boolean; data?: any }
+      const barbersData = barbersResponse as { success: boolean; data?: any }
+      const commissionsData = commissionsResponse as { success: boolean; data?: any }
 
+      // A API retorna { barbers: [...] } e o apiClient wrapa em { success, data: {...} }
+      // Então barbersData.data contém { success, barbers: [...] }
       if (barbersData.success && barbersData.data?.barbers) {
         setBarbers(barbersData.data.barbers)
       }
 
-      if (commissionsData.success && commissionsData.data?.commissions) {
-        setBarberServiceCommissions(commissionsData.data.commissions)
-        if (commissionsData.data.commissions.length > 0 && !selectedBarberTab) {
-          setSelectedBarberTab(commissionsData.data.commissions[0].barberId)
+      // A API retorna { commissions: [...] } e o apiClient wrapa em { success, data: {...} }
+      const commissionsList: BarberCommissions[] = commissionsData.data?.commissions || []
+      if (commissionsData.success && commissionsList.length > 0) {
+        setBarberServiceCommissions(commissionsList)
+        if (!selectedBarberTab) {
+          setSelectedBarberTab(commissionsList[0].barberId)
         }
       }
 
@@ -113,13 +117,13 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         const rawSales = salesData.data.sales
         
         const transformedSales: Sale[] = rawSales.map((sale: any) => {
-          const barberComm = commissionsData.success && commissionsData.data?.commissions 
-            ? commissionsData.data.commissions.find(bc => bc.barberName === sale.barberName)
+          const barberComm = commissionsData.success && commissionsList.length > 0
+            ? commissionsList.find((bc: BarberCommissions) => bc.barberName === sale.barberName)
             : null
           
           let commRate = 50
           if (barberComm) {
-            const serviceComm = barberComm.services.find(s => s.serviceName === sale.serviceName)
+            const serviceComm = barberComm.services.find((s: BarberServiceCommission) => s.serviceName === sale.serviceName)
             if (serviceComm) {
               commRate = parseFloat(serviceComm.commissionRate)
             }
