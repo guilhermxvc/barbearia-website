@@ -24,7 +24,10 @@ import {
   Lock,
   Scissors,
   AlertCircle,
-  Loader2
+  Loader2,
+  CreditCard,
+  Banknote,
+  Smartphone
 } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import { format, addDays, startOfWeek, endOfWeek, isToday, isSameDay, addWeeks, subWeeks, parseISO } from "date-fns"
@@ -183,6 +186,8 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null)
   const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([])
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>("all")
+  const [paymentModal, setPaymentModal] = useState<{ show: boolean; appointmentId: string | null }>({ show: false, appointmentId: null })
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("")
   
   const timeSlots = useMemo(() => generateTimeSlots(businessHours), [businessHours])
 
@@ -495,16 +500,40 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
     }
   }
 
-  const handleUpdateAppointmentStatus = async (appointmentId: string, status: string) => {
+  const handleUpdateAppointmentStatus = async (appointmentId: string, status: string, paymentMethod?: string) => {
     try {
-      const response = await apiClient.put(`/appointments/${appointmentId}`, { status })
+      const body: { status: string; paymentMethod?: string } = { status }
+      if (paymentMethod) {
+        body.paymentMethod = paymentMethod
+      }
+      const response = await apiClient.put(`/appointments/${appointmentId}`, body)
       if (response.success) {
         setSelectedEvent(null)
         loadData()
+        if (status === 'completed') {
+          toast.success("Serviço concluído e registrado no financeiro!")
+        }
       }
     } catch (err) {
       console.error('Error updating appointment:', err)
+      toast.error("Erro ao atualizar agendamento")
     }
+  }
+
+  const openPaymentModal = (appointmentId: string) => {
+    setSelectedPaymentMethod("")
+    setPaymentModal({ show: true, appointmentId })
+  }
+
+  const confirmPaymentAndComplete = async () => {
+    if (!paymentModal.appointmentId || !selectedPaymentMethod) {
+      toast.error("Selecione o método de pagamento")
+      return
+    }
+    
+    await handleUpdateAppointmentStatus(paymentModal.appointmentId, 'completed', selectedPaymentMethod)
+    setPaymentModal({ show: false, appointmentId: null })
+    setSelectedPaymentMethod("")
   }
 
   const handleDeleteAppointment = async (appointmentId: string) => {
@@ -804,7 +833,7 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                           </p>
                           <div className="flex gap-2">
                             <Button 
-                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'completed')}
+                              onClick={() => openPaymentModal(apt.id)}
                               className="bg-green-600 hover:bg-green-700 text-white flex-1"
                             >
                               Concluir
@@ -1049,6 +1078,78 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Método de Pagamento */}
+      <Dialog open={paymentModal.show} onOpenChange={(open) => !open && setPaymentModal({ show: false, appointmentId: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Pagamento</DialogTitle>
+            <DialogDescription>
+              Selecione como o cliente pagou pelo serviço
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSelectedPaymentMethod('credit_card')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  selectedPaymentMethod === 'credit_card' 
+                    ? 'border-amber-500 bg-amber-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <CreditCard className="h-8 w-8 text-blue-600" />
+                <span className="font-medium">Crédito</span>
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('debit_card')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  selectedPaymentMethod === 'debit_card' 
+                    ? 'border-amber-500 bg-amber-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <CreditCard className="h-8 w-8 text-green-600" />
+                <span className="font-medium">Débito</span>
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('pix')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  selectedPaymentMethod === 'pix' 
+                    ? 'border-amber-500 bg-amber-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Smartphone className="h-8 w-8 text-teal-600" />
+                <span className="font-medium">Pix</span>
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('cash')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                  selectedPaymentMethod === 'cash' 
+                    ? 'border-amber-500 bg-amber-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Banknote className="h-8 w-8 text-emerald-600" />
+                <span className="font-medium">Dinheiro</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setPaymentModal({ show: false, appointmentId: null })}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmPaymentAndComplete}
+              disabled={!selectedPaymentMethod}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Confirmar Pagamento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { z } from 'zod';
 export const userTypeEnum = ['manager', 'barber', 'client'] as const;
 export const subscriptionPlanEnum = ['basico', 'profissional', 'premium'] as const;
 export const appointmentStatusEnum = ['pending', 'confirmed', 'in_progress', 'finished', 'completed', 'cancelled', 'no_show'] as const;
+export const paymentMethodEnum = ['credit_card', 'debit_card', 'pix', 'cash'] as const;
 export const requestStatusEnum = ['pending', 'approved', 'rejected', 'cancelled'] as const;
 
 // Subscription Plans table (separada para fácil manutenção)
@@ -126,6 +127,7 @@ export const appointments = pgTable('appointments', {
   scheduledAt: timestamp('scheduled_at').notNull(),
   duration: integer('duration').notNull(), // Duração em minutos
   status: text('status', { enum: appointmentStatusEnum }).default('pending'),
+  paymentMethod: text('payment_method', { enum: paymentMethodEnum }), // Método de pagamento ao concluir
   notes: text('notes'),
   totalPrice: decimal('total_price', { precision: 8, scale: 2 }).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
