@@ -1,14 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useMemo } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { User, Search, Users, TrendingUp, Loader2 } from "lucide-react"
+import { User, Search, Users, TrendingUp, Loader2, Phone, Calendar } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { apiClient } from "@/lib/api"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+
+interface BarberClient {
+  id: string
+  name: string
+  phone: string
+  totalVisits: number
+  totalSpent: number
+  lastVisit: string | null
+}
 
 export function BarberClients() {
   const { user } = useAuth()
@@ -17,16 +26,16 @@ export function BarberClients() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadClients()
+    if (user?.barber?.id) {
+      loadClients()
+    }
   }, [user])
 
   const loadClients = async () => {
     try {
       setLoading(true)
 
-      if (!user?.barber?.id) {
-        return
-      }
+      if (!user?.barber?.id) return
 
       const response = await apiClient.get(`/appointments?barberId=${user.barber.id}`)
 
@@ -40,33 +49,76 @@ export function BarberClients() {
     }
   }
 
-  const uniqueClients = appointments.reduce((acc: any[], appointment) => {
-    if (appointment.client && !acc.find((c) => c.id === appointment.client.id)) {
-      const clientName = appointment.client.user 
-        ? `${appointment.client.user.firstName} ${appointment.client.user.lastName}`
-        : appointment.client.name || "Cliente"
-      const clientEmail = appointment.client.user?.email || appointment.client.email || ""
-      const clientPhone = appointment.client.user?.phone || appointment.client.phone || ""
-      
-      acc.push({
-        id: appointment.client.id,
-        name: clientName,
-        email: clientEmail,
-        phone: clientPhone,
-        totalVisits: appointments.filter((a) => a.client?.id === appointment.client.id).length,
-      })
-    }
-    return acc
-  }, [])
+  const completedAppointments = useMemo(
+    () => appointments.filter((a) => a.status === "completed"),
+    [appointments]
+  )
 
-  const filteredClients = uniqueClients.filter((client) =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const uniqueClients = useMemo((): BarberClient[] => {
+    const clientMap = new Map<string, BarberClient>()
+
+    completedAppointments.forEach((appointment) => {
+      const clientId = appointment.client?.id
+      if (!clientId) return
+
+      const existing = clientMap.get(clientId)
+
+      if (existing) {
+        existing.totalVisits += 1
+        existing.totalSpent += Number(appointment.totalPrice) || 0
+        if (appointment.scheduledAt) {
+          const appointmentDate = new Date(appointment.scheduledAt)
+          const lastDate = existing.lastVisit ? new Date(existing.lastVisit) : null
+          if (!lastDate || appointmentDate > lastDate) {
+            existing.lastVisit = appointment.scheduledAt
+          }
+        }
+      } else {
+        const clientName = appointment.client?.name || "Cliente"
+        const clientPhone = appointment.client?.phone || ""
+
+        clientMap.set(clientId, {
+          id: clientId,
+          name: clientName,
+          phone: clientPhone,
+          totalVisits: 1,
+          totalSpent: Number(appointment.totalPrice) || 0,
+          lastVisit: appointment.scheduledAt || null,
+        })
+      }
+    })
+
+    return Array.from(clientMap.values()).sort((a, b) => b.totalVisits - a.totalVisits)
+  }, [completedAppointments])
+
+  const avgVisits = useMemo(
+    () => (uniqueClients.length > 0 ? completedAppointments.length / uniqueClients.length : 0),
+    [uniqueClients, completedAppointments]
+  )
+
+  const filteredClients = useMemo(
+    () =>
+      uniqueClients.filter(
+        (client) =>
+          client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          client.phone.includes(searchTerm)
+      ),
+    [uniqueClients, searchTerm]
   )
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="pt-6">
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
@@ -77,7 +129,7 @@ export function BarberClients() {
         <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum cliente ainda</h3>
         <p className="text-gray-600">
-          Seus clientes aparecerão aqui conforme você realiza atendimentos
+          Seus clientes aparecerão aqui automaticamente após você completar atendimentos
         </p>
       </div>
     )
@@ -85,53 +137,52 @@ export function BarberClients() {
 
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Clientes</p>
-                <p className="text-3xl font-bold text-gray-900">{uniqueClients.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{uniqueClients.length}</div>
+            <p className="text-xs text-muted-foreground">clientes atendidos</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Atendimentos</p>
-                <p className="text-3xl font-bold text-green-600">{appointments.length}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Atendimentos</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{completedAppointments.length}</div>
+            <p className="text-xs text-muted-foreground">serviços completados</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Média por Cliente</p>
-                <p className="text-3xl font-bold text-purple-600">
-                  {uniqueClients.length > 0 ? (appointments.length / uniqueClients.length).toFixed(1) : "0"}
-                </p>
-              </div>
-              <User className="h-8 w-8 text-purple-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Média por Cliente</CardTitle>
+            <User className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{avgVisits.toFixed(1)}</div>
+            <p className="text-xs text-muted-foreground">atendimentos</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardContent className="p-6">
+        <CardHeader>
+          <CardTitle>Meus Clientes</CardTitle>
+          <CardDescription>Clientes que você já atendeu, ordenados por frequência</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar cliente por nome..."
+                placeholder="Buscar por nome ou telefone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -139,26 +190,54 @@ export function BarberClients() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            {filteredClients.map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                    <User className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{client.name}</p>
-                    <p className="text-sm text-gray-600">{client.email}</p>
-                    {client.phone && <p className="text-sm text-gray-600">{client.phone}</p>}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <Badge className="bg-blue-100 text-blue-800">
-                    {client.totalVisits} {client.totalVisits === 1 ? "visita" : "visitas"}
-                  </Badge>
-                </div>
+          <div className="divide-y">
+            {filteredClients.length === 0 ? (
+              <div className="text-center py-8">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Nenhum cliente encontrado para essa busca</p>
               </div>
-            ))}
+            ) : (
+              filteredClients.map((client) => (
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold shrink-0">
+                      {client.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-gray-900">{client.name}</h4>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        {client.phone && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {client.phone}
+                          </span>
+                        )}
+                        {client.lastVisit && (
+                          <span className="text-sm text-gray-400 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(client.lastVisit), "dd/MM/yyyy", { locale: ptBR })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-green-600">
+                        R$ {client.totalSpent.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-400">faturado</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {client.totalVisits} {client.totalVisits === 1 ? "visita" : "visitas"}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
