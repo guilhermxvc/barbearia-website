@@ -29,7 +29,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
   const isPremium = subscriptionPlan === "premium"
 
   const menuItems = [
-    { id: "overview", label: "Visão Geral", icon: BarChart3 },
+    { id: "overview", label: "Dashboard", icon: BarChart3 },
     { id: "appointments", label: "Agendamentos", icon: Calendar },
     { id: "clients", label: "Clientes", icon: Users },
     { id: "barbers", label: "Barbeiros", icon: Users },

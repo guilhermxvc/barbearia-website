@@ -14,9 +14,9 @@ const nextConfig = {
     if (dev) {
       config.watchOptions = {
         ...config.watchOptions,
-        poll: 1000,
-        aggregateTimeout: 300,
-        ignored: ['**/node_modules/**', '**/.next/**', '**/.git/**', '**/tmp/**'],
+        poll: 2000,
+        aggregateTimeout: 500,
+        ignored: /node_modules|\.next|\.git|tmp|\.local/,
       }
     }
     return config

@@ -28,6 +28,7 @@ The application is built with Next.js 14.2.16, TypeScript, and Tailwind CSS v4.1
 - **Clients Management:** List, create, edit, and deactivate clients with search/filter.
 - **Services Management:** CRUD for services with active/inactive status.
 - **Subscription Plans:** Dynamic, database-driven pricing for Básico, Profissional, and Premium tiers.
+- **Manager Dashboard:** Redesigned main dashboard with confirmed appointments, daily/weekly/monthly revenue toggle, cancellation rate, barber ranking, popular services pie chart (recharts), and weekday occupancy bar chart.
 - **UI/UX:** Modern design with amber/orange gradients, icons, and consistent styling.
 - **Technical Fixes:** Proper Tailwind CSS v4 configuration, Next.js dev server optimization for Replit proxy, and clean build process.
 

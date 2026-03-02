@@ -4,10 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, TrendingUp, Star, Lock, Loader2 } from "lucide-react"
+import { Calendar, Star, Lock, Loader2 } from "lucide-react"
 import { ManagerSidebar } from "@/components/manager-sidebar"
 import { OverviewCards } from "@/components/overview-cards"
-import { RecentAppointments } from "@/components/recent-appointments"
 import { BarbersManagement } from "@/components/barbers-management"
 import { ServicesManagement } from "@/components/services-management"
 import { ProductsManagement } from "@/components/products-management"
@@ -41,7 +40,7 @@ export default function ManagerDashboard() {
   const sectionTitles = {
     overview: {
       title: `Dashboard - ${user?.barbershop?.name || 'Barbearia'}`,
-      description: "Visão geral da sua barbearia",
+      description: "Painel principal da sua barbearia",
     },
     appointments: {
       title: "Agendamentos",
@@ -207,133 +206,9 @@ function UpgradePrompt({ feature }: { feature: string }) {
 }
 
 function OverviewSection({ userPlan }: { userPlan: string }) {
-  const { user } = useAuth()
-  const [barbersList, setBarbersList] = useState<any[]>([])
-  const [loadingBarbers, setLoadingBarbers] = useState(true)
-
-  useEffect(() => {
-    const loadBarbers = async () => {
-      if (!user?.barbershop?.id) return
-      
-      try {
-        const response = await fetch(`/api/barbers?barbershopId=${user.barbershop.id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          },
-        })
-        const data = await response.json()
-        if (data.success) {
-          setBarbersList(data.barbers || [])
-        }
-      } catch (error) {
-        console.error('Erro ao carregar barbeiros:', error)
-      } finally {
-        setLoadingBarbers(false)
-      }
-    }
-    
-    loadBarbers()
-  }, [user?.barbershop?.id])
-
   return (
     <div className="space-y-6">
       <OverviewCards />
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Calendar className="h-5 w-5 mr-2 text-amber-600" />
-              Agendamentos Hoje
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecentAppointments />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-amber-600" />
-              Resumo da Equipe
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Barbeiros Ativos</span>
-                <span className="font-semibold text-green-600">{barbersList.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Plano Atual</span>
-                <Badge className="bg-amber-600">{userPlan}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Limite de Barbeiros</span>
-                <span className="font-semibold">
-                  {userPlan === "Premium" ? "Ilimitado" : userPlan === "Profissional" ? "8" : "3"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Barbearia</span>
-                <span className="font-semibold text-amber-600">{user?.barbershop?.name || "-"}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Barbeiros Ativos</CardTitle>
-          <CardDescription>
-            Status atual da equipe
-            {userPlan === "Básico" && " (Limite: 3 barbeiros)"}
-            {userPlan === "Profissional" && " (Limite: 8 barbeiros)"}
-            {userPlan === "Premium" && " (Barbeiros ilimitados)"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingBarbers ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
-              <span className="ml-2 text-gray-600">Carregando barbeiros...</span>
-            </div>
-          ) : barbersList.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>Nenhum barbeiro cadastrado ainda.</p>
-              <p className="text-sm mt-2">Os barbeiros aparecerão aqui após serem aprovados.</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-3 gap-4">
-              {barbersList.map((barber, index) => (
-                <div key={barber.id || index} className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{barber.name}</h4>
-                    <Badge variant={barber.isActive ? "default" : "secondary"}>
-                      {barber.isActive ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">{barber.email}</p>
-                  {barber.phone && (
-                    <p className="text-sm text-gray-500">{barber.phone}</p>
-                  )}
-                  {barber.specialties && barber.specialties.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {barber.specialties.slice(0, 2).map((spec: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {spec}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
