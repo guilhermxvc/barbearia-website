@@ -663,37 +663,47 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
             const sortedOverdueMonths = Object.keys(overdueByMonth).sort().reverse()
 
             const pendingBarbers = groupByBarber(currentMonthSales)
-            const pendingTotal = currentMonthSales.reduce((acc, s) => acc + s.commission_value, 0)
+            const grandTotal = allSales.reduce((acc, s) => acc + s.commission_value, 0)
+
+            const hasOverdue = sortedOverdueMonths.length > 0
+            const hasCurrent = pendingBarbers.length > 0
 
             return (
-              <>
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <Clock className="h-5 w-5 text-amber-600" />
-                          Comissões Pendentes — {monthNames[currentMonth]}
-                        </CardTitle>
-                        <CardDescription>Comissões do mês vigente (ainda em aberto)</CardDescription>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-amber-600">R$ {pendingTotal.toFixed(2)}</p>
-                      </div>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-amber-600" />
+                        Comissões Pendentes
+                      </CardTitle>
+                      <CardDescription>Valores a pagar para cada barbeiro</CardDescription>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    {pendingBarbers.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <p>Nenhuma comissão neste mês ainda</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {pendingBarbers.map((barber) => (
-                          <div key={barber.name} className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Total pendente</p>
+                      <p className="text-2xl font-bold text-amber-600">R$ {grandTotal.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {!hasOverdue && !hasCurrent ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-400" />
+                      <p className="font-medium">Nenhuma comissão pendente</p>
+                      <p className="text-sm">Todas as comissões estão em dia</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {sortedOverdueMonths.map(monthKey => {
+                        const [year, month] = monthKey.split('-').map(Number)
+                        const monthLabel = `${monthNames[month - 1]} ${year}`
+                        const monthSales = overdueByMonth[monthKey]
+                        const monthBarbers = groupByBarber(monthSales)
+
+                        return monthBarbers.map((barber) => (
+                          <div key={`${monthKey}-${barber.name}`} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold">
+                              <div className="h-10 w-10 bg-red-100 text-red-700 flex items-center justify-center rounded-full font-semibold">
                                 {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                               </div>
                               <div>
@@ -702,76 +712,34 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-amber-600">R$ {barber.total.toFixed(2)}</p>
-                              <Badge variant="outline" className="text-amber-600 border-amber-300">Pendente</Badge>
+                              <p className="text-lg font-bold text-red-600">R$ {barber.total.toFixed(2)}</p>
+                              <Badge variant="outline" className="text-red-600 border-red-300">Atrasada ({monthLabel})</Badge>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                        ))
+                      })}
 
-                {sortedOverdueMonths.length > 0 && sortedOverdueMonths.map(monthKey => {
-                  const [year, month] = monthKey.split('-').map(Number)
-                  const monthLabel = `${monthNames[month - 1]} ${year}`
-                  const monthSales = overdueByMonth[monthKey]
-                  const monthBarbers = groupByBarber(monthSales)
-                  const monthTotal = monthSales.reduce((acc, s) => acc + s.commission_value, 0)
-
-                  return (
-                    <Card key={monthKey}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="flex items-center gap-2">
-                              <Clock className="h-5 w-5 text-red-500" />
-                              Comissões Atrasadas — {monthLabel}
-                            </CardTitle>
-                            <CardDescription>Mês fechado — pagamento pendente</CardDescription>
+                      {pendingBarbers.map((barber) => (
+                        <div key={barber.name} className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold">
+                              {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                            </div>
+                            <div>
+                              <p className="font-medium">{barber.name}</p>
+                              <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''}</p>
+                            </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-2xl font-bold text-red-600">R$ {monthTotal.toFixed(2)}</p>
+                            <p className="text-lg font-bold text-amber-600">R$ {barber.total.toFixed(2)}</p>
+                            <Badge variant="outline" className="text-amber-600 border-amber-300">Pendente</Badge>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {monthBarbers.map((barber) => (
-                            <div key={barber.name} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                              <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 bg-red-100 text-red-700 flex items-center justify-center rounded-full font-semibold">
-                                  {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                                </div>
-                                <div>
-                                  <p className="font-medium">{barber.name}</p>
-                                  <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-red-600">R$ {barber.total.toFixed(2)}</p>
-                                <Badge variant="outline" className="text-red-600 border-red-300">Atrasada</Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-
-                {sortedOverdueMonths.length === 0 && pendingBarbers.length > 0 && (
-                  <Card>
-                    <CardContent className="py-6">
-                      <div className="text-center text-gray-500">
-                        <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-400" />
-                        <p className="font-medium">Nenhuma comissão atrasada</p>
-                        <p className="text-sm">Todas as comissões de meses anteriores estão em dia</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )
           })()}
 
