@@ -625,115 +625,155 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         </TabsContent>
 
         <TabsContent value="accounts-payable" className="space-y-4">
-          {/* Seção de Comissões dos Barbeiros */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-amber-600" />
-                    Comissões dos Barbeiros
-                  </CardTitle>
-                  <CardDescription>Valores a pagar para cada barbeiro baseado nos serviços realizados</CardDescription>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">Pendente + Atrasado</p>
-                  <p className="text-2xl font-bold text-amber-600">R$ {(monthlyPendingCommissions + overdueCommissions).toFixed(2)}</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {(() => {
-                // Agrupar vendas por barbeiro para calcular comissões
-                const barberCommissionsSummary: Record<string, { name: string; total: number; services: number }> = {}
-                
-                filteredSales.forEach(sale => {
-                  const barberName = sale.barber_name
-                  if (!barberCommissionsSummary[barberName]) {
-                    barberCommissionsSummary[barberName] = { name: barberName, total: 0, services: 0 }
-                  }
-                  barberCommissionsSummary[barberName].total += sale.commission_value
-                  barberCommissionsSummary[barberName].services += 1
-                })
-                
-                const barbersList = Object.values(barberCommissionsSummary).sort((a, b) => b.total - a.total)
-                
-                if (barbersList.length === 0) {
-                  return (
-                    <div className="text-center py-8 text-gray-500">
-                      <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p>Nenhuma comissão registrada no período</p>
-                    </div>
-                  )
-                }
-                
-                return (
-                  <div className="space-y-3">
-                    {barbersList.map((barber, index) => (
-                      <div key={barber.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold">
-                            {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="font-medium">{barber.name}</p>
-                            <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''} realizado{barber.services !== 1 ? 's' : ''}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">R$ {barber.total.toFixed(2)}</p>
-                          <p className="text-xs text-gray-400">a pagar</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </CardContent>
-          </Card>
+          {(() => {
+            const now = new Date()
+            const currentMonth = now.getMonth()
+            const currentYear = now.getFullYear()
+            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pendente (Mês Atual)</CardTitle>
-                <Clock className="h-4 w-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  R$ {monthlyPendingCommissions.toFixed(2)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Fecha quando o mês virar
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Atrasadas (Meses Anteriores)</CardTitle>
-                <Clock className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  R$ {overdueCommissions.toFixed(2)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Comissões de meses fechados
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  R$ {totalCommissions.toFixed(2)}
-                </div>
-                <p className="text-xs text-muted-foreground">Pagas neste mês</p>
-              </CardContent>
-            </Card>
-          </div>
+            const currentMonthSales = allSales.filter(s => {
+              const d = new Date(s.sale_date)
+              return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+            })
+
+            const previousMonthsSales = allSales.filter(s => {
+              const d = new Date(s.sale_date)
+              return d.getMonth() !== currentMonth || d.getFullYear() !== currentYear
+            })
+
+            const groupByBarber = (sales: Sale[]) => {
+              const map: Record<string, { name: string; total: number; services: number }> = {}
+              sales.forEach(sale => {
+                if (!map[sale.barber_name]) {
+                  map[sale.barber_name] = { name: sale.barber_name, total: 0, services: 0 }
+                }
+                map[sale.barber_name].total += sale.commission_value
+                map[sale.barber_name].services += 1
+              })
+              return Object.values(map).sort((a, b) => b.total - a.total)
+            }
+
+            const overdueByMonth: Record<string, Sale[]> = {}
+            previousMonthsSales.forEach(s => {
+              const d = new Date(s.sale_date)
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+              if (!overdueByMonth[key]) overdueByMonth[key] = []
+              overdueByMonth[key].push(s)
+            })
+            const sortedOverdueMonths = Object.keys(overdueByMonth).sort().reverse()
+
+            const pendingBarbers = groupByBarber(currentMonthSales)
+            const pendingTotal = currentMonthSales.reduce((acc, s) => acc + s.commission_value, 0)
+
+            return (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Clock className="h-5 w-5 text-amber-600" />
+                          Comissões Pendentes — {monthNames[currentMonth]}
+                        </CardTitle>
+                        <CardDescription>Comissões do mês vigente (ainda em aberto)</CardDescription>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-amber-600">R$ {pendingTotal.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {pendingBarbers.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                        <p>Nenhuma comissão neste mês ainda</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pendingBarbers.map((barber) => (
+                          <div key={barber.name} className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold">
+                                {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                              </div>
+                              <div>
+                                <p className="font-medium">{barber.name}</p>
+                                <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-amber-600">R$ {barber.total.toFixed(2)}</p>
+                              <Badge variant="outline" className="text-amber-600 border-amber-300">Pendente</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {sortedOverdueMonths.length > 0 && sortedOverdueMonths.map(monthKey => {
+                  const [year, month] = monthKey.split('-').map(Number)
+                  const monthLabel = `${monthNames[month - 1]} ${year}`
+                  const monthSales = overdueByMonth[monthKey]
+                  const monthBarbers = groupByBarber(monthSales)
+                  const monthTotal = monthSales.reduce((acc, s) => acc + s.commission_value, 0)
+
+                  return (
+                    <Card key={monthKey}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Clock className="h-5 w-5 text-red-500" />
+                              Comissões Atrasadas — {monthLabel}
+                            </CardTitle>
+                            <CardDescription>Mês fechado — pagamento pendente</CardDescription>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-red-600">R$ {monthTotal.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {monthBarbers.map((barber) => (
+                            <div key={barber.name} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-red-100 text-red-700 flex items-center justify-center rounded-full font-semibold">
+                                  {barber.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                                </div>
+                                <div>
+                                  <p className="font-medium">{barber.name}</p>
+                                  <p className="text-sm text-gray-500">{barber.services} serviço{barber.services !== 1 ? 's' : ''}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-red-600">R$ {barber.total.toFixed(2)}</p>
+                                <Badge variant="outline" className="text-red-600 border-red-300">Atrasada</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+
+                {sortedOverdueMonths.length === 0 && pendingBarbers.length > 0 && (
+                  <Card>
+                    <CardContent className="py-6">
+                      <div className="text-center text-gray-500">
+                        <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-400" />
+                        <p className="font-medium">Nenhuma comissão atrasada</p>
+                        <p className="text-sm">Todas as comissões de meses anteriores estão em dia</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )
+          })()}
 
           <Card>
             <CardHeader>
