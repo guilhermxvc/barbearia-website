@@ -50,7 +50,7 @@ export function BarberClients() {
   }
 
   const completedAppointments = useMemo(
-    () => appointments.filter((a) => a.status === "completed"),
+    () => appointments.filter((a) => a.status === "completed" || a.status === "finished"),
     [appointments]
   )
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import {
   DollarSign,
   Calendar,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { apiClient } from "@/lib/api"
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subMonths } from "date-fns"
+import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
 
@@ -36,19 +36,9 @@ export function BarberReports() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [commissions, setCommissions] = useState<ServiceCommission[]>([])
   const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState("month")
-
-  const monthOptions = useMemo(() => {
-    const now = new Date()
-    const options: { value: string; label: string }[] = []
-    for (let i = 0; i < 12; i++) {
-      const date = subMonths(now, i)
-      const value = `m-${date.getFullYear()}-${date.getMonth()}`
-      const label = format(date, "MMMM yyyy", { locale: ptBR })
-      options.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
-    }
-    return options
-  }, [])
+  const now = new Date()
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const [selectedMonth, setSelectedMonth] = useState(defaultMonth)
 
   useEffect(() => {
     loadReports()
@@ -94,44 +84,20 @@ export function BarberReports() {
   }
 
   const periodRange = useMemo(() => {
-    const now = new Date()
-    if (period.startsWith("m-")) {
-      const parts = period.split("-")
-      const year = parseInt(parts[1])
-      const month = parseInt(parts[2])
-      const target = new Date(year, month, 1)
-      return { start: startOfMonth(target), end: endOfMonth(target) }
-    }
-    switch (period) {
-      case "week":
-        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
-      case "month":
-        return { start: startOfMonth(now), end: endOfMonth(now) }
-      case "year":
-        return { start: startOfYear(now), end: endOfYear(now) }
-      default:
-        return { start: startOfMonth(now), end: endOfMonth(now) }
-    }
-  }, [period])
+    const [year, month] = selectedMonth.split("-").map(Number)
+    const target = new Date(year, month - 1, 1)
+    return { start: startOfMonth(target), end: endOfMonth(target) }
+  }, [selectedMonth])
 
   const periodLabel = useMemo(() => {
-    if (period.startsWith("m-")) {
-      const parts = period.split("-")
-      const year = parseInt(parts[1])
-      const month = parseInt(parts[2])
-      const target = new Date(year, month, 1)
-      return format(target, "MMMM 'de' yyyy", { locale: ptBR })
-    }
-    switch (period) {
-      case "week": return "esta semana"
-      case "month": return "este mês"
-      case "year": return "este ano"
-      default: return "este mês"
-    }
-  }, [period])
+    const [year, month] = selectedMonth.split("-").map(Number)
+    const target = new Date(year, month - 1, 1)
+    const label = format(target, "MMMM 'de' yyyy", { locale: ptBR })
+    return label.charAt(0).toUpperCase() + label.slice(1)
+  }, [selectedMonth])
 
   const completedAppointments = useMemo(
-    () => appointments.filter((a) => a.status === "completed"),
+    () => appointments.filter((a) => a.status === "completed" || a.status === "finished"),
     [appointments]
   )
 
@@ -223,23 +189,15 @@ export function BarberReports() {
               <CardTitle>Resumo do Período</CardTitle>
               <CardDescription className="capitalize">{periodLabel}</CardDescription>
             </div>
-            <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-full sm:w-52">
-                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Esta Semana</SelectItem>
-                <SelectItem value="month">Este Mês</SelectItem>
-                <SelectItem value="year">Este Ano</SelectItem>
-                <div className="border-t my-1" />
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full sm:w-44"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
