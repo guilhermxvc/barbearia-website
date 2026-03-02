@@ -175,11 +175,29 @@ export function ClientsManagement() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="text-lg">Carregando clientes...</div>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="pt-6">
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
+
+  const newThisMonth = clients.filter(c => 
+    new Date(c.createdAt).getMonth() === new Date().getMonth() &&
+    new Date(c.createdAt).getFullYear() === new Date().getFullYear()
+  ).length
+
+  const activeClients = clients.filter(c => c.totalVisits > 0).length
+
+  const totalRevenue = clients.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0)
 
   return (
     <div className="space-y-6">
@@ -189,62 +207,48 @@ export function ClientsManagement() {
         </div>
       )}
 
-      {/* Header com estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Clientes</p>
-                <p className="text-2xl font-bold text-gray-900">{clients.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{clients.length}</div>
+            <p className="text-xs text-muted-foreground">cadastrados</p>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Novos Este Mês</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {clients.filter(c => 
-                    new Date(c.createdAt).getMonth() === new Date().getMonth() &&
-                    new Date(c.createdAt).getFullYear() === new Date().getFullYear()
-                  ).length}
-                </p>
-              </div>
-              <UserCheck className="h-8 w-8 text-green-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Novos Este Mês</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{newThisMonth}</div>
+            <p className="text-xs text-muted-foreground">este mês</p>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Clientes Ativos</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {clients.filter(c => c.totalVisits > 0).length}
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-amber-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
+            <Calendar className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">{activeClients}</div>
+            <p className="text-xs text-muted-foreground">com visitas</p>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Receita Total</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  R$ {clients.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0).toFixed(2)}
-                </p>
-              </div>
-              <Download className="h-8 w-8 text-purple-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+            <Download className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">acumulada</p>
           </CardContent>
         </Card>
       </div>
@@ -287,13 +291,12 @@ export function ClientsManagement() {
             </Button>
           </div>
 
-          {/* Lista de clientes */}
-          <div className="space-y-4">
+          <div className="divide-y">
             {filteredClients.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum cliente encontrado</h3>
-                <p className="text-gray-600">
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Nenhum cliente encontrado</h3>
+                <p className="text-sm text-gray-500">
                   {clients.length === 0 
                     ? "Ainda não há clientes cadastrados." 
                     : "Tente ajustar os filtros de busca."}
@@ -301,51 +304,59 @@ export function ClientsManagement() {
               </div>
             ) : (
               filteredClients.map((client) => (
-                <div key={client.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{client.name}</h3>
-                          <p className="text-sm text-gray-600">{client.email}</p>
-                          {client.phone && (
-                            <p className="text-sm text-gray-600">{client.phone}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
-                        <span>{client.totalVisits || 0} visitas</span>
-                        <span>R$ {client.totalSpent || '0.00'} gasto</span>
-                        {client.lastVisit && (
-                          <span>Última visita: {new Date(client.lastVisit).toLocaleDateString('pt-BR')}</span>
-                        )}
-                        <Badge variant={client.totalVisits > 0 ? "default" : "secondary"}>
+                <div key={client.id} className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 bg-blue-100 text-blue-700 flex items-center justify-center rounded-full font-semibold shrink-0">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium text-gray-900">{client.name}</h4>
+                        <Badge variant={client.totalVisits > 0 ? "default" : "secondary"} className="text-xs">
                           {client.totalVisits > 0 ? "Ativo" : "Novo"}
                         </Badge>
                       </div>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        {client.email && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {client.email}
+                          </span>
+                        )}
+                        {client.phone && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {client.phone}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 mt-1 flex-wrap">
+                        <span className="text-sm text-gray-500">{client.totalVisits || 0} visitas</span>
+                        <span className="text-sm font-semibold text-green-600">R$ {client.totalSpent || '0.00'}</span>
+                        {client.lastVisit && (
+                          <span className="text-sm text-gray-400">
+                            Última: {new Date(client.lastVisit).toLocaleDateString('pt-BR')}
+                          </span>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingClient(client)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeactivateClient(client.id)}
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingClient(client)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeactivateClient(client.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))
