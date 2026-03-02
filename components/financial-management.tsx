@@ -70,9 +70,10 @@ interface FinancialManagementProps {
 
 export function FinancialManagement({ barbershopId }: FinancialManagementProps) {
   const [loading, setLoading] = useState(true)
-  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0)
   const [totalCommissions, setTotalCommissions] = useState(0)
-  const [totalPendingCommissions, setTotalPendingCommissions] = useState(0)
+  const [monthlyPendingCommissions, setMonthlyPendingCommissions] = useState(0)
+  const [overdueCommissions, setOverdueCommissions] = useState(0)
   const [barbers, setBarbers] = useState<any[]>([])
   const [uniqueBarbers, setUniqueBarbers] = useState<string[]>([])
   const [salesFilters, setSalesFilters] = useState(() => {
@@ -165,11 +166,32 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         setAllSales(transformedSales)
         setFilteredSales(transformedSales)
 
-        const total = transformedSales.reduce((acc, s) => acc + s.service_price, 0)
-        setTotalRevenue(total)
+        // Calculate monthly metrics
+        const now = new Date()
+        const currentMonth = now.getMonth()
+        const currentYear = now.getFullYear()
+        
+        const currentMonthSales = transformedSales.filter(s => {
+          const saleDate = new Date(s.sale_date)
+          return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear
+        })
+        
+        const previousMonthsSales = transformedSales.filter(s => {
+          const saleDate = new Date(s.sale_date)
+          return saleDate.getMonth() !== currentMonth || saleDate.getFullYear() !== currentYear
+        })
+        
+        // Revenue only for current month
+        const monthRevenue = currentMonthSales.reduce((acc, s) => acc + s.service_price, 0)
+        setMonthlyRevenue(monthRevenue)
 
-        const totalComm = transformedSales.reduce((acc, s) => acc + s.commission_value, 0)
-        setTotalPendingCommissions(totalComm)
+        // Pending commissions = current month commissions (not yet paid)
+        const monthPendingComm = currentMonthSales.reduce((acc, s) => acc + s.commission_value, 0)
+        setMonthlyPendingCommissions(monthPendingComm)
+        
+        // Overdue commissions = previous months commissions (month closed, not paid)
+        const overdueComm = previousMonthsSales.reduce((acc, s) => acc + s.commission_value, 0)
+        setOverdueCommissions(overdueComm)
       }
     } catch (error) {
       console.error('Error loading financial data:', error)
@@ -279,42 +301,42 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Receita do Mês</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{allSales.length} vendas este mês</p>
+            <div className="text-2xl font-bold text-green-600">R$ {monthlyRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Faturamento do mês vigente</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">R$ {totalCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Comissões já pagas</p>
+            <p className="text-xs text-muted-foreground">Pagas neste mês</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Comissões Pendentes</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totalPendingCommissions.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">A pagar aos barbeiros</p>
+            <div className="text-2xl font-bold text-amber-600">R$ {monthlyPendingCommissions.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Mês atual - a pagar quando fechar</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Barbeiros Ativos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Comissões Atrasadas</CardTitle>
+            <Clock className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{barbers.length}</div>
-            <p className="text-xs text-muted-foreground">{uniqueBarbers.length} com vendas este mês</p>
+            <div className="text-2xl font-bold text-red-600">R$ {overdueCommissions.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Meses anteriores não pagos</p>
           </CardContent>
         </Card>
       </div>
@@ -615,8 +637,8 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                   <CardDescription>Valores a pagar para cada barbeiro baseado nos serviços realizados</CardDescription>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Total de Comissões</p>
-                  <p className="text-2xl font-bold text-amber-600">R$ {totalPendingCommissions.toFixed(2)}</p>
+                  <p className="text-sm text-gray-500">Pendente + Atrasado</p>
+                  <p className="text-2xl font-bold text-amber-600">R$ {(monthlyPendingCommissions + overdueCommissions).toFixed(2)}</p>
                 </div>
               </div>
             </CardHeader>
@@ -673,46 +695,42 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Comissões</CardTitle>
-                <DollarSign className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-sm font-medium">Pendente (Mês Atual)</CardTitle>
+                <Clock className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600">
-                  R$ {totalPendingCommissions.toFixed(2)}
+                  R$ {monthlyPendingCommissions.toFixed(2)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Para {uniqueBarbers.length} barbeiro{uniqueBarbers.length !== 1 ? 's' : ''}
+                  Fecha quando o mês virar
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Outras Contas</CardTitle>
-                <Clock className="h-4 w-4 text-gray-500" />
+                <CardTitle className="text-sm font-medium">Atrasadas (Meses Anteriores)</CardTitle>
+                <Clock className="h-4 w-4 text-red-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  R${" "}
-                  {payments
-                    .filter((p) => p.status === "pending")
-                    .reduce((sum, p) => sum + p.amount, 0)
-                    .toFixed(2)}
+                <div className="text-2xl font-bold text-red-600">
+                  R$ {overdueCommissions.toFixed(2)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {payments.filter((p) => p.status === "pending").length} contas pendentes
+                  Comissões de meses fechados
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pagamentos Realizados</CardTitle>
+                <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {payments.filter((p) => p.status === "paid").length}
+                  R$ {totalCommissions.toFixed(2)}
                 </div>
-                <p className="text-xs text-muted-foreground">No mês atual</p>
+                <p className="text-xs text-muted-foreground">Pagas neste mês</p>
               </CardContent>
             </Card>
           </div>
