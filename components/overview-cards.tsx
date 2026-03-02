@@ -58,7 +58,7 @@ export function OverviewCards() {
       const headers = { 'Authorization': `Bearer ${token}` }
 
       const now = new Date()
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0]
+      const todayStr = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0]
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
       const weekStart = new Date(now)
@@ -67,7 +67,7 @@ export function OverviewCards() {
 
       const [appointmentsRes, salesRes] = await Promise.all([
         fetch(`/api/appointments?barbershopId=${barbershopId}&startDate=${monthStart}&endDate=${monthEnd}`, { headers }),
-        fetch(`/api/sales?barbershopId=${barbershopId}`, { headers }),
+        fetch(`/api/sales?barbershopId=${barbershopId}&startDate=${monthStart}&endDate=${monthEnd}`, { headers }),
       ])
 
       const appointmentsData = await appointmentsRes.json()
@@ -86,7 +86,7 @@ export function OverviewCards() {
 
       const todaySales = allSales.filter((s: any) => {
         const d = new Date(s.createdAt)
-        return d.toISOString().split('T')[0] === todayStart
+        return d.toISOString().split('T')[0] === todayStr
       })
       const dailyRevenue = todaySales.reduce((sum: number, s: any) => sum + parseFloat(s.totalAmount || '0'), 0)
 
@@ -96,11 +96,7 @@ export function OverviewCards() {
       })
       const weeklyRevenue = weeklySales.reduce((sum: number, s: any) => sum + parseFloat(s.totalAmount || '0'), 0)
 
-      const monthlySales = allSales.filter((s: any) => {
-        const d = new Date(s.createdAt)
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-      })
-      const monthlyRevenue = monthlySales.reduce((sum: number, s: any) => sum + parseFloat(s.totalAmount || '0'), 0)
+      const monthlyRevenue = allSales.reduce((sum: number, s: any) => sum + parseFloat(s.totalAmount || '0'), 0)
 
       const completed = allAppointments.filter((a: any) => a.status === 'completed')
 

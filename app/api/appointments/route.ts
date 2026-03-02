@@ -62,6 +62,8 @@ export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
     const clientId = searchParams.get('clientId');
     const status = searchParams.get('status');
     const date = searchParams.get('date');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     let whereConditions: any = [];
 
@@ -149,16 +151,32 @@ export const GET = withAuth(['client', 'barber', 'manager'])(async (req) => {
     }
 
     if (date) {
-      const startDate = new Date(date);
-      const endDate = new Date(date);
-      endDate.setDate(endDate.getDate() + 1);
+      const dayStart = new Date(date);
+      const dayEnd = new Date(date);
+      dayEnd.setDate(dayEnd.getDate() + 1);
       
       whereConditions.push(
         and(
-          gte(appointments.scheduledAt, startDate),
-          lte(appointments.scheduledAt, endDate)
+          gte(appointments.scheduledAt, dayStart),
+          lte(appointments.scheduledAt, dayEnd)
         )
       );
+    } else if (startDate && endDate) {
+      const rangeStart = new Date(startDate);
+      const rangeEnd = new Date(endDate);
+      rangeEnd.setDate(rangeEnd.getDate() + 1);
+      whereConditions.push(
+        and(
+          gte(appointments.scheduledAt, rangeStart),
+          lte(appointments.scheduledAt, rangeEnd)
+        )
+      );
+    } else if (startDate) {
+      whereConditions.push(gte(appointments.scheduledAt, new Date(startDate)));
+    } else if (endDate) {
+      const rangeEnd = new Date(endDate);
+      rangeEnd.setDate(rangeEnd.getDate() + 1);
+      whereConditions.push(lte(appointments.scheduledAt, rangeEnd));
     }
 
     const appointmentsList = await db
