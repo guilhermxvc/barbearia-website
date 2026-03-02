@@ -39,11 +39,20 @@ export function OverviewCards() {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [revenueView, setRevenueView] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
+  const [revenueView, setRevenueView] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [revenuePaused, setRevenuePaused] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
   }, [user?.barbershop?.id])
+
+  useEffect(() => {
+    if (revenuePaused || loading || !data) return
+    const interval = setInterval(() => {
+      setRevenueView(v => v === 'daily' ? 'weekly' : v === 'weekly' ? 'monthly' : 'daily')
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [revenuePaused, loading, data])
 
   const loadDashboardData = async () => {
     const barbershopId = user?.barbershop?.id || localStorage.getItem('barbershopId')
@@ -177,9 +186,9 @@ export function OverviewCards() {
     : revenueView === 'weekly' ? data.weeklyRevenue
     : data.monthlyRevenue
 
-  const revenueLabel = revenueView === 'daily' ? 'Hoje'
-    : revenueView === 'weekly' ? 'Essa Semana'
-    : 'Este Mês'
+  const revenueTitle = revenueView === 'daily' ? 'Faturamento de Hoje'
+    : revenueView === 'weekly' ? 'Faturamento Semanal'
+    : 'Faturamento Mensal'
 
   return (
     <div className="space-y-6">
@@ -195,19 +204,16 @@ export function OverviewCards() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer" onClick={() => setRevenueView(v => v === 'daily' ? 'weekly' : v === 'weekly' ? 'monthly' : 'daily')}>
+        <Card className="cursor-pointer select-none" onClick={() => setRevenuePaused(p => !p)}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faturamento</CardTitle>
+            <CardTitle className="text-sm font-medium">{revenueTitle}</CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">R$ {revenueValue.toFixed(2)}</div>
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-xs cursor-pointer">
-                {revenueLabel}
-              </Badge>
-              <span className="text-xs text-gray-400">clique para alternar</span>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {revenuePaused ? 'pausado — clique para retomar' : 'alternando automaticamente'}
+            </p>
           </CardContent>
         </Card>
 
@@ -217,7 +223,7 @@ export function OverviewCards() {
             <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${data.cancellationRate > 20 ? 'text-red-600' : data.cancellationRate > 10 ? 'text-amber-600' : 'text-green-600'}`}>
+            <div className="text-2xl font-bold text-red-600">
               {data.cancellationRate.toFixed(1)}%
             </div>
             <p className="text-xs text-muted-foreground">
