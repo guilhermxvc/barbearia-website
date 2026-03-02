@@ -252,8 +252,17 @@ export function ProductsManagement() {
 
   if (loading && products.length === 0) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="text-lg">Carregando produtos...</div>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="pt-6">
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
@@ -266,45 +275,48 @@ export function ProductsManagement() {
         </div>
       )}
 
-      {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="flex items-center p-6">
-            <Package className="h-8 w-8 text-amber-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total de Produtos</p>
-              <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
+            <Package className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalProducts}</div>
+            <p className="text-xs text-muted-foreground">cadastrados</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="flex items-center p-6">
-            <AlertTriangle className="h-8 w-8 text-red-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Estoque Baixo</p>
-              <p className="text-2xl font-bold text-gray-900">{lowStockCount}</p>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estoque Baixo</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{lowStockCount}</div>
+            <p className="text-xs text-muted-foreground">produtos</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="flex items-center p-6">
-            <DollarSign className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Valor do Estoque</p>
-              <p className="text-2xl font-bold text-gray-900">R$ {totalInventoryValue.toFixed(2)}</p>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor do Estoque</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">R$ {totalInventoryValue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">em produtos</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="flex items-center p-6">
-            <TrendingUp className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Margem Média</p>
-              <p className="text-2xl font-bold text-gray-900">{averageProfitMargin.toFixed(1)}%</p>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Margem Média</CardTitle>
+            <TrendingUp className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageProfitMargin.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">de lucro</p>
           </CardContent>
         </Card>
       </div>
@@ -468,8 +480,7 @@ export function ProductsManagement() {
             </Select>
           </div>
 
-          {/* Lista de produtos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="divide-y">
             {filteredProducts.map((product) => {
               const stockStatus = getStockStatus(product.stockQuantity || 0, product.minStockLevel || 5)
               const profitMargin = parseFloat(product.cost || "0") > 0 
@@ -477,99 +488,77 @@ export function ProductsManagement() {
                 : 0
 
               return (
-                <Card key={product.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
+                <div key={product.id} className="flex items-center justify-between py-4 px-2 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold shrink-0">
+                      <Package className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium text-gray-900">{product.name}</h4>
                         {product.category && (
-                          <p className="text-sm text-gray-600">{product.category}</p>
+                          <Badge variant="outline" className="text-xs">{product.category}</Badge>
+                        )}
+                        <Badge className={`text-xs ${stockStatus.color}`}>{stockStatus.label}</Badge>
+                      </div>
+                      {product.description && (
+                        <p className="text-sm text-gray-500 truncate mt-0.5">{product.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-1 flex-wrap">
+                        <span className="text-sm font-semibold text-green-600">R$ {parseFloat(product.price).toFixed(2)}</span>
+                        <span className={`text-sm ${(product.stockQuantity || 0) <= (product.minStockLevel || 5) ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                          Estoque: {product.stockQuantity || 0} un.
+                        </span>
+                        {profitMargin > 0 && (
+                          <span className="text-sm text-gray-500">Margem: {profitMargin.toFixed(1)}%</span>
                         )}
                       </div>
-                      <Badge className={stockStatus.color}>
-                        {stockStatus.label}
-                      </Badge>
                     </div>
-
-                    {product.description && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                    )}
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Preço:</span>
-                        <span className="font-medium">R$ {parseFloat(product.price).toFixed(2)}</span>
-                      </div>
-                      {product.cost && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Custo:</span>
-                          <span>R$ {parseFloat(product.cost).toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Estoque:</span>
-                        <span className={`font-medium ${(product.stockQuantity || 0) <= (product.minStockLevel || 5) ? 'text-red-600' : ''}`}>
-                          {product.stockQuantity || 0} un.
-                        </span>
-                      </div>
-                      {profitMargin > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Margem:</span>
-                          <span className="text-green-600 font-medium">{profitMargin.toFixed(1)}%</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Controles de estoque */}
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t">
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStockUpdate(product.id, 1, 'subtract')}
-                          disabled={loading || (product.stockQuantity || 0) <= 0}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStockUpdate(product.id, 1, 'add')}
-                          disabled={loading}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditForm(product)}
-                          disabled={loading}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteProduct(product.id)}
-                          disabled={loading}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleStockUpdate(product.id, 1, 'subtract')}
+                      disabled={loading || (product.stockQuantity || 0) <= 0}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleStockUpdate(product.id, 1, 'add')}
+                      disabled={loading}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEditForm(product)}
+                      disabled={loading}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      disabled={loading}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )
             })}
           </div>
 
           {filteredProducts.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Nenhum produto encontrado</p>
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">Nenhum produto encontrado</p>
             </div>
           )}
         </CardContent>

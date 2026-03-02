@@ -140,12 +140,12 @@ export function ServicesManagement() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              <CardContent className="pt-6">
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
               </CardContent>
             </Card>
           ))}
@@ -156,60 +156,48 @@ export function ServicesManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Serviços</p>
-                <p className="text-3xl font-bold text-gray-900">{serviceStats.total}</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-full">
-                <Scissors className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Serviços</CardTitle>
+            <Scissors className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{serviceStats.total}</div>
+            <p className="text-xs text-muted-foreground">cadastrados</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Serviços Ativos</p>
-                <p className="text-3xl font-bold text-green-600">{serviceStats.active}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <div className="h-6 w-6 bg-green-600 rounded-full"></div>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Serviços Ativos</CardTitle>
+            <Eye className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{serviceStats.active}</div>
+            <p className="text-xs text-muted-foreground">disponíveis</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Serviços Inativos</p>
-                <p className="text-3xl font-bold text-red-600">{serviceStats.inactive}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-full">
-                <div className="h-6 w-6 bg-red-600 rounded-full"></div>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Serviços Inativos</CardTitle>
+            <Eye className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{serviceStats.inactive}</div>
+            <p className="text-xs text-muted-foreground">desativados</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Preço Médio</p>
-                <p className="text-3xl font-bold text-amber-600">R$ {serviceStats.avgPrice.toFixed(0)}</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-full">
-                <DollarSign className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Preço Médio</CardTitle>
+            <DollarSign className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">R$ {serviceStats.avgPrice.toFixed(0)}</div>
+            <p className="text-xs text-muted-foreground">por serviço</p>
           </CardContent>
         </Card>
       </div>
@@ -276,84 +264,79 @@ export function ServicesManagement() {
             </Select>
           </div>
 
-          <div className="space-y-4">
+          <div className="divide-y">
             {filteredServices.map((service) => (
-              <Card
+              <div
                 key={service.id}
-                className={`transition-all hover:shadow-md ${!service.isActive ? "opacity-60" : ""}`}
+                className={`flex items-center justify-between py-4 px-2 hover:bg-gray-50 rounded-lg transition-colors ${!service.isActive ? "opacity-50" : ""}`}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-amber-100 rounded-full">
-                        <Scissors className="h-6 w-6 text-amber-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{service.name}</h3>
-                          <Badge className={getCategoryColor(service.category)}>{service.category}</Badge>
-                          <Badge variant={service.isActive ? "default" : "secondary"}>
-                            {service.isActive ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </div>
-                        <p className="text-gray-600 mb-3">{service.description}</p>
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                            <span className="font-semibold text-green-600">R$ {parseFloat(service.price || '0').toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-blue-600" />
-                            <span className="text-blue-600">{service.duration} min</span>
-                          </div>
-                        </div>
-                      </div>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="h-10 w-10 bg-amber-100 text-amber-700 flex items-center justify-center rounded-full font-semibold shrink-0">
+                    <Scissors className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-medium text-gray-900">{service.name}</h4>
+                      <Badge className={`text-xs ${getCategoryColor(service.category)}`}>{service.category}</Badge>
+                      <Badge variant={service.isActive ? "default" : "secondary"} className="text-xs">
+                        {service.isActive ? "Ativo" : "Inativo"}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Detalhes do Serviço</DialogTitle>
-                          </DialogHeader>
-                          <ServiceDetails service={service} />
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Editar Serviço</DialogTitle>
-                            <DialogDescription>Modifique os dados do serviço</DialogDescription>
-                          </DialogHeader>
-                          <ServiceForm barbershopId={barbershopId} service={service} onClose={() => setEditingService(null)} onSave={loadServices} />
-                        </DialogContent>
-                      </Dialog>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-red-600 hover:text-red-700 bg-transparent"
-                        onClick={() => {
-                          if (confirm("Tem certeza que deseja excluir este serviço?")) {
-                            handleDeleteService(service.id)
-                          }
-                        }}
-                        disabled={deleting === service.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    {service.description && (
+                      <p className="text-sm text-gray-500 truncate mt-0.5">{service.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-1">
+                      <span className="text-sm font-semibold text-green-600">R$ {parseFloat(service.price || '0').toFixed(2)}</span>
+                      <span className="text-sm text-gray-500 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {service.duration} min
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Detalhes do Serviço</DialogTitle>
+                      </DialogHeader>
+                      <ServiceDetails service={service} />
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Editar Serviço</DialogTitle>
+                        <DialogDescription>Modifique os dados do serviço</DialogDescription>
+                      </DialogHeader>
+                      <ServiceForm barbershopId={barbershopId} service={service} onClose={() => setEditingService(null)} onSave={loadServices} />
+                    </DialogContent>
+                  </Dialog>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => {
+                      if (confirm("Tem certeza que deseja excluir este serviço?")) {
+                        handleDeleteService(service.id)
+                      }
+                    }}
+                    disabled={deleting === service.id}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             ))}
 
             {filteredServices.length === 0 && (
