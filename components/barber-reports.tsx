@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { apiClient } from "@/lib/api"
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from "date-fns"
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subMonths } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
 
@@ -37,6 +37,18 @@ export function BarberReports() {
   const [commissions, setCommissions] = useState<ServiceCommission[]>([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState("month")
+
+  const monthOptions = useMemo(() => {
+    const now = new Date()
+    const options: { value: string; label: string }[] = []
+    for (let i = 0; i < 12; i++) {
+      const date = subMonths(now, i)
+      const value = `m-${date.getFullYear()}-${date.getMonth()}`
+      const label = format(date, "MMMM yyyy", { locale: ptBR })
+      options.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
+    }
+    return options
+  }, [])
 
   useEffect(() => {
     loadReports()
@@ -83,6 +95,13 @@ export function BarberReports() {
 
   const periodRange = useMemo(() => {
     const now = new Date()
+    if (period.startsWith("m-")) {
+      const parts = period.split("-")
+      const year = parseInt(parts[1])
+      const month = parseInt(parts[2])
+      const target = new Date(year, month, 1)
+      return { start: startOfMonth(target), end: endOfMonth(target) }
+    }
     switch (period) {
       case "week":
         return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
@@ -96,6 +115,13 @@ export function BarberReports() {
   }, [period])
 
   const periodLabel = useMemo(() => {
+    if (period.startsWith("m-")) {
+      const parts = period.split("-")
+      const year = parseInt(parts[1])
+      const month = parseInt(parts[2])
+      const target = new Date(year, month, 1)
+      return format(target, "MMMM 'de' yyyy", { locale: ptBR })
+    }
     switch (period) {
       case "week": return "esta semana"
       case "month": return "este mês"
@@ -190,70 +216,75 @@ export function BarberReports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div />
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mês</SelectItem>
-            <SelectItem value="year">Este Ano</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Atendimentos</CardTitle>
-            <Scissors className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredAppointments.length}</div>
-            <p className="text-xs text-muted-foreground">{periodLabel}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faturado + Comissões</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ {totalComissoes.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">de R$ {totalFaturado.toFixed(2)} faturado</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Atendidos</CardTitle>
-            <Users className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uniqueClients}</div>
-            <p className="text-xs text-muted-foreground">{periodLabel}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nota Média</CardTitle>
-            <Star className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">{barberRating > 0 ? barberRating.toFixed(1) : "—"}</span>
-              {barberRating > 0 && renderStars(barberRating)}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle>Resumo do Período</CardTitle>
+              <CardDescription className="capitalize">{periodLabel}</CardDescription>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {barberTotalRatings > 0 ? `${barberTotalRatings} avaliações` : "sem avaliações"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-full sm:w-52">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Esta Semana</SelectItem>
+                <SelectItem value="month">Este Mês</SelectItem>
+                <SelectItem value="year">Este Ano</SelectItem>
+                <div className="border-t my-1" />
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Scissors className="h-3.5 w-3.5 text-blue-600" />
+                Atendimentos
+              </div>
+              <p className="text-2xl font-bold">{filteredAppointments.length}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <DollarSign className="h-3.5 w-3.5 text-green-600" />
+                Comissões
+              </div>
+              <p className="text-2xl font-bold text-green-600">R$ {totalComissoes.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">de R$ {totalFaturado.toFixed(2)} faturado</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="h-3.5 w-3.5 text-amber-600" />
+                Clientes
+              </div>
+              <p className="text-2xl font-bold">{uniqueClients}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Star className="h-3.5 w-3.5 text-amber-500" />
+                Nota Média
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{barberRating > 0 ? barberRating.toFixed(1) : "—"}</span>
+                {barberRating > 0 && renderStars(barberRating)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {barberTotalRatings > 0 ? `${barberTotalRatings} avaliações` : "sem avaliações"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
