@@ -281,6 +281,24 @@ export const recurringAppointments = pgTable('recurring_appointments', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Commission Receipts (recibos de pagamento de comissões)
+export const commissionReceipts = pgTable('commission_receipts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  receiptNumber: text('receipt_number').notNull().unique(),
+  referenceMonth: text('reference_month').notNull(),
+  paymentMethod: text('payment_method').notNull(),
+  totalServices: decimal('total_services', { precision: 10, scale: 2 }).notNull(),
+  totalCommissions: decimal('total_commissions', { precision: 10, scale: 2 }).notNull(),
+  serviceDetails: json('service_details').notNull(),
+  barberName: text('barber_name').notNull(),
+  barbershopName: text('barbershop_name').notNull(),
+  barbershopAddress: text('barbershop_address'),
+  paidAt: timestamp('paid_at').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
@@ -332,6 +350,9 @@ export const selectTimeBlockSchema = createSelectSchema(timeBlocks);
 
 export const insertRecurringAppointmentSchema = createInsertSchema(recurringAppointments);
 export const selectRecurringAppointmentSchema = createSelectSchema(recurringAppointments);
+
+export const insertCommissionReceiptSchema = createInsertSchema(commissionReceipts);
+export const selectCommissionReceiptSchema = createSelectSchema(commissionReceipts);
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -385,6 +406,9 @@ export type NewTimeBlock = typeof timeBlocks.$inferInsert;
 export type RecurringAppointment = typeof recurringAppointments.$inferSelect;
 export type NewRecurringAppointment = typeof recurringAppointments.$inferInsert;
 
+export type CommissionReceipt = typeof commissionReceipts.$inferSelect;
+export type NewCommissionReceipt = typeof commissionReceipts.$inferInsert;
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   barbershop: one(barbershops, {
@@ -413,6 +437,7 @@ export const barbershopsRelations = relations(barbershops, ({ one, many }) => ({
   appointments: many(appointments),
   sales: many(sales),
   commissions: many(commissions),
+  commissionReceipts: many(commissionReceipts),
   barberRequests: many(barberRequests),
 }));
 
@@ -428,6 +453,7 @@ export const barbersRelations = relations(barbers, ({ one, many }) => ({
   appointments: many(appointments),
   sales: many(sales),
   commissions: many(commissions),
+  commissionReceipts: many(commissionReceipts),
   feedbacks: many(feedbacks),
 }));
 
@@ -476,5 +502,16 @@ export const barberRequestsRelations = relations(barberRequests, ({ one }) => ({
   user: one(users, {
     fields: [barberRequests.userId],
     references: [users.id],
+  }),
+}));
+
+export const commissionReceiptsRelations = relations(commissionReceipts, ({ one }) => ({
+  barbershop: one(barbershops, {
+    fields: [commissionReceipts.barbershopId],
+    references: [barbershops.id],
+  }),
+  barber: one(barbers, {
+    fields: [commissionReceipts.barberId],
+    references: [barbers.id],
   }),
 }));

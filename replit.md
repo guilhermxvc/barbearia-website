@@ -26,6 +26,7 @@ The application is built with Next.js 14.2.16, TypeScript, and Tailwind CSS v4.1
 - **Barbershop Management:** Settings, subscription plan, and code display.
 - **Barbers Management:** List, approve, edit, and deactivate barbers.
 - **Clients Management:** List, create, edit, and deactivate clients with search/filter.
+- **Commission Payment & Receipts:** Clickable barber cards in "Contas a Pagar" open a payment modal with method selection. After payment, a receipt is auto-generated (following a formal template with service details, quantities, commission rates, totals) and stored in `commission_receipts` DB table. Paid receipts appear in "Recibos Pagos" log. Receipt viewer modal shows full receipt details.
 - **Services Management:** CRUD for services with active/inactive status.
 - **Subscription Plans:** Dynamic, database-driven pricing for Básico, Profissional, and Premium tiers.
 - **Manager Dashboard:** Redesigned main dashboard with confirmed appointments, daily/weekly/monthly revenue toggle, cancellation rate, barber ranking, popular services pie chart (recharts), and weekday occupancy bar chart.
