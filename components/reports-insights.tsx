@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend,
+  PieChart, Pie, Legend, LineChart, Line, CartesianGrid,
 } from "recharts"
 import {
   TrendingUp, DollarSign, Calendar,
@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   startOfQuarter, endOfQuarter, startOfYear, endOfYear,
-  parseISO, isWithinInterval } from "date-fns"
+  parseISO, isWithinInterval, getDaysInMonth } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
 interface SaleRecord {
@@ -98,6 +98,11 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
   const [barbers, setBarbers] = useState<BarberOption[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [billingMonth, setBillingMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  })
+
   const [periodPreset, setPeriodPreset] = useState("month")
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
@@ -105,7 +110,9 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
 
   const [compareMonth1, setCompareMonth1] = useState(() => {
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0") || "01"}`
+    const prev = now.getMonth() === 0 ? 12 : now.getMonth()
+    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+    return `${prevYear}-${String(prev).padStart(2, "0")}`
   })
   const [compareMonth2, setCompareMonth2] = useState(() => {
     const now = new Date()
@@ -175,29 +182,20 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
     <div className="space-y-6">
       <Tabs defaultValue="period" className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
-          <TabsTrigger value="period" className="text-xs sm:text-sm py-2">Por Período</TabsTrigger>
+          <TabsTrigger value="period" className="text-xs sm:text-sm py-2">Faturamento</TabsTrigger>
           <TabsTrigger value="compare" className="text-xs sm:text-sm py-2">Comparar Meses</TabsTrigger>
           <TabsTrigger value="barber" className="text-xs sm:text-sm py-2">Por Barbeiro</TabsTrigger>
           <TabsTrigger value="service" className="text-xs sm:text-sm py-2">Por Serviço</TabsTrigger>
           <TabsTrigger value="noshow" className="text-xs sm:text-sm py-2">No-show</TabsTrigger>
         </TabsList>
 
-        {/* ──────────────── POR PERÍODO ──────────────── */}
+        {/* ──────────────── FATURAMENTO ──────────────── */}
         <TabsContent value="period" className="mt-6 space-y-4">
-          <PeriodTab
+          <FaturamentoTab
             sales={sales}
             appointments={appointments}
-            periodPreset={periodPreset}
-            setPeriodPreset={setPeriodPreset}
-            customStart={customStart}
-            setCustomStart={setCustomStart}
-            customEnd={customEnd}
-            setCustomEnd={setCustomEnd}
-            useCustom={useCustom}
-            setUseCustom={setUseCustom}
-            getPeriodRange={getPeriodRange}
-            filterSalesByRange={filterSalesByRange}
-            filterApptsByRange={filterApptsByRange}
+            billingMonth={billingMonth}
+            setBillingMonth={setBillingMonth}
           />
         </TabsContent>
 
@@ -251,6 +249,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
       <ExportSection
         sales={sales}
         appointments={appointments}
+        billingMonth={billingMonth}
         getPeriodRange={getPeriodRange}
         filterSalesByRange={filterSalesByRange}
         filterApptsByRange={filterApptsByRange}
@@ -260,104 +259,120 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TAB: POR PERÍODO
+// TAB: FATURAMENTO (mês único)
 // ─────────────────────────────────────────────────────────────────
-function PeriodTab({ sales, appointments, periodPreset, setPeriodPreset, customStart, setCustomStart, customEnd, setCustomEnd, useCustom, setUseCustom, getPeriodRange, filterSalesByRange, filterApptsByRange }: any) {
-  const range = getPeriodRange()
-  const filteredSales = sales.filter((s: SaleRecord) => filterSalesByRange(s, range))
-  const filteredAppts = appointments.filter((a: AppointmentRecord) => filterApptsByRange(a, range))
+function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: any) {
+  const [y, m] = billingMonth.split("-").map(Number)
+  const monthStart = startOfMonth(new Date(y, m - 1, 1))
+  const monthEnd = endOfMonth(new Date(y, m - 1, 1))
+  const daysInMonth = getDaysInMonth(new Date(y, m - 1, 1))
+
+  const filteredSales = sales.filter((s: SaleRecord) => {
+    const d = parseISO(s.createdAt)
+    return isWithinInterval(d, { start: monthStart, end: monthEnd })
+  })
+  const filteredAppts = appointments.filter((a: AppointmentRecord) => {
+    const d = parseISO(a.scheduledAt)
+    return isWithinInterval(d, { start: monthStart, end: monthEnd })
+  })
 
   const totalRevenue = filteredSales.reduce((acc: number, s: SaleRecord) => acc + parseFloat(s.totalAmount || "0"), 0)
+  const totalSales = filteredSales.length
+  const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0
   const totalAppts = filteredAppts.length
-  const completedAppts = filteredAppts.filter((a: AppointmentRecord) => a.status === "completed" || a.status === "finished")
-  const avgTicket = completedAppts.length > 0 ? totalRevenue / completedAppts.length : 0
-  const cancelledAppts = filteredAppts.filter((a: AppointmentRecord) => a.status === "cancelled" || a.status === "no_show")
-  const cancelRate = totalAppts > 0 ? (cancelledAppts.length / totalAppts) * 100 : 0
 
-  const dailyMap: Record<string, number> = {}
+  const dailyMap: Record<number, number> = {}
   filteredSales.forEach((s: SaleRecord) => {
-    const day = format(parseISO(s.createdAt), "dd/MM")
+    const day = parseISO(s.createdAt).getDate()
     dailyMap[day] = (dailyMap[day] || 0) + parseFloat(s.totalAmount || "0")
   })
-  const chartData = Object.entries(dailyMap).map(([day, value]) => ({ day, value })).slice(-30)
+
+  const chartData = Array.from({ length: daysInMonth }, (_, i) => ({
+    dia: String(i + 1).padStart(2, "0"),
+    valor: parseFloat((dailyMap[i + 1] || 0).toFixed(2)),
+  }))
+
+  const monthLabel = format(new Date(y, m - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="text-base font-semibold">Filtro de Período</CardTitle>
+          <CardTitle className="text-base font-semibold">Mês de Referência</CardTitle>
+          <Calendar className="h-4 w-4 text-gray-400" />
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {PERIOD_PRESETS.map(p => (
-              <Button
-                key={p.value}
-                size="sm"
-                variant={!useCustom && periodPreset === p.value ? "default" : "outline"}
-                className={!useCustom && periodPreset === p.value ? "bg-amber-600 hover:bg-amber-700" : ""}
-                onClick={() => { setPeriodPreset(p.value); setUseCustom(false) }}
-              >
-                {p.label}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Data início</Label>
-              <Input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setUseCustom(true) }} className="h-9 text-sm w-36" />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Data fim</Label>
-              <Input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setUseCustom(true) }} className="h-9 text-sm w-36" />
-            </div>
-            {useCustom && (
-              <Button size="sm" variant="ghost" onClick={() => setUseCustom(false)} className="text-gray-500">
-                Limpar
-              </Button>
-            )}
+          <div className="flex items-center gap-3">
+            <Input
+              type="month"
+              value={billingMonth}
+              onChange={e => setBillingMonth(e.target.value)}
+              className="h-9 text-sm w-44"
+            />
+            <span className="text-sm text-gray-500 capitalize">{monthLabel}</span>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={DollarSign} label="Faturamento" value={formatCurrency(totalRevenue)} color="text-amber-600" bg="bg-amber-50" />
-        <StatCard icon={Calendar} label="Agendamentos" value={String(totalAppts)} color="text-blue-600" bg="bg-blue-50" />
+        <StatCard icon={DollarSign} label="Faturamento Total" value={formatCurrency(totalRevenue)} color="text-amber-600" bg="bg-amber-50" />
         <StatCard icon={TrendingUp} label="Ticket Médio" value={formatCurrency(avgTicket)} color="text-green-600" bg="bg-green-50" />
-        <StatCard icon={XCircle} label="Taxa Cancelamento" value={`${cancelRate.toFixed(1)}%`} color="text-red-500" bg="bg-red-50" />
+        <StatCard icon={CheckCircle} label="Vendas" value={String(totalSales)} color="text-blue-600" bg="bg-blue-50" />
+        <StatCard icon={Calendar} label="Agendamentos" value={String(totalAppts)} color="text-purple-600" bg="bg-purple-50" />
       </div>
 
-      {chartData.length > 0 ? (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faturamento por Dia</CardTitle>
-            <BarChart3 className="h-4 w-4 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$${v}`} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} labelFormatter={l => `Dia: ${l}`} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {chartData.map((_, i) => <Cell key={i} fill="#d97706" />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      ) : (
-        <EmptyState message="Nenhuma venda no período selecionado." />
-      )}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Faturamento Diário — {monthLabel}</CardTitle>
+          <TrendingUp className="h-4 w-4 text-amber-500" />
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={chartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <XAxis
+                dataKey="dia"
+                tick={{ fontSize: 10 }}
+                interval={daysInMonth > 20 ? 2 : 0}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickFormatter={v => v === 0 ? "0" : `R$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                formatter={(v: number) => [formatCurrency(v), "Faturamento"]}
+                labelFormatter={l => `Dia ${l}`}
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="valor"
+                stroke="#d97706"
+                strokeWidth={2.5}
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props
+                  if (payload.valor === 0) return <circle key={`dot-${payload.dia}`} cx={cx} cy={cy} r={2} fill="#e5e7eb" stroke="none" />
+                  return <circle key={`dot-${payload.dia}`} cx={cx} cy={cy} r={4} fill="#d97706" stroke="#fff" strokeWidth={2} />
+                }}
+                activeDot={{ r: 6, fill: "#b45309", stroke: "#fff", strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-      {filteredSales.length > 0 && (
+      {filteredSales.length > 0 ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transações do Período</CardTitle>
+            <CardTitle className="text-sm font-medium">Transações do Mês</CardTitle>
             <Badge variant="secondary">{filteredSales.length}</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y max-h-72 overflow-y-auto">
-              {filteredSales.slice(0, 50).map((s: SaleRecord) => (
+              {filteredSales.map((s: SaleRecord) => (
                 <div key={s.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{s.clientName || "Cliente"}</p>
@@ -369,6 +384,8 @@ function PeriodTab({ sales, appointments, periodPreset, setPeriodPreset, customS
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <EmptyState message="Nenhuma venda registrada neste mês." />
       )}
     </div>
   )
@@ -872,10 +889,19 @@ function NoShowTab({ appointments, periodPreset, setPeriodPreset, customStart, s
 // ─────────────────────────────────────────────────────────────────
 // EXPORTAR DADOS
 // ─────────────────────────────────────────────────────────────────
-function ExportSection({ sales, appointments, getPeriodRange, filterSalesByRange, filterApptsByRange }: any) {
-  const range = getPeriodRange()
-  const filteredSales = sales.filter((s: SaleRecord) => filterSalesByRange(s, range))
-  const filteredAppts = appointments.filter((a: AppointmentRecord) => filterApptsByRange(a, range))
+function ExportSection({ sales, appointments, billingMonth, getPeriodRange, filterSalesByRange, filterApptsByRange }: any) {
+  const [y, m] = billingMonth.split("-").map(Number)
+  const monthStart = startOfMonth(new Date(y, m - 1, 1))
+  const monthEnd = endOfMonth(new Date(y, m - 1, 1))
+
+  const filteredSales = sales.filter((s: SaleRecord) => {
+    const d = parseISO(s.createdAt)
+    return isWithinInterval(d, { start: monthStart, end: monthEnd })
+  })
+  const filteredAppts = appointments.filter((a: AppointmentRecord) => {
+    const d = parseISO(a.scheduledAt)
+    return isWithinInterval(d, { start: monthStart, end: monthEnd })
+  })
 
   const exportSales = () => {
     const rows = [
@@ -889,7 +915,7 @@ function ExportSection({ sales, appointments, getPeriodRange, filterSalesByRange
         s.paymentMethod || "",
       ]),
     ]
-    downloadCSV(rows, `vendas_${format(range.start, "yyyyMMdd")}_${format(range.end, "yyyyMMdd")}.csv`)
+    downloadCSV(rows, `vendas_${billingMonth}.csv`)
   }
 
   const exportAppointments = () => {
@@ -904,7 +930,7 @@ function ExportSection({ sales, appointments, getPeriodRange, filterSalesByRange
         parseFloat(a.totalPrice || "0").toFixed(2).replace(".", ","),
       ]),
     ]
-    downloadCSV(rows, `agendamentos_${format(range.start, "yyyyMMdd")}_${format(range.end, "yyyyMMdd")}.csv`)
+    downloadCSV(rows, `agendamentos_${billingMonth}.csv`)
   }
 
   return (
@@ -912,7 +938,7 @@ function ExportSection({ sales, appointments, getPeriodRange, filterSalesByRange
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <div>
           <CardTitle className="text-base font-semibold">Exportar Dados</CardTitle>
-          <p className="text-xs text-gray-500 mt-0.5">Exporta os dados do período selecionado na aba "Por Período"</p>
+          <p className="text-xs text-gray-500 mt-0.5">Exporta os dados do mês selecionado na aba "Faturamento"</p>
         </div>
         <Download className="h-5 w-5 text-gray-400" />
       </CardHeader>
