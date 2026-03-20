@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend, LineChart, Line, CartesianGrid,
@@ -15,7 +16,7 @@ import {
 import {
   TrendingUp, DollarSign, Calendar,
   Download, Loader2, BarChart3, PieChart as PieChartIcon, AlertCircle,
-  CheckCircle, XCircle, ArrowUpRight, ArrowDownRight,
+  CheckCircle, XCircle, ArrowUpRight, ArrowDownRight, Receipt,
 } from "lucide-react"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   startOfQuarter, endOfQuarter, startOfYear, endOfYear,
@@ -48,15 +49,27 @@ interface BarberOption {
   name: string
 }
 
+interface ServiceDetail {
+  serviceName: string
+  qty: number
+  unitPrice: number
+  total: number
+  commissionRate: number
+  commissionValue: number
+}
+
 interface CommissionReceipt {
   id: string
   barberId: string
   barberName: string
+  barbershopName: string
+  barbershopAddress: string | null
   receiptNumber: string
   referenceMonth: string
   paymentMethod: string
   totalServices: string
   totalCommissions: string
+  serviceDetails: ServiceDetail[]
   paidAt: string
 }
 
@@ -278,7 +291,18 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
 // ─────────────────────────────────────────────────────────────────
 // TAB: FATURAMENTO (mês único)
 // ─────────────────────────────────────────────────────────────────
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: "PIX",
+  dinheiro: "Dinheiro",
+  transferencia: "Transferência",
+  cartao_credito: "Cartão Crédito",
+  cartao_debito: "Cartão Débito",
+  cheque: "Cheque",
+}
+
 function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillingMonth }: any) {
+  const [viewingReceipt, setViewingReceipt] = useState<CommissionReceipt | null>(null)
+
   const [y, m] = billingMonth.split("-").map(Number)
   const monthStart = startOfMonth(new Date(y, m - 1, 1))
   const monthEnd = endOfMonth(new Date(y, m - 1, 1))
@@ -315,15 +339,6 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
   }))
 
   const monthLabel = format(new Date(y, m - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
-
-  const paymentMethodLabel: Record<string, string> = {
-    pix: "PIX",
-    dinheiro: "Dinheiro",
-    transferencia: "Transferência",
-    cartao_credito: "Cartão Crédito",
-    cartao_debito: "Cartão Débito",
-    cheque: "Cheque",
-  }
 
   return (
     <div className="space-y-4">
@@ -407,28 +422,32 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
             <>
               <div className="divide-y max-h-72 overflow-y-auto">
                 {monthReceipts.map((r: CommissionReceipt) => (
-                  <div key={r.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                  <button
+                    key={r.id}
+                    onClick={() => setViewingReceipt(r)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-amber-50 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <Receipt className="h-4 w-4 text-green-600" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{r.barberName}</p>
                         <p className="text-xs text-gray-500">
-                          {r.receiptNumber} · {paymentMethodLabel[r.paymentMethod] || r.paymentMethod} · {format(parseISO(r.paidAt), "dd/MM/yyyy")}
+                          {r.receiptNumber} · {PAYMENT_METHOD_LABELS[r.paymentMethod] || r.paymentMethod} · {format(parseISO(r.paidAt), "dd/MM/yyyy")}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-red-500">−{formatCurrency(parseFloat(r.totalCommissions || "0"))}</p>
-                      <p className="text-xs text-gray-400">{r.totalServices} serviço{Number(r.totalServices) !== 1 ? "s" : ""}</p>
+                      <p className="text-sm font-bold text-red-500">{formatCurrency(parseFloat(r.totalCommissions || "0"))}</p>
+                      <p className="text-xs text-gray-400">Serviços: {formatCurrency(parseFloat(r.totalServices || "0"))}</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between rounded-b-lg">
                 <span className="text-sm font-medium text-gray-600">Total de comissões pagas</span>
-                <span className="text-sm font-bold text-red-500">−{formatCurrency(totalCommissionsPaid)}</span>
+                <span className="text-sm font-bold text-red-500">{formatCurrency(totalCommissionsPaid)}</span>
               </div>
             </>
           ) : (
@@ -439,6 +458,106 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!viewingReceipt} onOpenChange={open => { if (!open) setViewingReceipt(null) }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Receipt className="h-5 w-5 text-amber-600" />
+              Recibo de Comissão
+            </DialogTitle>
+          </DialogHeader>
+          {viewingReceipt && (() => {
+            const [ry, rm] = viewingReceipt.referenceMonth.split("-").map(Number)
+            const lastDay = new Date(ry, rm, 0).getDate()
+            const periodStart = `01/${String(rm).padStart(2, "0")}/${ry}`
+            const periodEnd = `${lastDay}/${String(rm).padStart(2, "0")}/${ry}`
+            const emissionDate = new Date(viewingReceipt.paidAt).toLocaleDateString("pt-BR")
+            const services: ServiceDetail[] = viewingReceipt.serviceDetails || []
+            return (
+              <div className="space-y-6 mt-2">
+                <div className="border rounded-lg p-6 bg-white">
+                  <div className="text-center mb-6">
+                    <h2 className="text-lg font-bold">{viewingReceipt.barbershopName}</h2>
+                    <p className="text-sm text-gray-600">Recibo de Comissão de Serviços</p>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-1 text-sm">
+                    <p><strong>Recibo Nº:</strong> {viewingReceipt.receiptNumber}</p>
+                    <p><strong>Emitido em:</strong> {emissionDate}</p>
+                    <p><strong>Método:</strong> {PAYMENT_METHOD_LABELS[viewingReceipt.paymentMethod] || viewingReceipt.paymentMethod}</p>
+                  </div>
+
+                  <div className="border-t mt-4 pt-4 space-y-1 text-sm">
+                    <p><strong>Barbeiro:</strong> {viewingReceipt.barberName}</p>
+                    <p><strong>Período:</strong> {periodStart} — {periodEnd}</p>
+                  </div>
+
+                  {services.length > 0 && (
+                    <div className="border-t mt-4 pt-4">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-semibold">Serviço</th>
+                              <th className="text-center py-2 font-semibold">Qtd</th>
+                              <th className="text-right py-2 font-semibold">Valor Unit</th>
+                              <th className="text-right py-2 font-semibold">Total</th>
+                              <th className="text-center py-2 font-semibold">Comissão</th>
+                              <th className="text-right py-2 font-semibold">Valor Comissão</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {services.map((sv, idx) => (
+                              <tr key={idx} className="border-b">
+                                <td className="py-2">{sv.serviceName}</td>
+                                <td className="py-2 text-center">{sv.qty}</td>
+                                <td className="py-2 text-right">R$ {sv.unitPrice.toFixed(2)}</td>
+                                <td className="py-2 text-right">R$ {sv.total.toFixed(2)}</td>
+                                <td className="py-2 text-center">{sv.commissionRate}%</td>
+                                <td className="py-2 text-right">R$ {sv.commissionValue.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t mt-4 pt-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total faturado em serviços:</span>
+                      <span className="font-semibold">R$ {parseFloat(viewingReceipt.totalServices || "0").toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-base">
+                      <span className="font-bold">TOTAL DE COMISSÕES:</span>
+                      <span className="font-bold">R$ {parseFloat(viewingReceipt.totalCommissions || "0").toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t mt-6 pt-4 text-sm text-gray-600">
+                    <p>Declaro que recebi o valor acima referente às comissões dos serviços prestados no período informado.</p>
+                  </div>
+
+                  <div className="mt-6 space-y-4 text-sm">
+                    {viewingReceipt.barbershopAddress && (
+                      <p>{viewingReceipt.barbershopAddress}, {emissionDate}</p>
+                    )}
+                    <div className="pt-4 space-y-4">
+                      <p>Barbeiro ________________________</p>
+                      <p>Responsável ________________________</p>
+                    </div>
+                  </div>
+
+                  <div className="border-t mt-6 pt-3 text-xs text-gray-400 text-center">
+                    <p>Recibo gerado automaticamente pelo sistema</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
