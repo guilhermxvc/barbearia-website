@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation"
 import { CalendarView } from "@/components/calendar-view"
 import { BusinessHoursConfig } from "@/components/business-hours-config"
 import { TimeBlockManager } from "@/components/time-block-manager"
+import { ReportsInsights } from "@/components/reports-insights"
 
 export default function ManagerDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -64,7 +65,11 @@ export default function ManagerDashboard() {
     },
     financial: {
       title: "Financeiro",
-      description: "Relatórios, comissões e histórico de vendas",
+      description: "Comissões e histórico de vendas",
+    },
+    reports: {
+      title: "Relatórios e Insights",
+      description: "Histórico completo, comparativos e análises da barbearia",
     },
     ai: {
       title: "Assistente IA",
@@ -91,8 +96,8 @@ export default function ManagerDashboard() {
   const isFeatureAvailable = (feature: string) => {
     const planFeatures = {
       Básico: ["overview", "barbers", "services", "settings"],
-      Profissional: ["overview", "barbers", "services", "products", "financial", "settings"],
-      Premium: ["overview", "barbers", "services", "products", "financial", "settings", "ai", "analytics"],
+      Profissional: ["overview", "barbers", "services", "products", "financial", "reports", "settings"],
+      Premium: ["overview", "barbers", "services", "products", "financial", "reports", "settings", "ai", "analytics"],
     }
     return planFeatures[userPlan as keyof typeof planFeatures]?.includes(feature) || false
   }
@@ -125,6 +130,12 @@ export default function ManagerDashboard() {
           <FinancialManagement barbershopId={user?.barbershop?.id || ''} />
         ) : (
           <UpgradePrompt feature="Sistema Financeiro" />
+        )
+      case "reports":
+        return isFeatureAvailable("reports") ? (
+          <ReportsInsights barbershopId={user?.barbershop?.id || ''} />
+        ) : (
+          <UpgradePrompt feature="Relatórios e Insights" />
         )
       case "ai":
         return <AIAssistantPremium userPlan={userPlan} />

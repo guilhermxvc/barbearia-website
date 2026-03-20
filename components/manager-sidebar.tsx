@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot, Menu } from "lucide-react"
+import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot, Menu, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
 interface ManagerSidebarProps {
@@ -36,6 +36,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
     { id: "services", label: "Serviços", icon: Scissors },
     { id: "products", label: "Produtos", icon: Package },
     { id: "financial", label: "Financeiro", icon: BarChart3 },
+    { id: "reports", label: "Relatórios e Insights", icon: TrendingUp },
     { id: "ai", label: "Assistente IA", icon: Bot, premium: true },
     { id: "settings", label: "Configurações", icon: Settings },
   ]
