@@ -48,6 +48,18 @@ interface BarberOption {
   name: string
 }
 
+interface CommissionReceipt {
+  id: string
+  barberId: string
+  barberName: string
+  receiptNumber: string
+  referenceMonth: string
+  paymentMethod: string
+  totalServices: string
+  totalCommissions: string
+  paidAt: string
+}
+
 const COLORS = ["#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#1d4ed8", "#3b82f6", "#10b981", "#ef4444"]
 
 const PERIOD_PRESETS = [
@@ -96,6 +108,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([])
   const [barbers, setBarbers] = useState<BarberOption[]>([])
+  const [receipts, setReceipts] = useState<CommissionReceipt[]>([])
   const [loading, setLoading] = useState(true)
 
   const [billingMonth, setBillingMonth] = useState(() => {
@@ -127,14 +140,16 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
     try {
       const token = localStorage.getItem("authToken")
       const headers = { Authorization: `Bearer ${token}` }
-      const [salesRes, appointmentsRes, barbersRes] = await Promise.all([
+      const [salesRes, appointmentsRes, barbersRes, receiptsRes] = await Promise.all([
         fetch(`/api/sales?barbershopId=${barbershopId}`, { headers }),
         fetch(`/api/appointments?barbershopId=${barbershopId}`, { headers }),
         fetch(`/api/barbers?barbershopId=${barbershopId}`, { headers }),
+        fetch(`/api/commission-receipts?barbershopId=${barbershopId}`, { headers }),
       ])
       const salesData = await salesRes.json()
       const appointmentsData = await appointmentsRes.json()
       const barbersData = await barbersRes.json()
+      const receiptsData = await receiptsRes.json()
 
       if (salesData.sales) setSales(salesData.sales)
       if (appointmentsData.appointments) setAppointments(appointmentsData.appointments)
@@ -144,6 +159,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
           name: b.user?.name || b.name || "Barbeiro",
         })))
       }
+      if (receiptsData.receipts) setReceipts(receiptsData.receipts)
     } catch (e) {
       console.error("Erro ao carregar relatórios", e)
     } finally {
@@ -194,6 +210,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
           <FaturamentoTab
             sales={sales}
             appointments={appointments}
+            receipts={receipts}
             billingMonth={billingMonth}
             setBillingMonth={setBillingMonth}
           />
@@ -261,7 +278,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
 // ─────────────────────────────────────────────────────────────────
 // TAB: FATURAMENTO (mês único)
 // ─────────────────────────────────────────────────────────────────
-function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: any) {
+function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillingMonth }: any) {
   const [y, m] = billingMonth.split("-").map(Number)
   const monthStart = startOfMonth(new Date(y, m - 1, 1))
   const monthEnd = endOfMonth(new Date(y, m - 1, 1))
@@ -276,9 +293,14 @@ function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: 
     return isWithinInterval(d, { start: monthStart, end: monthEnd })
   })
 
+  const monthReceipts: CommissionReceipt[] = (receipts || []).filter(
+    (r: CommissionReceipt) => r.referenceMonth === billingMonth
+  )
+
   const totalRevenue = filteredSales.reduce((acc: number, s: SaleRecord) => acc + parseFloat(s.totalAmount || "0"), 0)
-  const totalSales = filteredSales.length
-  const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0
+  const totalCommissionsPaid = monthReceipts.reduce((acc: number, r: CommissionReceipt) => acc + parseFloat(r.totalCommissions || "0"), 0)
+  const netProfit = totalRevenue - totalCommissionsPaid
+  const avgTicket = filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0
   const totalAppts = filteredAppts.length
 
   const dailyMap: Record<number, number> = {}
@@ -293,6 +315,15 @@ function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: 
   }))
 
   const monthLabel = format(new Date(y, m - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
+
+  const paymentMethodLabel: Record<string, string> = {
+    pix: "PIX",
+    dinheiro: "Dinheiro",
+    transferencia: "Transferência",
+    cartao_credito: "Cartão Crédito",
+    cartao_debito: "Cartão Débito",
+    cheque: "Cheque",
+  }
 
   return (
     <div className="space-y-4">
@@ -316,8 +347,8 @@ function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: 
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={DollarSign} label="Faturamento Total" value={formatCurrency(totalRevenue)} color="text-amber-600" bg="bg-amber-50" />
-        <StatCard icon={TrendingUp} label="Ticket Médio" value={formatCurrency(avgTicket)} color="text-green-600" bg="bg-green-50" />
-        <StatCard icon={CheckCircle} label="Vendas" value={String(totalSales)} color="text-blue-600" bg="bg-blue-50" />
+        <StatCard icon={TrendingUp} label="Lucro Líquido" value={formatCurrency(netProfit)} color={netProfit >= 0 ? "text-green-600" : "text-red-500"} bg={netProfit >= 0 ? "bg-green-50" : "bg-red-50"} />
+        <StatCard icon={CheckCircle} label="Ticket Médio" value={formatCurrency(avgTicket)} color="text-blue-600" bg="bg-blue-50" />
         <StatCard icon={Calendar} label="Agendamentos" value={String(totalAppts)} color="text-purple-600" bg="bg-purple-50" />
       </div>
 
@@ -364,29 +395,50 @@ function FaturamentoTab({ sales, appointments, billingMonth, setBillingMonth }: 
         </CardContent>
       </Card>
 
-      {filteredSales.length > 0 ? (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transações do Mês</CardTitle>
-            <Badge variant="secondary">{filteredSales.length}</Badge>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y max-h-72 overflow-y-auto">
-              {filteredSales.map((s: SaleRecord) => (
-                <div key={s.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{s.clientName || "Cliente"}</p>
-                    <p className="text-xs text-gray-500">{s.serviceName} · {s.barberName} · {format(parseISO(s.createdAt), "dd/MM/yyyy")}</p>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Recibos de Comissão Pagos</CardTitle>
+          <Badge variant={monthReceipts.length > 0 ? "default" : "secondary"} className={monthReceipts.length > 0 ? "bg-amber-600" : ""}>
+            {monthReceipts.length} {monthReceipts.length === 1 ? "recibo" : "recibos"}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          {monthReceipts.length > 0 ? (
+            <>
+              <div className="divide-y max-h-72 overflow-y-auto">
+                {monthReceipts.map((r: CommissionReceipt) => (
+                  <div key={r.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{r.barberName}</p>
+                        <p className="text-xs text-gray-500">
+                          {r.receiptNumber} · {paymentMethodLabel[r.paymentMethod] || r.paymentMethod} · {format(parseISO(r.paidAt), "dd/MM/yyyy")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-red-500">−{formatCurrency(parseFloat(r.totalCommissions || "0"))}</p>
+                      <p className="text-xs text-gray-400">{r.totalServices} serviço{Number(r.totalServices) !== 1 ? "s" : ""}</p>
+                    </div>
                   </div>
-                  <span className="text-sm font-semibold text-amber-600">{formatCurrency(parseFloat(s.totalAmount || "0"))}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between rounded-b-lg">
+                <span className="text-sm font-medium text-gray-600">Total de comissões pagas</span>
+                <span className="text-sm font-bold text-red-500">−{formatCurrency(totalCommissionsPaid)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <CheckCircle className="h-8 w-8 text-gray-300 mb-2" />
+              <p className="text-sm text-gray-500">Nenhuma comissão paga neste mês.</p>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <EmptyState message="Nenhuma venda registrada neste mês." />
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
