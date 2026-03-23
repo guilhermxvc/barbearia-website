@@ -71,11 +71,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
   }
 
   const toggleSettings = () => {
-    const next = !settingsOpen
-    setSettingsOpen(next)
-    if (next && !isSettingsActive) {
-      onSectionChange("settings-barbershop")
-    }
+    setSettingsOpen(v => !v)
   }
 
   const SidebarContent = () => (
