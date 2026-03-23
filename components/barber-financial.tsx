@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import {
   FileText, Receipt, Loader2, AlertCircle, CheckCircle,
-  Clock, User, Calendar, DollarSign, Package, Eye, Scissors, Filter,
+  Clock, User, Calendar, DollarSign, Package, Eye, Scissors,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
@@ -97,8 +97,8 @@ export function BarberFinancial() {
   const [viewingComanda, setViewingComanda] = useState<Comanda | null>(null)
   const [viewingReceipt, setViewingReceipt] = useState<CommissionReceipt | null>(null)
 
-  // Filtro de mês para recibos
-  const [receiptMonthFilter, setReceiptMonthFilter] = useState<string>("all")
+  // Filtro de mês para recibos (vazio = todos)
+  const [receiptMonthFilter, setReceiptMonthFilter] = useState<string>("")
 
   useEffect(() => {
     loadData()
@@ -130,15 +130,9 @@ export function BarberFinancial() {
     }
   }
 
-  // Meses únicos dos recibos para o filtro
-  const receiptMonths = useMemo(() => {
-    const months = Array.from(new Set(receipts.map(r => r.referenceMonth))).sort((a, b) => b.localeCompare(a))
-    return months
-  }, [receipts])
-
   // Recibos filtrados
   const filteredReceipts = useMemo(() => {
-    if (receiptMonthFilter === "all") return receipts
+    if (!receiptMonthFilter) return receipts
     return receipts.filter(r => r.referenceMonth === receiptMonthFilter)
   }, [receipts, receiptMonthFilter])
 
@@ -287,25 +281,25 @@ export function BarberFinancial() {
                   </CardTitle>
                   <CardDescription>Pagamentos de comissão processados pela barbearia</CardDescription>
                 </div>
-                {/* Filtro de mês */}
-                {receiptMonths.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-400" />
-                    <Select value={receiptMonthFilter} onValueChange={setReceiptMonthFilter}>
-                      <SelectTrigger className="w-48 h-9 text-sm">
-                        <SelectValue placeholder="Filtrar por mês" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os meses</SelectItem>
-                        {receiptMonths.map(m => (
-                          <SelectItem key={m} value={m} className="capitalize">
-                            {formatMonth(m)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                {/* Filtro de mês — calendário nativo */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="month"
+                    value={receiptMonthFilter}
+                    onChange={e => setReceiptMonthFilter(e.target.value)}
+                    className="h-9 w-44 text-sm"
+                  />
+                  {receiptMonthFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReceiptMonthFilter("")}
+                      className="text-xs text-gray-500 h-9 px-2"
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -313,9 +307,9 @@ export function BarberFinancial() {
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Receipt className="h-10 w-10 text-gray-200 mb-2" />
                   <p className="text-sm text-gray-500">
-                    {receiptMonthFilter === "all"
-                      ? "Nenhum recibo de comissão encontrado."
-                      : "Nenhum recibo encontrado para este mês."}
+                    {receiptMonthFilter
+                      ? "Nenhum recibo encontrado para este mês."
+                      : "Nenhum recibo de comissão encontrado."}
                   </p>
                 </div>
               ) : (

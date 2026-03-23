@@ -23,7 +23,7 @@ import { BarberFinancial } from "@/components/barber-financial"
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [activeSection, setActiveSection] = useState("schedule")
+  const [activeSection, setActiveSection] = useState("stats")
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
