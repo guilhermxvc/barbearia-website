@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Edit, Trash2, User, Users, UserCheck, Eye,
-  Scissors, Phone, Mail, Calendar, Star, Percent,
+  Scissors, Phone, Mail, Calendar, Percent,
   CheckCircle, XCircle, Clock, Loader2, AlertCircle,
 } from "lucide-react"
 import { barbersApi, Barber, BarberRequest } from "@/lib/api/barbers"
@@ -33,6 +33,8 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
   const [error, setError] = useState("")
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null)
   const [viewingBarber, setViewingBarber] = useState<Barber | null>(null)
+  const [deactivatingBarber, setDeactivatingBarber] = useState<Barber | null>(null)
+  const [deactivating, setDeactivating] = useState(false)
 
   useEffect(() => {
     if (barbershopId) loadData()
@@ -92,17 +94,17 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
     }
   }
 
-  const handleDeactivateBarber = async (barberId: string) => {
-    if (!confirm("Tem certeza que deseja desativar este barbeiro?")) return
-    setLoading(true)
+  const confirmDeactivate = async () => {
+    if (!deactivatingBarber) return
+    setDeactivating(true)
     try {
-      const res = await barbersApi.deactivate(barberId)
-      if (res.success) await loadData()
+      const res = await barbersApi.deactivate(deactivatingBarber.id)
+      if (res.success) { await loadData(); setDeactivatingBarber(null) }
       else setError(res.error || "Erro ao desativar barbeiro")
     } catch {
       setError("Erro ao desativar barbeiro")
     } finally {
-      setLoading(false)
+      setDeactivating(false)
     }
   }
 
@@ -141,13 +143,13 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
           </TabsTrigger>
         </TabsList>
 
-        {/* ─── ABA: BARBEIROS ATIVOS ─── */}
+        {/* ─── ABA: BARBEIROS ─── */}
         <TabsContent value="active" className="mt-4 space-y-4">
           <Card>
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
+                  <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-amber-600" />
                     Equipe de Barbeiros
                   </CardTitle>
@@ -162,22 +164,20 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
             </CardHeader>
             <CardContent>
               {currentBarbers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-14 text-center">
-                  <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                    <Users className="h-8 w-8 text-amber-300" />
-                  </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">Nenhum barbeiro cadastrado</h3>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">Nenhum barbeiro cadastrado</h3>
                   <p className="text-sm text-gray-500">Aguarde solicitações de barbeiros para aprovar.</p>
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="divide-y">
                   {currentBarbers.map(barber => (
-                    <BarberCard
+                    <BarberRow
                       key={barber.id}
                       barber={barber}
                       onView={() => setViewingBarber(barber)}
                       onEdit={() => setEditingBarber(barber)}
-                      onDeactivate={() => handleDeactivateBarber(barber.id)}
+                      onDeactivate={() => setDeactivatingBarber(barber)}
                     />
                   ))}
                 </div>
@@ -189,8 +189,8 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
         {/* ─── ABA: SOLICITAÇÕES ─── */}
         <TabsContent value="requests" className="mt-4">
           <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-base">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-amber-600" />
                 Solicitações Pendentes
               </CardTitle>
@@ -198,17 +198,15 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
             </CardHeader>
             <CardContent>
               {pendingRequests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-14 text-center">
-                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
-                    <CheckCircle className="h-8 w-8 text-green-300" />
-                  </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">Nenhuma solicitação pendente</h3>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">Nenhuma solicitação pendente</h3>
                   <p className="text-sm text-gray-500">Todas as solicitações foram processadas.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="divide-y">
                   {pendingRequests.map(request => (
-                    <RequestCard
+                    <RequestRow
                       key={request.id}
                       request={request}
                       canApprove={canAddMoreBarbers()}
@@ -258,14 +256,67 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ─── MODAL: CONFIRMAR DESATIVAÇÃO ─── */}
+      <Dialog open={!!deactivatingBarber} onOpenChange={() => setDeactivatingBarber(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Desativar Barbeiro
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação removerá o barbeiro da equipe ativa.
+            </DialogDescription>
+          </DialogHeader>
+          {deactivatingBarber && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-lg">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <User className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{deactivatingBarber.name}</p>
+                  <p className="text-sm text-gray-500">{deactivatingBarber.email}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                Tem certeza que deseja desativar <strong>{deactivatingBarber.name}</strong>? 
+                Ele não aparecerá mais para novos agendamentos. Esta ação pode ser revertida na edição.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setDeactivatingBarber(null)}
+                  disabled={deactivating}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  onClick={confirmDeactivate}
+                  disabled={deactivating}
+                >
+                  {deactivating ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Desativando...</>
+                  ) : (
+                    <><Trash2 className="h-4 w-4 mr-2" />Desativar</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-// Card de barbeiro na listagem
+// Linha de barbeiro (padrão divide-y do sistema)
 // ─────────────────────────────────────────────────────────────
-function BarberCard({
+function BarberRow({
   barber, onView, onEdit, onDeactivate,
 }: {
   barber: Barber
@@ -276,60 +327,50 @@ function BarberCard({
   const specialties = Array.isArray(barber.specialties) ? barber.specialties.filter(Boolean) : []
 
   return (
-    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${barber.isActive ? "border-amber-100 bg-amber-50/30 hover:bg-amber-50/60" : "border-gray-100 bg-gray-50/40 opacity-70"}`}>
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${barber.isActive ? "bg-amber-100" : "bg-gray-100"}`}>
+    <div className={`flex items-center justify-between py-4 px-2 hover:bg-gray-50 rounded-lg transition-colors ${!barber.isActive ? "opacity-60" : ""}`}>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${barber.isActive ? "bg-amber-100" : "bg-gray-100"}`}>
           <User className={`h-5 w-5 ${barber.isActive ? "text-amber-600" : "text-gray-400"}`} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm text-gray-900">{barber.name}</span>
+            <h4 className="font-medium text-gray-900">{barber.name}</h4>
             <Badge
               variant={barber.isActive ? "default" : "secondary"}
-              className={`text-xs px-2 py-0 ${barber.isActive ? "bg-green-500 hover:bg-green-500" : ""}`}
+              className={`text-xs ${barber.isActive ? "bg-green-500 hover:bg-green-500" : ""}`}
             >
               {barber.isActive ? "Ativo" : "Inativo"}
             </Badge>
           </div>
-          <p className="text-xs text-gray-500 truncate">{barber.email}</p>
+          <p className="text-sm text-gray-500 truncate">{barber.email}</p>
           {specialties.length > 0 && (
-            <p className="text-xs text-amber-700 mt-0.5 truncate">
-              <Scissors className="h-3 w-3 inline mr-1" />
+            <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+              <Scissors className="h-3 w-3 text-amber-500" />
               {specialties.slice(0, 2).join(", ")}
-              {specialties.length > 2 && ` +${specialties.length - 2}`}
+              {specialties.length > 2 && (
+                <span className="text-amber-600 font-medium">+{specialties.length - 2}</span>
+              )}
             </p>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onView}
-          className="h-8 w-8 p-0 border-amber-200 text-amber-700 hover:bg-amber-50"
-          title="Ver detalhes"
-        >
-          <Eye className="h-3.5 w-3.5" />
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        <Button variant="ghost" size="sm" onClick={onView} title="Ver detalhes">
+          <Eye className="h-4 w-4" />
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onEdit}
-          className="h-8 w-8 p-0"
-          title="Editar"
-        >
-          <Edit className="h-3.5 w-3.5" />
+        <Button variant="ghost" size="sm" onClick={onEdit} title="Editar">
+          <Edit className="h-4 w-4" />
         </Button>
         {barber.isActive && (
           <Button
+            variant="ghost"
             size="sm"
-            variant="outline"
             onClick={onDeactivate}
-            className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
             title="Desativar"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -342,10 +383,13 @@ function BarberCard({
 // ─────────────────────────────────────────────────────────────
 function BarberDetails({ barber }: { barber: Barber }) {
   const specialties = Array.isArray(barber.specialties) ? barber.specialties.filter(Boolean) : []
+  const createdDate = barber.createdAt && !isNaN(new Date(barber.createdAt).getTime())
+    ? format(new Date(barber.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    : "Data não informada"
 
   return (
     <div className="space-y-4 pt-1">
-      {/* Cabeçalho do perfil */}
+      {/* Perfil */}
       <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100">
         <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
           <User className="h-7 w-7 text-amber-600" />
@@ -369,7 +413,7 @@ function BarberDetails({ barber }: { barber: Barber }) {
         </div>
       </div>
 
-      {/* Informações de contato */}
+      {/* Contato */}
       <div className="space-y-2">
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contato</h4>
         <div className="space-y-1.5">
@@ -385,12 +429,7 @@ function BarberDetails({ barber }: { barber: Barber }) {
           )}
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-            <span>
-              Membro desde{" "}
-              {barber.createdAt && !isNaN(new Date(barber.createdAt).getTime())
-                ? format(new Date(barber.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                : "Data não informada"}
-            </span>
+            <span>Membro desde {createdDate}</span>
           </div>
         </div>
       </div>
@@ -429,9 +468,9 @@ function BarberDetails({ barber }: { barber: Barber }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Card de solicitação pendente
+// Linha de solicitação pendente
 // ─────────────────────────────────────────────────────────────
-function RequestCard({
+function RequestRow({
   request, canApprove, userPlan, loading, onApprove, onReject,
 }: {
   request: BarberRequest
@@ -442,34 +481,31 @@ function RequestCard({
   onReject: () => void
 }) {
   return (
-    <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 space-y-3">
+    <div className="py-4 px-2 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
             <User className="h-5 w-5 text-blue-600" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm text-gray-900">{request.name}</p>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <Mail className="h-3 w-3" />
-              <span className="truncate">{request.email}</span>
-            </div>
+            <h4 className="font-medium text-gray-900">{request.name}</h4>
+            <p className="text-sm text-gray-500 truncate">{request.email}</p>
             {request.phone && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <p className="text-sm text-gray-500 flex items-center gap-1">
                 <Phone className="h-3 w-3" />
-                <span>{request.phone}</span>
-              </div>
+                {request.phone}
+              </p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+        <div className="flex items-center gap-1 text-sm text-gray-400 shrink-0">
           <Clock className="h-3.5 w-3.5" />
           {format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}
         </div>
       </div>
 
       {request.message && (
-        <div className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-sm text-gray-700 italic">
+        <div className="rounded-lg bg-gray-50 border px-3 py-2 text-sm text-gray-700 italic">
           "{request.message}"
         </div>
       )}
@@ -485,13 +521,13 @@ function RequestCard({
       )}
 
       {!canApprove && (
-        <div className="flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+        <div className="flex items-center gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
           Limite de barbeiros atingido para o plano {userPlan}. Faça upgrade para adicionar mais.
         </div>
       )}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2">
         <Button
           size="sm"
           onClick={onApprove}
@@ -517,7 +553,7 @@ function RequestCard({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Formulário de edição
+// Formulário de edição (sem taxa de comissão)
 // ─────────────────────────────────────────────────────────────
 function BarberForm({
   barber, onClose, onSave,
@@ -529,12 +565,11 @@ function BarberForm({
   const [specialties, setSpecialties] = useState<string[]>(
     Array.isArray(barber.specialties) ? barber.specialties : []
   )
-  const [commissionRate, setCommissionRate] = useState(barber.commissionRate || "")
   const [isActive, setIsActive] = useState(barber.isActive)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({ specialties: specialties.filter(Boolean), commissionRate, isActive })
+    onSave({ specialties: specialties.filter(Boolean), isActive })
   }
 
   const addSpecialty = () => setSpecialties(prev => [...prev, ""])
@@ -582,29 +617,11 @@ function BarberForm({
         </div>
       </div>
 
-      {/* Taxa de comissão */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium flex items-center gap-1.5">
-          <Percent className="h-4 w-4 text-amber-500" />
-          Taxa de Comissão (%)
-        </Label>
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          step="0.5"
-          value={commissionRate}
-          onChange={e => setCommissionRate(e.target.value)}
-          placeholder="Ex: 40"
-        />
-        <p className="text-xs text-gray-400">Percentual que o barbeiro recebe sobre cada serviço realizado.</p>
-      </div>
-
       {/* Status ativo */}
       <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
         <div>
           <p className="text-sm font-medium text-gray-700">Barbeiro ativo</p>
-          <p className="text-xs text-gray-400">Barbeiros inativos não aparecem para agendamentos.</p>
+          <p className="text-sm text-gray-400">Barbeiros inativos não aparecem para agendamentos.</p>
         </div>
         <button
           type="button"
