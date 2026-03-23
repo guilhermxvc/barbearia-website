@@ -5,12 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Trash2, User, Users, UserCheck } from "lucide-react"
-import { barbersApi, Barber, BarberRequest } from "@/lib/api/barbers"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Edit, Trash2, User, Users, UserCheck, Eye,
+  Scissors, Phone, Mail, Calendar, Star, Percent,
+  CheckCircle, XCircle, Clock, Loader2, AlertCircle,
+} from "lucide-react"
+import { barbersApi, Barber, BarberRequest } from "@/lib/api/barbers"
 import { useAuth } from "@/contexts/AuthContext"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 interface BarbersManagementProps {
   userPlan: string
@@ -20,94 +26,67 @@ interface BarbersManagementProps {
 export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementProps) {
   const { user } = useAuth()
   const barbershopId = user?.barbershop?.id
-  
+
   const [pendingRequests, setPendingRequests] = useState<BarberRequest[]>([])
   const [currentBarbers, setCurrentBarbers] = useState<Barber[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null)
+  const [viewingBarber, setViewingBarber] = useState<Barber | null>(null)
 
-  // Carregar dados
   useEffect(() => {
-    if (barbershopId) {
-      loadData()
-    }
+    if (barbershopId) loadData()
   }, [barbershopId])
 
   const loadData = async () => {
-    if (!barbershopId) {
-      setError("ID da barbearia não encontrado")
-      return
-    }
-    
+    if (!barbershopId) { setError("ID da barbearia não encontrado"); return }
     setLoading(true)
     setError("")
-    
     try {
-      // Carregar barbeiros ativos
-      const barbersResponse = await barbersApi.getAll(barbershopId)
-      if (barbersResponse.success && barbersResponse.data) {
-        setCurrentBarbers(barbersResponse.data)
-      }
-
-      // Carregar solicitações pendentes
-      const requestsResponse = await barbersApi.getRequests(barbershopId)
-      if (requestsResponse.success && requestsResponse.data) {
-        setPendingRequests(requestsResponse.data.filter(req => req.status === 'pending'))
-      }
-    } catch (err) {
+      const [barbersRes, requestsRes] = await Promise.all([
+        barbersApi.getAll(barbershopId),
+        barbersApi.getRequests(barbershopId),
+      ])
+      if (barbersRes.success && barbersRes.data) setCurrentBarbers(barbersRes.data)
+      if (requestsRes.success && requestsRes.data)
+        setPendingRequests(requestsRes.data.filter(r => r.status === "pending"))
+    } catch {
       setError("Erro ao carregar dados")
-      console.error("Load barbers error:", err)
     } finally {
       setLoading(false)
     }
   }
 
   const canAddMoreBarbers = () => {
-    if (barberLimit === -1) return true // Premium - ilimitado
-    return currentBarbers.filter((b) => b.isActive).length < barberLimit
+    if (barberLimit === -1) return true
+    return currentBarbers.filter(b => b.isActive).length < barberLimit
   }
 
   const handleBarberRequest = async (requestId: string, action: "approve" | "reject") => {
+    if (action === "approve" && !canAddMoreBarbers()) {
+      setError("Limite de barbeiros atingido para o plano atual")
+      return
+    }
+    setLoading(true)
     try {
-      setLoading(true)
-      
-      if (action === "approve" && !canAddMoreBarbers()) {
-        setError("Limite de barbeiros atingido para o plano atual")
-        setLoading(false)
-        return
-      }
-
-      const response = await barbersApi.handleRequest(requestId, action)
-      
-      if (response.success) {
-        await loadData()
-      } else {
-        setError(response.error || "Erro ao processar solicitação")
-      }
-    } catch (err) {
+      const res = await barbersApi.handleRequest(requestId, action)
+      if (res.success) await loadData()
+      else setError(res.error || "Erro ao processar solicitação")
+    } catch {
       setError("Erro ao processar solicitação")
-      console.error("Handle request error:", err)
     } finally {
       setLoading(false)
     }
   }
 
   const handleUpdateBarber = async (barberId: string, updates: Partial<Barber>) => {
+    setLoading(true)
     try {
-      setLoading(true)
-      
-      const response = await barbersApi.update(barberId, updates)
-      
-      if (response.success) {
-        await loadData()
-        setEditingBarber(null)
-      } else {
-        setError(response.error || "Erro ao atualizar barbeiro")
-      }
-    } catch (err) {
+      const res = await barbersApi.update(barberId, updates)
+      if (res.success) { await loadData(); setEditingBarber(null) }
+      else setError(res.error || "Erro ao atualizar barbeiro")
+    } catch {
       setError("Erro ao atualizar barbeiro")
-      console.error("Update barber error:", err)
     } finally {
       setLoading(false)
     }
@@ -115,29 +94,25 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
 
   const handleDeactivateBarber = async (barberId: string) => {
     if (!confirm("Tem certeza que deseja desativar este barbeiro?")) return
-    
+    setLoading(true)
     try {
-      setLoading(true)
-      
-      const response = await barbersApi.deactivate(barberId)
-      
-      if (response.success) {
-        await loadData()
-      } else {
-        setError(response.error || "Erro ao desativar barbeiro")
-      }
-    } catch (err) {
+      const res = await barbersApi.deactivate(barberId)
+      if (res.success) await loadData()
+      else setError(res.error || "Erro ao desativar barbeiro")
+    } catch {
       setError("Erro ao desativar barbeiro")
-      console.error("Deactivate barber error:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
+  const activeBarbers = currentBarbers.filter(b => b.isActive)
+  const inactiveBarbers = currentBarbers.filter(b => !b.isActive)
+
+  if (loading && currentBarbers.length === 0) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="text-lg">Carregando barbeiros...</div>
+      <div className="flex justify-center items-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
       </div>
     )
   }
@@ -145,88 +120,65 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
   return (
     <div className="space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
       <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active">Barbeiros Ativos</TabsTrigger>
+          <TabsTrigger value="active">
+            Barbeiros Ativos ({activeBarbers.length}/{barberLimit === -1 ? "∞" : barberLimit})
+          </TabsTrigger>
           <TabsTrigger value="requests">
-            Solicitações ({pendingRequests.length})
+            Solicitações
+            {pendingRequests.length > 0 && (
+              <span className="ml-2 bg-amber-500 text-white text-xs rounded-full w-5 h-5 inline-flex items-center justify-center">
+                {pendingRequests.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active">
+        {/* ─── ABA: BARBEIROS ATIVOS ─── */}
+        <TabsContent value="active" className="mt-4 space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Barbeiros Ativos ({currentBarbers.filter((b) => b.isActive).length}/
-                {barberLimit === -1 ? "∞" : barberLimit})
-              </CardTitle>
-              <CardDescription>
-                Gerencie os barbeiros da sua equipe
-              </CardDescription>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Users className="h-5 w-5 text-amber-600" />
+                    Equipe de Barbeiros
+                  </CardTitle>
+                  <CardDescription>Gerencie os barbeiros da sua barbearia</CardDescription>
+                </div>
+                {inactiveBarbers.length > 0 && (
+                  <Badge variant="outline" className="text-gray-500">
+                    {inactiveBarbers.length} inativo{inactiveBarbers.length > 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {currentBarbers.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum barbeiro encontrado</h3>
-                  <p className="text-gray-600">Ainda não há barbeiros cadastrados na sua barbearia.</p>
+                <div className="flex flex-col items-center justify-center py-14 text-center">
+                  <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                    <Users className="h-8 w-8 text-amber-300" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-700 mb-1">Nenhum barbeiro cadastrado</h3>
+                  <p className="text-sm text-gray-500">Aguarde solicitações de barbeiros para aprovar.</p>
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  {currentBarbers.map((barber) => (
-                    <div key={barber.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                              <User className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold">{barber.name}</h3>
-                              <p className="text-sm text-gray-600">{barber.email}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {Array.isArray(barber.specialties) && barber.specialties.map((specialty, index) => (
-                              <Badge key={index} variant="outline">
-                                {specialty}
-                              </Badge>
-                            ))}
-                          </div>
-
-                          <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
-                            <Badge variant={barber.isActive ? "default" : "secondary"}>
-                              {barber.isActive ? "Ativo" : "Inativo"}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingBarber(barber)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeactivateBarber(barber.id)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                <div className="grid gap-3">
+                  {currentBarbers.map(barber => (
+                    <BarberCard
+                      key={barber.id}
+                      barber={barber}
+                      onView={() => setViewingBarber(barber)}
+                      onEdit={() => setEditingBarber(barber)}
+                      onDeactivate={() => handleDeactivateBarber(barber.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -234,81 +186,37 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
           </Card>
         </TabsContent>
 
-        <TabsContent value="requests">
+        {/* ─── ABA: SOLICITAÇÕES ─── */}
+        <TabsContent value="requests" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCheck className="h-5 w-5" />
-                Solicitações Pendentes ({pendingRequests.length})
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <UserCheck className="h-5 w-5 text-amber-600" />
+                Solicitações Pendentes
               </CardTitle>
-              <CardDescription>
-                Aprove ou rejeite solicitações de novos barbeiros
-              </CardDescription>
+              <CardDescription>Aprove ou rejeite solicitações de novos barbeiros</CardDescription>
             </CardHeader>
             <CardContent>
               {pendingRequests.length === 0 ? (
-                <div className="text-center py-12">
-                  <UserCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma solicitação pendente</h3>
-                  <p className="text-gray-600">Todas as solicitações foram processadas.</p>
+                <div className="flex flex-col items-center justify-center py-14 text-center">
+                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle className="h-8 w-8 text-green-300" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-700 mb-1">Nenhuma solicitação pendente</h3>
+                  <p className="text-sm text-gray-500">Todas as solicitações foram processadas.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {pendingRequests.map((request) => (
-                    <div key={request.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold">{request.name}</h3>
-                              <p className="text-sm text-gray-600">{request.email}</p>
-                              {request.phone && (
-                                <p className="text-sm text-gray-600">{request.phone}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {request.message && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded">
-                              <p className="text-sm">{request.message}</p>
-                            </div>
-                          )}
-
-                          <p className="text-sm text-gray-500 mt-2">
-                            Solicitado em: {new Date(request.createdAt).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleBarberRequest(request.id, "approve")}
-                            className="bg-green-600 hover:bg-green-700"
-                            disabled={loading}
-                          >
-                            Aprovar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleBarberRequest(request.id, "reject")}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                            disabled={loading}
-                          >
-                            Rejeitar
-                          </Button>
-                        </div>
-                      </div>
-                      {!canAddMoreBarbers() && (
-                        <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
-                          Limite de barbeiros atingido para o plano {userPlan}. Faça upgrade para adicionar mais
-                          barbeiros.
-                        </div>
-                      )}
-                    </div>
+                <div className="space-y-3">
+                  {pendingRequests.map(request => (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      canApprove={canAddMoreBarbers()}
+                      userPlan={userPlan}
+                      loading={loading}
+                      onApprove={() => handleBarberRequest(request.id, "approve")}
+                      onReject={() => handleBarberRequest(request.id, "reject")}
+                    />
                   ))}
                 </div>
               )}
@@ -317,18 +225,35 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
         </TabsContent>
       </Tabs>
 
-      {/* Modal de edição de barbeiro */}
-      <Dialog open={!!editingBarber} onOpenChange={() => setEditingBarber(null)}>
-        <DialogContent>
+      {/* ─── MODAL: VER DETALHES ─── */}
+      <Dialog open={!!viewingBarber} onOpenChange={() => setViewingBarber(null)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Barbeiro</DialogTitle>
-            <DialogDescription>Modifique os dados do barbeiro</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-amber-600" />
+              Detalhes do Barbeiro
+            </DialogTitle>
+            <DialogDescription>Informações completas do profissional</DialogDescription>
+          </DialogHeader>
+          {viewingBarber && <BarberDetails barber={viewingBarber} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL: EDITAR ─── */}
+      <Dialog open={!!editingBarber} onOpenChange={() => setEditingBarber(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-amber-600" />
+              Editar Barbeiro
+            </DialogTitle>
+            <DialogDescription>Modifique as informações do barbeiro</DialogDescription>
           </DialogHeader>
           {editingBarber && (
             <BarberForm
               barber={editingBarber}
               onClose={() => setEditingBarber(null)}
-              onSave={(updates) => handleUpdateBarber(editingBarber.id, updates)}
+              onSave={updates => handleUpdateBarber(editingBarber.id, updates)}
             />
           )}
         </DialogContent>
@@ -337,88 +262,363 @@ export function BarbersManagement({ userPlan, barberLimit }: BarbersManagementPr
   )
 }
 
-function BarberForm({ barber, onClose, onSave }: { 
-  barber: Barber; 
-  onClose: () => void; 
-  onSave: (updates: Partial<Barber>) => void 
+// ─────────────────────────────────────────────────────────────
+// Card de barbeiro na listagem
+// ─────────────────────────────────────────────────────────────
+function BarberCard({
+  barber, onView, onEdit, onDeactivate,
+}: {
+  barber: Barber
+  onView: () => void
+  onEdit: () => void
+  onDeactivate: () => void
 }) {
-  const [formData, setFormData] = useState({
-    specialties: Array.isArray(barber.specialties) ? barber.specialties : [],
-    isActive: barber.isActive,
-  })
+  const specialties = Array.isArray(barber.specialties) ? barber.specialties.filter(Boolean) : []
+
+  return (
+    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${barber.isActive ? "border-amber-100 bg-amber-50/30 hover:bg-amber-50/60" : "border-gray-100 bg-gray-50/40 opacity-70"}`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${barber.isActive ? "bg-amber-100" : "bg-gray-100"}`}>
+          <User className={`h-5 w-5 ${barber.isActive ? "text-amber-600" : "text-gray-400"}`} />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm text-gray-900">{barber.name}</span>
+            <Badge
+              variant={barber.isActive ? "default" : "secondary"}
+              className={`text-xs px-2 py-0 ${barber.isActive ? "bg-green-500 hover:bg-green-500" : ""}`}
+            >
+              {barber.isActive ? "Ativo" : "Inativo"}
+            </Badge>
+          </div>
+          <p className="text-xs text-gray-500 truncate">{barber.email}</p>
+          {specialties.length > 0 && (
+            <p className="text-xs text-amber-700 mt-0.5 truncate">
+              <Scissors className="h-3 w-3 inline mr-1" />
+              {specialties.slice(0, 2).join(", ")}
+              {specialties.length > 2 && ` +${specialties.length - 2}`}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onView}
+          className="h-8 w-8 p-0 border-amber-200 text-amber-700 hover:bg-amber-50"
+          title="Ver detalhes"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onEdit}
+          className="h-8 w-8 p-0"
+          title="Editar"
+        >
+          <Edit className="h-3.5 w-3.5" />
+        </Button>
+        {barber.isActive && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onDeactivate}
+            className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50"
+            title="Desativar"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Modal de detalhes do barbeiro
+// ─────────────────────────────────────────────────────────────
+function BarberDetails({ barber }: { barber: Barber }) {
+  const specialties = Array.isArray(barber.specialties) ? barber.specialties.filter(Boolean) : []
+
+  return (
+    <div className="space-y-4 pt-1">
+      {/* Cabeçalho do perfil */}
+      <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100">
+        <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <User className="h-7 w-7 text-amber-600" />
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 text-lg">{barber.name}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge
+              variant={barber.isActive ? "default" : "secondary"}
+              className={barber.isActive ? "bg-green-500 hover:bg-green-500" : ""}
+            >
+              {barber.isActive ? "Ativo" : "Inativo"}
+            </Badge>
+            {barber.isApproved && (
+              <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Aprovado
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Informações de contato */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contato</h4>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <span className="truncate">{barber.email}</span>
+          </div>
+          {barber.phone && (
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <span>{barber.phone}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <span>
+              Membro desde{" "}
+              {format(new Date(barber.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Comissão */}
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <Percent className="h-4 w-4 text-amber-500" />
+          <span className="font-medium">Taxa de Comissão</span>
+        </div>
+        <span className="font-bold text-amber-700 text-sm">
+          {barber.commissionRate ? `${barber.commissionRate}%` : "Não definida"}
+        </span>
+      </div>
+
+      {/* Especialidades */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+          <Scissors className="h-3.5 w-3.5" />
+          Especialidades
+        </h4>
+        {specialties.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">Nenhuma especialidade cadastrada.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {specialties.map((s, i) => (
+              <Badge key={i} variant="outline" className="border-amber-200 text-amber-800 bg-amber-50">
+                {s}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Card de solicitação pendente
+// ─────────────────────────────────────────────────────────────
+function RequestCard({
+  request, canApprove, userPlan, loading, onApprove, onReject,
+}: {
+  request: BarberRequest
+  canApprove: boolean
+  userPlan: string
+  loading: boolean
+  onApprove: () => void
+  onReject: () => void
+}) {
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm text-gray-900">{request.name}</p>
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Mail className="h-3 w-3" />
+              <span className="truncate">{request.email}</span>
+            </div>
+            {request.phone && (
+              <div className="flex items-center gap-1 text-xs text-gray-500">
+                <Phone className="h-3 w-3" />
+                <span>{request.phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+          <Clock className="h-3.5 w-3.5" />
+          {format(new Date(request.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+        </div>
+      </div>
+
+      {request.message && (
+        <div className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-sm text-gray-700 italic">
+          "{request.message}"
+        </div>
+      )}
+
+      {request.barber?.specialties && request.barber.specialties.filter(Boolean).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {request.barber.specialties.filter(Boolean).map((s, i) => (
+            <Badge key={i} variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50">
+              {s}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {!canApprove && (
+        <div className="flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          Limite de barbeiros atingido para o plano {userPlan}. Faça upgrade para adicionar mais.
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button
+          size="sm"
+          onClick={onApprove}
+          disabled={loading || !canApprove}
+          className="flex-1 bg-green-600 hover:bg-green-700 gap-1.5"
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
+          Aprovar
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onReject}
+          disabled={loading}
+          className="flex-1 border-red-200 text-red-700 hover:bg-red-50 gap-1.5"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          Rejeitar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Formulário de edição
+// ─────────────────────────────────────────────────────────────
+function BarberForm({
+  barber, onClose, onSave,
+}: {
+  barber: Barber
+  onClose: () => void
+  onSave: (updates: Partial<Barber>) => void
+}) {
+  const [specialties, setSpecialties] = useState<string[]>(
+    Array.isArray(barber.specialties) ? barber.specialties : []
+  )
+  const [commissionRate, setCommissionRate] = useState(barber.commissionRate || "")
+  const [isActive, setIsActive] = useState(barber.isActive)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData)
+    onSave({ specialties: specialties.filter(Boolean), commissionRate, isActive })
   }
 
-  const addSpecialty = () => {
-    setFormData({
-      ...formData,
-      specialties: [...formData.specialties, ""]
-    })
-  }
-
-  const updateSpecialty = (index: number, value: string) => {
-    const newSpecialties = [...formData.specialties]
-    newSpecialties[index] = value
-    setFormData({
-      ...formData,
-      specialties: newSpecialties
-    })
-  }
-
-  const removeSpecialty = (index: number) => {
-    setFormData({
-      ...formData,
-      specialties: formData.specialties.filter((_, i) => i !== index)
-    })
-  }
+  const addSpecialty = () => setSpecialties(prev => [...prev, ""])
+  const updateSpecialty = (i: number, v: string) =>
+    setSpecialties(prev => prev.map((s, idx) => (idx === i ? v : s)))
+  const removeSpecialty = (i: number) =>
+    setSpecialties(prev => prev.filter((_, idx) => idx !== i))
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label>Especialidades</Label>
+    <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+      {/* Especialidades */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium flex items-center gap-1.5">
+          <Scissors className="h-4 w-4 text-amber-500" />
+          Especialidades
+        </Label>
         <div className="space-y-2">
-          {formData.specialties.map((specialty, index) => (
-            <div key={index} className="flex gap-2">
+          {specialties.map((s, i) => (
+            <div key={i} className="flex gap-2">
               <Input
-                value={specialty}
-                onChange={(e) => updateSpecialty(index, e.target.value)}
-                placeholder="Ex: Corte Clássico"
+                value={s}
+                onChange={e => updateSpecialty(i, e.target.value)}
+                placeholder="Ex: Corte Clássico, Barba, Degradê..."
+                className="flex-1"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => removeSpecialty(index)}
+                onClick={() => removeSpecialty(i)}
+                className="border-red-200 text-red-600 hover:bg-red-50 px-3"
               >
-                Remover
+                ✕
               </Button>
             </div>
           ))}
-          <Button type="button" variant="outline" onClick={addSpecialty}>
-            Adicionar Especialidade
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addSpecialty}
+            className="w-full border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 text-sm"
+          >
+            + Adicionar Especialidade
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="isActive"
-          checked={formData.isActive}
-          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+      {/* Taxa de comissão */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium flex items-center gap-1.5">
+          <Percent className="h-4 w-4 text-amber-500" />
+          Taxa de Comissão (%)
+        </Label>
+        <Input
+          type="number"
+          min="0"
+          max="100"
+          step="0.5"
+          value={commissionRate}
+          onChange={e => setCommissionRate(e.target.value)}
+          placeholder="Ex: 40"
         />
-        <Label htmlFor="isActive">Barbeiro ativo</Label>
+        <p className="text-xs text-gray-400">Percentual que o barbeiro recebe sobre cada serviço realizado.</p>
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
+      {/* Status ativo */}
+      <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+        <div>
+          <p className="text-sm font-medium text-gray-700">Barbeiro ativo</p>
+          <p className="text-xs text-gray-400">Barbeiros inativos não aparecem para agendamentos.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsActive(v => !v)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isActive ? "bg-amber-500" : "bg-gray-300"}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-6" : "translate-x-1"}`} />
+        </button>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onClose}>
           Cancelar
         </Button>
         <Button type="submit" className="bg-amber-600 hover:bg-amber-700">
-          Atualizar Barbeiro
+          Salvar Alterações
         </Button>
       </div>
     </form>
