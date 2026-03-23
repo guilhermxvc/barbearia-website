@@ -387,7 +387,9 @@ function BarberDetails({ barber }: { barber: Barber }) {
             <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <span>
               Membro desde{" "}
-              {format(new Date(barber.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {barber.createdAt && !isNaN(new Date(barber.createdAt).getTime())
+                ? format(new Date(barber.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                : "Data não informada"}
             </span>
           </div>
         </div>
