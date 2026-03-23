@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { apiClient } from "@/lib/api/client"
 import { toast } from "sonner"
+import { ComandasTab } from "@/components/comandas-tab"
 import {
   DollarSign,
   TrendingUp,
@@ -131,18 +132,20 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
   const [commissionReceipts, setCommissionReceipts] = useState<CommissionReceiptData[]>([])
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
   const [selectedReceipt, setSelectedReceipt] = useState<CommissionReceiptData | null>(null)
+  const [products, setProducts] = useState<any[]>([])
 
   const loadData = useCallback(async () => {
     if (!barbershopId) return
     
     setLoading(true)
     try {
-      const [salesResponse, barbersResponse, commissionsResponse, servicesResponse, receiptsResponse] = await Promise.all([
+      const [salesResponse, barbersResponse, commissionsResponse, servicesResponse, receiptsResponse, productsResponse] = await Promise.all([
         apiClient.get(`/sales?barbershopId=${barbershopId}`),
         apiClient.get(`/barbers?barbershopId=${barbershopId}`),
         apiClient.get(`/barber-service-commissions?barbershopId=${barbershopId}`),
         apiClient.get(`/services?barbershopId=${barbershopId}`),
-        apiClient.get(`/commission-receipts?barbershopId=${barbershopId}`)
+        apiClient.get(`/commission-receipts?barbershopId=${barbershopId}`),
+        apiClient.get(`/products?barbershopId=${barbershopId}`),
       ])
 
       const salesData = salesResponse as { success: boolean; data?: any }
@@ -150,6 +153,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       const commissionsData = commissionsResponse as { success: boolean; data?: any }
       const servicesData = servicesResponse as { success: boolean; data?: any }
       const receiptsData = receiptsResponse as { success: boolean; data?: any }
+      const productsData = productsResponse as { success: boolean; data?: any }
 
       const loadedReceipts: CommissionReceiptData[] = receiptsData.data?.receipts || []
       if (receiptsData.success) {
@@ -168,6 +172,11 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       // Processar serviços
       if (servicesData.success && servicesData.data?.services) {
         setServices(servicesData.data.services)
+      }
+
+      // Processar produtos
+      if (productsData.success && productsData.data?.products) {
+        setProducts(productsData.data.products)
       }
 
       // A API retorna { commissions: [...] } e o apiClient wrapa em { success, data: {...} }
@@ -498,7 +507,7 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
       <Tabs defaultValue="commissions" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="commissions">Comissões</TabsTrigger>
-          <TabsTrigger value="sales">Histórico de Vendas</TabsTrigger>
+          <TabsTrigger value="comandas">Comandas</TabsTrigger>
           <TabsTrigger value="accounts-payable">Contas a Pagar</TabsTrigger>
         </TabsList>
 
@@ -662,120 +671,13 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
           </Dialog>
         </TabsContent>
 
-        <TabsContent value="sales" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Histórico de Vendas</CardTitle>
-                  <CardDescription>Visualize todas as vendas realizadas e comissões geradas</CardDescription>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Filtros ativos</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3 mb-6">
-                <div>
-                  <Label htmlFor="service-filter">Serviços e Produtos</Label>
-                  <Select
-                    value={salesFilters.service}
-                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, service: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {services.map((service) => (
-                        <SelectItem key={service.id} value={service.name}>
-                          {service.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="barber-filter">Barbeiro</Label>
-                  <Select
-                    value={salesFilters.barber}
-                    onValueChange={(value) => setSalesFilters((prev) => ({ ...prev, barber: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {uniqueBarbers.map((barber) => (
-                        <SelectItem key={barber} value={barber}>
-                          {barber}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="month-filter">Mês</Label>
-                  <Input
-                    id="month-filter"
-                    type="month"
-                    value={salesFilters.month}
-                    onChange={(e) => setSalesFilters((prev) => ({ ...prev, month: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {filteredSales.length === 0 ? (
-                <div className="text-center py-8">
-                  <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma venda encontrada</h3>
-                  <p className="text-muted-foreground">As vendas serão registradas quando os atendimentos forem concluídos.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left p-3 font-medium">Data</th>
-                        <th className="text-left p-3 font-medium">Cliente</th>
-                        <th className="text-left p-3 font-medium">Serviço</th>
-                        <th className="text-left p-3 font-medium">Barbeiro</th>
-                        <th className="text-left p-3 font-medium">Valor</th>
-                        <th className="text-left p-3 font-medium">Pagamento</th>
-                        <th className="text-left p-3 font-medium">Comissão</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSales.map((sale) => (
-                        <tr key={sale.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3">{new Date(sale.sale_date).toLocaleDateString("pt-BR")}</td>
-                          <td className="p-3 font-medium">{sale.client_name}</td>
-                          <td className="p-3">{sale.service_name}</td>
-                          <td className="p-3">{sale.barber_name}</td>
-                          <td className="p-3 font-medium">R$ {sale.service_price.toFixed(2)}</td>
-                          <td className="p-3">
-                            <Badge variant="outline" className="capitalize">
-                              {sale.payment_method === 'credit_card' ? 'Cartão Crédito' :
-                               sale.payment_method === 'debit_card' ? 'Cartão Débito' :
-                               sale.payment_method === 'pix' ? 'PIX' :
-                               sale.payment_method === 'cash' || sale.payment_method === 'dinheiro' ? 'Dinheiro' :
-                               sale.payment_method}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-green-600 font-medium">R$ {sale.commission_value.toFixed(2)}</span>
-                            <span className="text-gray-400 text-sm ml-1">({sale.commission_rate}%)</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="comandas" className="space-y-4">
+          <ComandasTab
+            barbershopId={barbershopId}
+            services={services.map((s: any) => ({ id: s.id, name: s.name, price: s.price }))}
+            products={products.map((p: any) => ({ id: p.id, name: p.name, price: p.price }))}
+            barbers={barbers.map((b: any) => ({ id: b.id, name: b.user?.name || b.name || "Barbeiro" }))}
+          />
         </TabsContent>
 
         <TabsContent value="accounts-payable" className="space-y-4">

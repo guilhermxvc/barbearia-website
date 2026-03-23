@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { commissionReceipts, barbershops } from '@/lib/db/schema';
+import { commissionReceipts, barbershops, comandas } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
 import { eq, and, desc } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
@@ -99,6 +99,37 @@ export const POST = withAuth(['manager'])(async (req) => {
         paidAt: new Date(),
       })
       .returning();
+
+    // Auto-fechar comandas abertas deste barbeiro neste mês
+    try {
+      const openComandas = await db
+        .select()
+        .from(comandas)
+        .where(
+          and(
+            eq(comandas.barbershopId, barbershopId),
+            eq(comandas.barberId, barberId),
+            eq(comandas.referenceMonth, referenceMonth),
+            eq(comandas.status, 'open')
+          )
+        );
+
+      if (openComandas.length > 0) {
+        await db
+          .update(comandas)
+          .set({ status: 'closed', closedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(comandas.barbershopId, barbershopId),
+              eq(comandas.barberId, barberId),
+              eq(comandas.referenceMonth, referenceMonth),
+              eq(comandas.status, 'open')
+            )
+          );
+      }
+    } catch (e) {
+      console.error('Erro ao fechar comandas ao pagar comissão:', e);
+    }
 
     return NextResponse.json({ success: true, receipt });
   } catch (error) {

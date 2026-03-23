@@ -281,6 +281,39 @@ export const recurringAppointments = pgTable('recurring_appointments', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Comandas (ordens de serviço abertas por agendamento)
+export const comandas = pgTable('comandas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  barbershopId: uuid('barbershop_id').references(() => barbershops.id).notNull(),
+  barberId: uuid('barber_id').references(() => barbers.id).notNull(),
+  appointmentId: uuid('appointment_id').references(() => appointments.id),
+  clientId: uuid('client_id').references(() => clients.id),
+  clientName: text('client_name').notNull(),
+  barberName: text('barber_name').notNull(),
+  code: text('code').notNull().unique(),
+  status: text('status').notNull().default('open'), // 'open' | 'closed'
+  referenceMonth: text('reference_month').notNull(), // YYYY-MM
+  paymentMethod: text('payment_method'),
+  totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).default('0.00'),
+  notes: text('notes'),
+  closedAt: timestamp('closed_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Comanda Items (itens de serviço ou produto dentro de uma comanda)
+export const comandaItems = pgTable('comanda_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  comandaId: uuid('comanda_id').references(() => comandas.id).notNull(),
+  type: text('type').notNull(), // 'service' | 'product'
+  itemId: uuid('item_id'),
+  name: text('name').notNull(),
+  price: decimal('price', { precision: 8, scale: 2 }).notNull(),
+  qty: integer('qty').notNull().default(1),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // Commission Receipts (recibos de pagamento de comissões)
 export const commissionReceipts = pgTable('commission_receipts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -354,6 +387,12 @@ export const selectRecurringAppointmentSchema = createSelectSchema(recurringAppo
 export const insertCommissionReceiptSchema = createInsertSchema(commissionReceipts);
 export const selectCommissionReceiptSchema = createSelectSchema(commissionReceipts);
 
+export const insertComandaSchema = createInsertSchema(comandas);
+export const selectComandaSchema = createSelectSchema(comandas);
+
+export const insertComandaItemSchema = createInsertSchema(comandaItems);
+export const selectComandaItemSchema = createSelectSchema(comandaItems);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -408,6 +447,12 @@ export type NewRecurringAppointment = typeof recurringAppointments.$inferInsert;
 
 export type CommissionReceipt = typeof commissionReceipts.$inferSelect;
 export type NewCommissionReceipt = typeof commissionReceipts.$inferInsert;
+
+export type Comanda = typeof comandas.$inferSelect;
+export type NewComanda = typeof comandas.$inferInsert;
+
+export type ComandaItem = typeof comandaItems.$inferSelect;
+export type NewComandaItem = typeof comandaItems.$inferInsert;
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
