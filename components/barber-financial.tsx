@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   FileText, Receipt, Loader2, AlertCircle, CheckCircle,
-  Clock, User, Calendar, DollarSign, Package, Eye, Scissors,
+  Clock, User, Calendar, DollarSign, Package, Eye, Scissors, Filter,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
@@ -36,12 +37,12 @@ interface Comanda {
 }
 
 interface ServiceDetail {
-  name: string
+  serviceName: string
   qty: number
-  price: number
-  subtotal: number
+  unitPrice: number
+  total: number
   commissionRate: number
-  commission: number
+  commissionValue: number
 }
 
 interface CommissionReceipt {
@@ -69,6 +70,18 @@ const formatMonth = (month: string) => {
   return format(date, "MMMM 'de' yyyy", { locale: ptBR })
 }
 
+const formatPaymentMethod = (method: string) => {
+  switch (method) {
+    case "pix": return "PIX"
+    case "cash": return "Dinheiro"
+    case "transfer": return "Transferência"
+    case "credit_card": return "Cartão de Crédito"
+    case "debit_card": return "Cartão de Débito"
+    case "check": return "Cheque"
+    default: return method
+  }
+}
+
 const safeDate = (d: string) => {
   const dt = new Date(d)
   return isNaN(dt.getTime()) ? null : dt
@@ -83,6 +96,9 @@ export function BarberFinancial() {
   const [error, setError] = useState("")
   const [viewingComanda, setViewingComanda] = useState<Comanda | null>(null)
   const [viewingReceipt, setViewingReceipt] = useState<CommissionReceipt | null>(null)
+
+  // Filtro de mês para recibos
+  const [receiptMonthFilter, setReceiptMonthFilter] = useState<string>("all")
 
   useEffect(() => {
     loadData()
@@ -114,11 +130,24 @@ export function BarberFinancial() {
     }
   }
 
+  // Meses únicos dos recibos para o filtro
+  const receiptMonths = useMemo(() => {
+    const months = Array.from(new Set(receipts.map(r => r.referenceMonth))).sort((a, b) => b.localeCompare(a))
+    return months
+  }, [receipts])
+
+  // Recibos filtrados
+  const filteredReceipts = useMemo(() => {
+    if (receiptMonthFilter === "all") return receipts
+    return receipts.filter(r => r.referenceMonth === receiptMonthFilter)
+  }, [receipts, receiptMonthFilter])
+
   const openComandas = comandas.filter(c => c.status === "open")
   const closedComandas = comandas.filter(c => c.status === "closed")
 
   const totalOpenValue = openComandas.reduce((s, c) => s + parseFloat(c.totalAmount || "0"), 0)
-  const totalReceived = receipts.reduce((s, r) => s + parseFloat(r.totalCommissions || "0"), 0)
+  const totalReceived = filteredReceipts.reduce((s, r) => s + parseFloat(r.totalCommissions || "0"), 0)
+  const allTimeReceived = receipts.reduce((s, r) => s + parseFloat(r.totalCommissions || "0"), 0)
 
   if (loading) {
     return (
@@ -175,10 +204,10 @@ export function BarberFinancial() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Recebido</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-600" />
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{formatCurrency(totalReceived)}</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(allTimeReceived)}</div>
             <p className="text-xs text-muted-foreground">em comissões</p>
           </CardContent>
         </Card>
@@ -249,22 +278,49 @@ export function BarberFinancial() {
         {/* ─── RECIBOS ─── */}
         <TabsContent value="receipts" className="mt-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="h-5 w-5 text-blue-600" />
-                Recibos de Comissão
-              </CardTitle>
-              <CardDescription>Pagamentos de comissão processados pela barbearia</CardDescription>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Receipt className="h-5 w-5 text-blue-600" />
+                    Recibos de Comissão
+                  </CardTitle>
+                  <CardDescription>Pagamentos de comissão processados pela barbearia</CardDescription>
+                </div>
+                {/* Filtro de mês */}
+                {receiptMonths.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-gray-400" />
+                    <Select value={receiptMonthFilter} onValueChange={setReceiptMonthFilter}>
+                      <SelectTrigger className="w-48 h-9 text-sm">
+                        <SelectValue placeholder="Filtrar por mês" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os meses</SelectItem>
+                        {receiptMonths.map(m => (
+                          <SelectItem key={m} value={m} className="capitalize">
+                            {formatMonth(m)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              {receipts.length === 0 ? (
+              {filteredReceipts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Receipt className="h-10 w-10 text-gray-200 mb-2" />
-                  <p className="text-sm text-gray-500">Nenhum recibo de comissão encontrado.</p>
+                  <p className="text-sm text-gray-500">
+                    {receiptMonthFilter === "all"
+                      ? "Nenhum recibo de comissão encontrado."
+                      : "Nenhum recibo encontrado para este mês."}
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y">
-                  {receipts.map(r => (
+                  {filteredReceipts.map(r => (
                     <ReceiptRow key={r.id} receipt={r} onView={() => setViewingReceipt(r)} />
                   ))}
                 </div>
@@ -288,17 +344,16 @@ export function BarberFinancial() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── MODAL: Detalhes do Recibo ─── */}
+      {/* ─── MODAL: Recibo formal ─── */}
       <Dialog open={!!viewingReceipt} onOpenChange={() => setViewingReceipt(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-blue-600" />
+              <Receipt className="h-5 w-5 text-amber-600" />
               Recibo de Comissão
             </DialogTitle>
-            <DialogDescription>Detalhes do pagamento de comissão</DialogDescription>
           </DialogHeader>
-          {viewingReceipt && <ReceiptDetails receipt={viewingReceipt} />}
+          {viewingReceipt && <FormalReceipt receipt={viewingReceipt} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -318,7 +373,7 @@ function ComandaRow({ comanda, onView }: { comanda: Comanda; onView: () => void 
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-gray-900">{comanda.code}</span>
             <Badge
-              variant={comanda.status === "open" ? "outline" : "secondary"}
+              variant="outline"
               className={`text-xs ${comanda.status === "open" ? "border-amber-300 text-amber-700 bg-amber-50" : "border-green-300 text-green-700 bg-green-50"}`}
             >
               {comanda.status === "open" ? "Aberta" : "Fechada"}
@@ -417,7 +472,7 @@ function ReceiptRow({ receipt, onView }: { receipt: CommissionReceipt; onView: (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-gray-900">{receipt.receiptNumber}</span>
             <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50 capitalize">
-              {receipt.paymentMethod}
+              {formatPaymentMethod(receipt.paymentMethod)}
             </Badge>
           </div>
           <p className="text-sm text-gray-500 capitalize">{formatMonth(receipt.referenceMonth)}</p>
@@ -436,62 +491,109 @@ function ReceiptRow({ receipt, onView }: { receipt: CommissionReceipt; onView: (
   )
 }
 
-// ─── Detalhes do recibo (modal) ───────────────────────────────
-function ReceiptDetails({ receipt }: { receipt: CommissionReceipt }) {
-  const dt = safeDate(receipt.paidAt)
-  const details: ServiceDetail[] = Array.isArray(receipt.serviceDetails) ? receipt.serviceDetails : []
+// ─── Recibo formal (igual ao da barbearia) ────────────────────
+function FormalReceipt({ receipt }: { receipt: CommissionReceipt }) {
+  const [year, month] = receipt.referenceMonth.split("-").map(Number)
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+  const lastDay = new Date(year, month, 0).getDate()
+  const periodStart = `01/${String(month).padStart(2, "0")}/${year}`
+  const periodEnd = `${lastDay}/${String(month).padStart(2, "0")}/${year}`
+  const emissionDate = safeDate(receipt.paidAt)?.toLocaleDateString("pt-BR") ?? "—"
+  const services: ServiceDetail[] = Array.isArray(receipt.serviceDetails) ? receipt.serviceDetails : []
 
   return (
-    <div className="space-y-4 pt-1">
-      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-blue-500 font-semibold uppercase tracking-wider">Nº do Recibo</span>
-          <span className="font-mono font-bold text-blue-800">{receipt.receiptNumber}</span>
+    <div className="space-y-6 mt-2">
+      <div className="border rounded-lg p-6 bg-white">
+        {/* Cabeçalho */}
+        <div className="text-center mb-6">
+          <h2 className="text-lg font-bold">{receipt.barbershopName}</h2>
+          <p className="text-sm text-gray-600">Recibo de Comissão de Serviços</p>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Mês de referência</span>
-          <span className="text-sm font-medium capitalize">{formatMonth(receipt.referenceMonth)}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Data do pagamento</span>
-          <span className="text-sm font-medium">
-            {dt ? format(dt, "dd/MM/yyyy", { locale: ptBR }) : "—"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Forma de pagamento</span>
-          <Badge variant="outline" className="border-blue-200 text-blue-700 capitalize">{receipt.paymentMethod}</Badge>
-        </div>
-      </div>
 
-      {details.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Serviços</h4>
-          <div className="space-y-1.5">
-            {details.map((s, i) => (
-              <div key={i} className="p-2.5 bg-gray-50 rounded-lg border text-sm">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-gray-800">{s.name}</span>
-                  <span className="text-gray-500 text-xs">×{s.qty}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Comissão {s.commissionRate}% de {formatCurrency(s.subtotal)}</span>
-                  <span className="font-semibold text-green-700">{formatCurrency(s.commission)}</span>
-                </div>
-              </div>
-            ))}
+        {/* Dados do recibo */}
+        <div className="border-t pt-4 space-y-1 text-sm">
+          <p><strong>Recibo Nº:</strong> {receipt.receiptNumber}</p>
+          <p><strong>Emitido em:</strong> {emissionDate}</p>
+          <p><strong>Método:</strong> {formatPaymentMethod(receipt.paymentMethod)}</p>
+        </div>
+
+        {/* Barbeiro e período */}
+        <div className="border-t mt-4 pt-4 space-y-1 text-sm">
+          <p><strong>Barbeiro:</strong> {receipt.barberName}</p>
+          <p><strong>Período:</strong> {periodStart} — {periodEnd}</p>
+        </div>
+
+        {/* Tabela de serviços */}
+        <div className="border-t mt-4 pt-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 font-semibold">Serviço</th>
+                  <th className="text-center py-2 font-semibold">Qtd</th>
+                  <th className="text-right py-2 font-semibold">Valor Unit</th>
+                  <th className="text-right py-2 font-semibold">Total</th>
+                  <th className="text-center py-2 font-semibold">Comissão</th>
+                  <th className="text-right py-2 font-semibold">Valor Comissão</th>
+                </tr>
+              </thead>
+              <tbody>
+                {services.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-gray-400 italic">Sem detalhes de serviços</td>
+                  </tr>
+                ) : (
+                  services.map((s, idx) => (
+                    <tr key={idx} className="border-b">
+                      <td className="py-2">{s.serviceName}</td>
+                      <td className="py-2 text-center">{s.qty}</td>
+                      <td className="py-2 text-right">R$ {(s.unitPrice ?? 0).toFixed(2)}</td>
+                      <td className="py-2 text-right">R$ {(s.total ?? 0).toFixed(2)}</td>
+                      <td className="py-2 text-center">{s.commissionRate}%</td>
+                      <td className="py-2 text-right">R$ {(s.commissionValue ?? 0).toFixed(2)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
 
-      <div className="space-y-2 p-3 bg-gray-50 rounded-lg border text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600">Total em serviços</span>
-          <span className="font-medium">{formatCurrency(receipt.totalServices)}</span>
+        {/* Totais */}
+        <div className="border-t mt-4 pt-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span>Total faturado em serviços:</span>
+            <span className="font-semibold">R$ {parseFloat(receipt.totalServices).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-base">
+            <span className="font-bold">TOTAL DE COMISSÕES:</span>
+            <span className="font-bold">R$ {parseFloat(receipt.totalCommissions).toFixed(2)}</span>
+          </div>
         </div>
-        <div className="flex items-center justify-between border-t pt-2 mt-1">
-          <span className="font-semibold text-gray-800">Total da comissão</span>
-          <span className="font-bold text-green-700 text-base">{formatCurrency(receipt.totalCommissions)}</span>
+
+        {/* Declaração */}
+        <div className="border-t mt-6 pt-4 text-sm text-gray-600">
+          <p>Declaro que recebi o valor acima referente às comissões dos serviços prestados no período informado.</p>
+        </div>
+
+        {/* Assinaturas */}
+        <div className="mt-6 space-y-4 text-sm">
+          {receipt.barbershopAddress && (
+            <p>{receipt.barbershopAddress}, {emissionDate}</p>
+          )}
+          <div className="pt-4 space-y-4">
+            <div>
+              <p>Barbeiro ________________________</p>
+            </div>
+            <div>
+              <p>Responsável ________________________</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Rodapé */}
+        <div className="border-t mt-6 pt-3 text-xs text-gray-400 text-center">
+          <p>Recibo gerado automaticamente pelo sistema</p>
         </div>
       </div>
     </div>
