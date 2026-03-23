@@ -11,8 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner"
 import {
   Loader2, ShoppingCart, Plus, X, CheckCircle, Clock,
-  ChevronDown, ChevronUp, PackagePlus, CreditCard, Users,
-  Banknote, Smartphone, Landmark, Scissors, Package,
+  ChevronDown, ChevronUp, PackagePlus, Scissors, Package,
 } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -55,24 +54,6 @@ interface ComandasTabProps {
   barbers: BarberOption[]
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  pix: "PIX",
-  dinheiro: "Dinheiro",
-  transferencia: "Transferência",
-  cartao_credito: "Cartão Crédito",
-  cartao_debito: "Cartão Débito",
-  cheque: "Cheque",
-}
-
-const PAYMENT_ICONS: Record<string, React.ReactNode> = {
-  pix: <Smartphone className="h-4 w-4" />,
-  dinheiro: <Banknote className="h-4 w-4" />,
-  transferencia: <Landmark className="h-4 w-4" />,
-  cartao_credito: <CreditCard className="h-4 w-4" />,
-  cartao_debito: <CreditCard className="h-4 w-4" />,
-  cheque: <Landmark className="h-4 w-4" />,
-}
-
 function formatCurrency(value: number | string) {
   return `R$ ${parseFloat(String(value || 0)).toFixed(2).replace('.', ',')}`
 }
@@ -100,8 +81,6 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
   const [addItemQty, setAddItemQty] = useState("1")
   const [addingItem, setAddingItem] = useState(false)
 
-  const [closePaymentMethod, setClosePaymentMethod] = useState("")
-  const [closeNotes, setCloseNotes] = useState("")
   const [closingComanda, setClosingComanda] = useState(false)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null
@@ -146,8 +125,6 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
 
   function openClose(comanda: Comanda) {
     setSelectedComanda(comanda)
-    setClosePaymentMethod("")
-    setCloseNotes("")
     setIsCloseOpen(true)
   }
 
@@ -198,20 +175,17 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
   }
 
   async function handleCloseComanda() {
-    if (!selectedComanda || !closePaymentMethod) {
-      toast.error("Selecione o método de pagamento")
-      return
-    }
+    if (!selectedComanda) return
     setClosingComanda(true)
     try {
       const res = await fetch(`/api/comandas/${selectedComanda.id}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify({ action: "close", paymentMethod: closePaymentMethod, notes: closeNotes }),
+        body: JSON.stringify({ action: "close" }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || "Erro ao fechar comanda"); return }
-      toast.success(`Comanda ${selectedComanda.code} fechada! Venda registrada.`)
+      toast.success(`Comanda ${selectedComanda.code} fechada com sucesso.`)
       setIsCloseOpen(false)
       fetchComandas()
     } catch {
@@ -233,7 +207,7 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Comandas</CardTitle>
-              <CardDescription>Ordens de serviço abertas por agendamento. Adicione itens extras e feche ao finalizar.</CardDescription>
+              <CardDescription>Ordens de serviço abertas quando o barbeiro conclui o atendimento. Adicione itens extras e feche manualmente.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50">
@@ -284,7 +258,7 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <ShoppingCart className="h-12 w-12 text-gray-300 mb-3" />
               <p className="text-sm font-medium text-gray-500">Nenhuma comanda em {monthLabel}</p>
-              <p className="text-xs text-gray-400 mt-1">As comandas são criadas automaticamente ao agendar um atendimento.</p>
+              <p className="text-xs text-gray-400 mt-1">As comandas são criadas automaticamente quando o barbeiro registra o atendimento como concluído.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -383,9 +357,6 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
                           <div className="flex items-center gap-2 text-xs text-gray-500 border-t pt-3">
                             <CheckCircle className="h-3 w-3 text-green-500" />
                             Fechada em {format(parseISO(comanda.closedAt), "dd/MM/yyyy 'às' HH:mm")}
-                            {comanda.paymentMethod && (
-                              <> · Pagamento: <strong>{PAYMENT_LABELS[comanda.paymentMethod] || comanda.paymentMethod}</strong></>
-                            )}
                           </div>
                         )}
 
@@ -511,40 +482,56 @@ export function ComandasTab({ barbershopId, services, products, barbers }: Coman
           </DialogHeader>
           <div className="space-y-4 py-2">
             {selectedComanda && (
-              <div className="rounded-lg bg-gray-50 p-3 text-sm space-y-1">
-                <p><span className="text-gray-500">Cliente:</span> <strong>{selectedComanda.clientName}</strong></p>
-                <p><span className="text-gray-500">Barbeiro:</span> <strong>{selectedComanda.barberName}</strong></p>
-                <p><span className="text-gray-500">Itens:</span> <strong>{selectedComanda.items.length}</strong></p>
-                <p><span className="text-gray-500">Total:</span> <strong className="text-amber-600">{formatCurrency(selectedComanda.totalAmount)}</strong></p>
-              </div>
+              <>
+                <div className="rounded-lg bg-gray-50 p-4 text-sm space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Cliente</span>
+                    <strong>{selectedComanda.clientName}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Barbeiro</span>
+                    <strong>{selectedComanda.barberName}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Mês de referência</span>
+                    <strong>{selectedComanda.referenceMonth}</strong>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="text-gray-500">Itens na comanda</span>
+                    <strong>{selectedComanda.items.length} {selectedComanda.items.length === 1 ? "item" : "itens"}</strong>
+                  </div>
+                </div>
+
+                {selectedComanda.items.length > 0 && (
+                  <div className="rounded-lg border divide-y text-sm">
+                    {selectedComanda.items.map(item => (
+                      <div key={item.id} className="flex items-center justify-between px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {item.type === "service" ? <Scissors className="h-3.5 w-3.5 text-blue-500" /> : <Package className="h-3.5 w-3.5 text-purple-500" />}
+                          <span>{item.name}</span>
+                          {item.qty > 1 && <span className="text-gray-400">×{item.qty}</span>}
+                        </div>
+                        <span className="font-medium">{formatCurrency(item.subtotal)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-3 py-2 bg-amber-50 font-semibold">
+                      <span>Total</span>
+                      <span className="text-amber-700">{formatCurrency(selectedComanda.totalAmount)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-400 text-center">
+                  O pagamento será registrado via comissões. Ao fechar, a comanda ficará concluída.
+                </p>
+              </>
             )}
-
-            <div>
-              <Label>Método de Pagamento *</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => setClosePaymentMethod(value)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${closePaymentMethod === value ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 hover:border-gray-300 text-gray-700"}`}
-                  >
-                    {PAYMENT_ICONS[value]}
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <Label>Observações (opcional)</Label>
-              <Input className="mt-1" placeholder="Nota sobre o atendimento..." value={closeNotes} onChange={e => setCloseNotes(e.target.value)} />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCloseOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCloseComanda} disabled={closingComanda || !closePaymentMethod} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={handleCloseComanda} disabled={closingComanda} className="bg-green-600 hover:bg-green-700">
               {closingComanda ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-              Confirmar Fechamento
+              Fechar Comanda
             </Button>
           </DialogFooter>
         </DialogContent>

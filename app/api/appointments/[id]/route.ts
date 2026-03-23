@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { appointments, barbershops, barbers, clients, sales, services, barberServiceCommissions, commissions } from '@/lib/db/schema';
+import { appointments, barbershops, barbers, clients, sales, services, barberServiceCommissions, commissions, comandas, comandaItems, users } from '@/lib/db/schema';
 import { withAuth } from '@/lib/middleware';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql as sqlExpr } from 'drizzle-orm';
 
 // GET /api/appointments/[id] - Obter agendamento específico
 export const GET = withAuth()(async (req, context) => {
@@ -139,6 +139,83 @@ export const PUT = withAuth(['manager', 'barber'])(async (req, context) => {
       })
       .where(eq(appointments.id, id))
       .returning();
+
+    // Se o status mudou para completed OU finished, criar comanda
+    const isNowDone = (status === 'completed' || status === 'finished') &&
+                      appointment.status !== 'completed' && appointment.status !== 'finished';
+
+    if (isNowDone) {
+      try {
+        const existingComanda = await db.query.comandas.findFirst({
+          where: eq(comandas.appointmentId, id),
+        });
+
+        if (!existingComanda) {
+          const svc = appointment.service;
+
+          // Buscar nomes de cliente e barbeiro
+          const clientRow = appointment.clientId
+            ? await db.select({ name: users.name }).from(users)
+                .innerJoin(clients, eq(clients.userId, users.id))
+                .where(eq(clients.id, appointment.clientId))
+                .limit(1)
+            : [];
+
+          const barberRow = appointment.barberId
+            ? await db.select({ name: users.name }).from(users)
+                .innerJoin(barbers, eq(barbers.userId, users.id))
+                .where(eq(barbers.id, appointment.barberId))
+                .limit(1)
+            : [];
+
+          const now3 = new Date();
+          const refMonth = `${now3.getFullYear()}-${String(now3.getMonth() + 1).padStart(2, '0')}`;
+          const ym = refMonth.replace('-', '');
+
+          const countRes = await db
+            .select({ count: sqlExpr<number>`count(*)::int` })
+            .from(comandas)
+            .where(and(eq(comandas.barbershopId, appointment.barbershopId), eq(comandas.referenceMonth, refMonth)));
+
+          const seq = (countRes[0]?.count || 0) + 1;
+          const code = `CMD-${ym}-${String(seq).padStart(4, '0')}`;
+
+          const servicePrice = svc ? parseFloat(svc.price) : parseFloat(appointment.totalPrice || '0');
+          const clientName = clientRow[0]?.name || 'Cliente';
+          const barberName = barberRow[0]?.name || 'Barbeiro';
+
+          const [newComanda] = await db
+            .insert(comandas)
+            .values({
+              barbershopId: appointment.barbershopId,
+              barberId: appointment.barberId,
+              appointmentId: id,
+              clientId: appointment.clientId,
+              clientName,
+              barberName,
+              code,
+              status: 'open',
+              referenceMonth: refMonth,
+              totalAmount: String(servicePrice),
+            })
+            .returning();
+
+          if (svc) {
+            await db.insert(comandaItems).values({
+              comandaId: newComanda.id,
+              type: 'service',
+              itemId: svc.id,
+              name: svc.name,
+              price: svc.price,
+              qty: 1,
+              subtotal: svc.price,
+            });
+          }
+        }
+      } catch (cmdErr) {
+        console.error('Erro ao criar comanda (não bloqueia atualização):', cmdErr);
+      }
+    }
 
     // Se o status mudou para completed, criar registro de venda
     if (status === 'completed' && appointment.status !== 'completed') {
