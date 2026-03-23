@@ -111,7 +111,15 @@ export default function BarberDashboard() {
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}</h1>
               <p className="text-sm lg:text-base text-gray-600">{sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}</p>
             </div>
-            <NotificationsSystem userType="barber" />
+            <div className="flex items-center gap-3">
+              {activeSection === "stats" && (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 capitalize">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                </Badge>
+              )}
+              <NotificationsSystem userType="barber" />
+            </div>
           </div>
           {renderContent()}
         </div>

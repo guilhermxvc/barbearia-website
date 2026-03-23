@@ -128,17 +128,6 @@ export function BarberStats() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Estatísticas do Mês</h2>
-          <p className="text-sm text-gray-500 capitalize">{currentMonthName}</p>
-        </div>
-        <Badge variant="outline" className="text-amber-600 border-amber-300">
-          <Calendar className="h-3 w-3 mr-1" />
-          Mês Atual
-        </Badge>
-      </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-white border">
           <CardContent className="p-4">
