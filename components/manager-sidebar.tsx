@@ -4,7 +4,11 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { BarChart3, Users, Calendar, Package, Settings, Scissors, LogOut, Bell, User, Bot, Menu, TrendingUp } from "lucide-react"
+import {
+  BarChart3, Users, Calendar, Package, Settings, Scissors,
+  LogOut, Bell, User, Bot, Menu, TrendingUp,
+  Building2, CreditCard, Clock, ChevronDown, ChevronRight,
+} from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
 interface ManagerSidebarProps {
@@ -18,17 +22,22 @@ const planDisplayNames: { [key: string]: string } = {
   premium: "Premium",
 }
 
+const SETTINGS_SUBSECTIONS = ["settings-barbershop", "settings-plans", "settings-hours"]
+
 export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSidebarProps) {
   const { user, isLoading, logout } = useAuth()
-  const [mobileOpen, setMobileOpen] = useState(false)
-  
+
   const barbershopName = user?.barbershop?.name || "Carregando..."
   const ownerName = user?.name || "Carregando..."
   const subscriptionPlan = user?.barbershop?.subscriptionPlan || "basico"
   const currentPlanDisplay = planDisplayNames[subscriptionPlan] || "Básico"
   const isPremium = subscriptionPlan === "premium"
 
-  const menuItems = [
+  const isSettingsActive = SETTINGS_SUBSECTIONS.includes(activeSection)
+  const [settingsOpen, setSettingsOpen] = useState(isSettingsActive)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const mainMenuItems = [
     { id: "overview", label: "Dashboard", icon: BarChart3 },
     { id: "appointments", label: "Agendamentos", icon: Calendar },
     { id: "clients", label: "Clientes", icon: Users },
@@ -38,23 +47,35 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
     { id: "financial", label: "Financeiro", icon: BarChart3 },
     { id: "reports", label: "Relatórios e Insights", icon: TrendingUp },
     { id: "ai", label: "Assistente IA", icon: Bot, premium: true },
-    { id: "settings", label: "Configurações", icon: Settings },
   ]
 
-  const handleLogout = () => {
-    logout()
-  }
+  const settingsSubItems = [
+    { id: "settings-barbershop", label: "Dados Barbearia", icon: Building2 },
+    { id: "settings-plans", label: "Planos", icon: CreditCard },
+    { id: "settings-hours", label: "Horários", icon: Clock },
+  ]
 
   const handleSectionChange = (sectionId: string) => {
-    const section = menuItems.find((item) => item.id === sectionId)
-
-    if (section?.premium && !isPremium) {
-      alert("Esta funcionalidade está disponível apenas no plano Premium. Faça upgrade para acessar o Assistente IA.")
+    const item = mainMenuItems.find(i => i.id === sectionId)
+    if (item?.premium && !isPremium) {
+      alert("Esta funcionalidade está disponível apenas no plano Premium.")
       return
     }
-
     onSectionChange(sectionId)
     setMobileOpen(false)
+  }
+
+  const handleSettingsSubChange = (sectionId: string) => {
+    onSectionChange(sectionId)
+    setMobileOpen(false)
+  }
+
+  const toggleSettings = () => {
+    const next = !settingsOpen
+    setSettingsOpen(next)
+    if (next && !isSettingsActive) {
+      onSectionChange("settings-barbershop")
+    }
   }
 
   const SidebarContent = () => (
@@ -71,16 +92,18 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
 
       <nav className="flex-1 p-3 lg:p-4 overflow-y-auto">
         <ul className="space-y-1 lg:space-y-2">
-          {menuItems.map((item) => {
+          {/* Itens principais */}
+          {mainMenuItems.map((item) => {
             const IconComponent = item.icon
             const isLocked = item.premium && !isPremium
+            const isActive = activeSection === item.id
 
             return (
               <li key={item.id}>
                 <Button
-                  variant={activeSection === item.id ? "default" : "ghost"}
+                  variant={isActive ? "default" : "ghost"}
                   className={`w-full justify-start relative text-sm ${
-                    activeSection === item.id
+                    isActive
                       ? "bg-amber-600 hover:bg-amber-700 text-white"
                       : isLocked
                         ? "text-gray-400 hover:bg-gray-50 cursor-not-allowed"
@@ -91,11 +114,60 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
                 >
                   <IconComponent className="h-4 w-4 mr-3" />
                   <span className="truncate">{item.label}</span>
-                  {isLocked && <Badge className="ml-auto bg-amber-100 text-amber-800 text-xs flex-shrink-0">Premium</Badge>}
+                  {isLocked && (
+                    <Badge className="ml-auto bg-amber-100 text-amber-800 text-xs flex-shrink-0">Premium</Badge>
+                  )}
                 </Button>
               </li>
             )
           })}
+
+          {/* Configurações (expansível) */}
+          <li>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-sm ${
+                isSettingsActive
+                  ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              onClick={toggleSettings}
+            >
+              <Settings className="h-4 w-4 mr-3" />
+              <span className="truncate flex-1 text-left">Configurações</span>
+              {settingsOpen
+                ? <ChevronDown className="h-4 w-4 flex-shrink-0 ml-1" />
+                : <ChevronRight className="h-4 w-4 flex-shrink-0 ml-1" />
+              }
+            </Button>
+
+            {/* Sub-itens */}
+            {settingsOpen && (
+              <ul className="mt-1 ml-4 space-y-1 border-l-2 border-amber-100 pl-3">
+                {settingsSubItems.map((sub) => {
+                  const SubIcon = sub.icon
+                  const isActive = activeSection === sub.id
+                  return (
+                    <li key={sub.id}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size="sm"
+                        className={`w-full justify-start text-sm ${
+                          isActive
+                            ? "bg-amber-600 hover:bg-amber-700 text-white"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                        onClick={() => handleSettingsSubChange(sub.id)}
+                      >
+                        <SubIcon className="h-4 w-4 mr-2" />
+                        <span className="truncate">{sub.label}</span>
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </li>
         </ul>
       </nav>
 
@@ -114,7 +186,12 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
             <Bell className="h-4 w-4 mr-2" />
             Notificações
           </Button>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-red-600 text-sm" onClick={handleLogout}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-red-600 text-sm"
+            onClick={logout}
+          >
             <LogOut className="h-4 w-4 mr-2" />
             Sair
           </Button>
@@ -157,6 +234,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
 
   return (
     <>
+      {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Scissors className="h-6 w-6 text-amber-600" />
@@ -176,6 +254,7 @@ export function ManagerSidebar({ activeSection, onSectionChange }: ManagerSideba
         </Sheet>
       </div>
 
+      {/* Desktop sidebar */}
       <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col">
         <SidebarContent />
       </div>

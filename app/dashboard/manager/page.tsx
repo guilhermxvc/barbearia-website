@@ -18,7 +18,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import { CalendarView } from "@/components/calendar-view"
 import { BusinessHoursConfig } from "@/components/business-hours-config"
-import { TimeBlockManager } from "@/components/time-block-manager"
 import { ReportsInsights } from "@/components/reports-insights"
 
 export default function ManagerDashboard() {
@@ -75,9 +74,17 @@ export default function ManagerDashboard() {
       title: "Assistente IA",
       description: "Inteligência artificial para otimizar sua barbearia",
     },
-    settings: {
-      title: "Configurações",
-      description: "Gerencie as configurações da barbearia",
+    "settings-barbershop": {
+      title: "Dados da Barbearia",
+      description: "Informações e dados cadastrais da barbearia",
+    },
+    "settings-plans": {
+      title: "Planos",
+      description: "Gerencie o plano de assinatura da barbearia",
+    },
+    "settings-hours": {
+      title: "Horários",
+      description: "Configure o horário de funcionamento da barbearia",
     },
   }
 
@@ -139,8 +146,12 @@ export default function ManagerDashboard() {
         )
       case "ai":
         return <AIAssistantPremium userPlan={userPlan} />
-      case "settings":
-        return <SettingsSection userPlan={userPlan} />
+      case "settings-barbershop":
+        return <SettingsBarbershopSection userPlan={userPlan} />
+      case "settings-plans":
+        return <SettingsPlansSection userPlan={userPlan} />
+      case "settings-hours":
+        return <SettingsHoursSection />
       default:
         return <OverviewSection userPlan={userPlan} />
     }
@@ -224,10 +235,20 @@ function OverviewSection({ userPlan }: { userPlan: string }) {
   )
 }
 
-function SettingsSection({ userPlan }: { userPlan: string }) {
+// ─── Dados da Barbearia ───────────────────────────────────────
+function SettingsBarbershopSection({ userPlan }: { userPlan: string }) {
   const { user, refreshProfile } = useAuth()
   const barbershop = user?.barbershop
-  
+
+  const getPlanInfo = () => {
+    const plans = {
+      Básico: { name: "Básico", price: "R$ 99" },
+      Profissional: { name: "Profissional", price: "R$ 125" },
+      Premium: { name: "Premium", price: "R$ 199" },
+    }
+    return plans[userPlan as keyof typeof plans] || plans.Profissional
+  }
+
   const [formData, setFormData] = useState({
     name: barbershop?.name || '',
     phone: barbershop?.phone || '',
@@ -250,16 +271,10 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
     }
   }, [barbershop])
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
   const handleSave = async () => {
     if (!barbershop?.id) return
-    
     setIsSaving(true)
     setSaveSuccess(false)
-    
     try {
       const response = await fetch(`/api/barbershops/${barbershop.id}`, {
         method: 'PUT',
@@ -269,7 +284,6 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
         },
         body: JSON.stringify(formData),
       })
-
       if (response.ok) {
         setSaveSuccess(true)
         await refreshProfile()
@@ -282,150 +296,151 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
     }
   }
 
-  const handlePlanChange = async (newPlan: string) => {
-    if (newPlan === userPlan || !barbershop?.id) return
-
-    const confirmMessage = `Tem certeza que deseja mudar para o plano ${newPlan}?`
-
-    if (confirm(confirmMessage)) {
-      try {
-        const response = await fetch(`/api/barbershops/${barbershop.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          },
-          body: JSON.stringify({ subscriptionPlan: newPlan.toLowerCase() }),
-        })
-
-        if (response.ok) {
-          await refreshProfile()
-        }
-      } catch (error) {
-        console.error('Erro ao mudar plano:', error)
-      }
-    }
-  }
-
-  const getPlanInfo = () => {
-    const plans = {
-      Básico: { name: "Básico", price: "R$ 99" },
-      Profissional: { name: "Profissional", price: "R$ 125" },
-      Premium: { name: "Premium", price: "R$ 199" },
-    }
-    return plans[userPlan as keyof typeof plans] || plans.Profissional
-  }
-
   const planInfo = getPlanInfo()
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações da Barbearia</CardTitle>
-          <CardDescription>Gerencie os dados básicos da sua barbearia</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Nome da Barbearia</label>
-              <input 
-                type="text" 
-                className="w-full mt-1 p-2 border rounded-md" 
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Telefone</label>
-              <input 
-                type="text" 
-                className="w-full mt-1 p-2 border rounded-md" 
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-              />
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Informações da Barbearia</CardTitle>
+        <CardDescription>Gerencie os dados básicos da sua barbearia</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Nome da Barbearia</label>
+            <input
+              type="text"
+              className="w-full mt-1 p-2 border rounded-md"
+              value={formData.name}
+              onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+            />
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Endereço</label>
-              <input
-                type="text"
-                className="w-full mt-1 p-2 border rounded-md"
-                value={formData.address}
-                onChange={(e) => handleInputChange('address', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">E-mail</label>
-              <input
-                type="email"
-                className="w-full mt-1 p-2 border rounded-md"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-              />
-            </div>
+          <div>
+            <label className="text-sm font-medium">Telefone</label>
+            <input
+              type="text"
+              className="w-full mt-1 p-2 border rounded-md"
+              value={formData.phone}
+              onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+            />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Logo da Barbearia (URL)</label>
-            <div className="flex gap-4 items-start">
-              <div className="flex-1">
-                <input 
-                  type="url" 
-                  className="w-full p-2 border rounded-md" 
-                  placeholder="https://exemplo.com/logo.png"
-                  value={formData.logoUrl}
-                  onChange={(e) => handleInputChange('logoUrl', e.target.value)}
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Endereço</label>
+            <input
+              type="text"
+              className="w-full mt-1 p-2 border rounded-md"
+              value={formData.address}
+              onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">E-mail</label>
+            <input
+              type="email"
+              className="w-full mt-1 p-2 border rounded-md"
+              value={formData.email}
+              onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Logo da Barbearia (URL)</label>
+          <div className="flex gap-4 items-start">
+            <div className="flex-1">
+              <input
+                type="url"
+                className="w-full p-2 border rounded-md"
+                placeholder="https://exemplo.com/logo.png"
+                value={formData.logoUrl}
+                onChange={e => setFormData(p => ({ ...p, logoUrl: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500 mt-1">Cole a URL de uma imagem (PNG, JPG) para usar como logo</p>
+            </div>
+            {formData.logoUrl && (
+              <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
+                <img
+                  src={formData.logoUrl}
+                  alt="Preview da logo"
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />
-                <p className="text-xs text-gray-500 mt-1">Cole a URL de uma imagem (PNG, JPG) para usar como logo</p>
               </div>
-              {formData.logoUrl && (
-                <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-                  <img 
-                    src={formData.logoUrl} 
-                    alt="Preview da logo" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                </div>
-              )}
+            )}
+          </div>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Código da Barbearia</label>
+            <div className="mt-1 p-2 border rounded-md bg-gray-100 font-mono font-semibold text-amber-700">
+              {barbershop?.code || 'N/A'}
             </div>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Código da Barbearia</label>
-              <div className="mt-1 p-2 border rounded-md bg-gray-100 font-mono font-semibold text-amber-700">
-                {barbershop?.code || 'N/A'}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Plano Atual</label>
-              <div className="mt-1 p-2 border rounded-md bg-gray-50 flex items-center justify-between">
-                <Badge className="bg-amber-600 hover:bg-amber-700 text-white capitalize">{planInfo.name}</Badge>
-                <span className="text-sm font-medium text-gray-700">{planInfo.price}/mês</span>
-              </div>
+          <div>
+            <label className="text-sm font-medium">Plano Atual</label>
+            <div className="mt-1 p-2 border rounded-md bg-gray-50 flex items-center justify-between">
+              <Badge className="bg-amber-600 hover:bg-amber-700 text-white capitalize">{planInfo.name}</Badge>
+              <span className="text-sm font-medium text-gray-700">{planInfo.price}/mês</span>
             </div>
           </div>
-          
-          {saveSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md">
-              ✓ Alterações salvas com sucesso!
-            </div>
-          )}
-          
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-amber-600 hover:bg-amber-700"
-          >
-            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
+        {saveSuccess && (
+          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md">
+            ✓ Alterações salvas com sucesso!
+          </div>
+        )}
+        <Button onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700">
+          {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
 
+// ─── Planos ───────────────────────────────────────────────────
+function SettingsPlansSection({ userPlan }: { userPlan: string }) {
+  const { user, refreshProfile } = useAuth()
+  const barbershop = user?.barbershop
+
+  const handlePlanChange = async (newPlan: string) => {
+    if (newPlan === userPlan || !barbershop?.id) return
+    if (!confirm(`Tem certeza que deseja mudar para o plano ${newPlan}?`)) return
+    try {
+      const response = await fetch(`/api/barbershops/${barbershop.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({ subscriptionPlan: newPlan.toLowerCase() }),
+      })
+      if (response.ok) await refreshProfile()
+    } catch (error) {
+      console.error('Erro ao mudar plano:', error)
+    }
+  }
+
+  const plans = [
+    {
+      key: "Básico",
+      price: "R$ 99",
+      features: ["Agendamento online", "Gestão básica de clientes", "Até 3 barbeiros", "Suporte por email", "Dashboard básico"],
+    },
+    {
+      key: "Profissional",
+      price: "R$ 125",
+      features: ["Todas as funcionalidades básicas", "Gestão de estoque", "Relatórios avançados", "Marketing integrado", "Até 8 barbeiros", "Suporte prioritário"],
+    },
+    {
+      key: "Premium",
+      price: "R$ 199",
+      features: ["Todas as funcionalidades profissionais", "IA avançada para recomendações", "Integrações personalizadas", "Barbeiros ilimitados", "Suporte 24/7", "Análises preditivas"],
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Gerenciar Plano</CardTitle>
@@ -433,93 +448,33 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
-            <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "Básico" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
-            >
-              <div className="text-center">
-                <h3 className="font-semibold text-lg">Básico</h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">
-                  R$ 99<span className="text-sm font-normal">/mês</span>
-                </p>
-                {userPlan === "Básico" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
+            {plans.map(plan => (
+              <div
+                key={plan.key}
+                className={`p-4 border-2 rounded-lg ${userPlan === plan.key ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
+              >
+                <div className="text-center">
+                  <h3 className="font-semibold text-lg">{plan.key}</h3>
+                  <p className="text-2xl font-bold text-amber-600 mt-2">
+                    {plan.price}<span className="text-sm font-normal">/mês</span>
+                  </p>
+                  {userPlan === plan.key && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
+                </div>
+                <ul className="mt-4 space-y-2 text-sm">
+                  {plan.features.map((f, i) => <li key={i}>• {f}</li>)}
+                </ul>
+                {userPlan !== plan.key && (
+                  <Button
+                    variant="outline"
+                    className="w-full mt-4 bg-transparent"
+                    onClick={() => handlePlanChange(plan.key)}
+                  >
+                    Selecionar
+                  </Button>
+                )}
               </div>
-              <ul className="mt-4 space-y-2 text-sm">
-                <li>• Agendamento online</li>
-                <li>• Gestão básica de clientes</li>
-                <li>• Até 3 barbeiros</li>
-                <li>• Suporte por email</li>
-                <li>• Dashboard básico</li>
-              </ul>
-              {userPlan !== "Básico" && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("Básico")}
-                >
-                  Selecionar
-                </Button>
-              )}
-            </div>
-
-            <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "Profissional" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
-            >
-              <div className="text-center">
-                <h3 className="font-semibold text-lg">Profissional</h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">
-                  R$ 125<span className="text-sm font-normal">/mês</span>
-                </p>
-                {userPlan === "Profissional" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
-              </div>
-              <ul className="mt-4 space-y-2 text-sm">
-                <li>• Todas as funcionalidades básicas</li>
-                <li>• Gestão de estoque</li>
-                <li>• Relatórios avançados</li>
-                <li>• Marketing integrado</li>
-                <li>• Até 8 barbeiros</li>
-                <li>• Suporte prioritário</li>
-              </ul>
-              {userPlan !== "Profissional" && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("Profissional")}
-                >
-                  Selecionar
-                </Button>
-              )}
-            </div>
-
-            <div
-              className={`p-4 border-2 rounded-lg ${userPlan === "Premium" ? "border-amber-500 bg-amber-50" : "border-gray-200"}`}
-            >
-              <div className="text-center">
-                <h3 className="font-semibold text-lg">Premium</h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">
-                  R$ 199<span className="text-sm font-normal">/mês</span>
-                </p>
-                {userPlan === "Premium" && <Badge className="mt-2 bg-amber-600">Plano Atual</Badge>}
-              </div>
-              <ul className="mt-4 space-y-2 text-sm">
-                <li>• Todas as funcionalidades profissionais</li>
-                <li>• IA avançada para recomendações</li>
-                <li>• Integrações personalizadas</li>
-                <li>• Barbeiros ilimitados</li>
-                <li>• Suporte 24/7</li>
-                <li>• Análises preditivas</li>
-              </ul>
-              {userPlan !== "Premium" && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 bg-transparent"
-                  onClick={() => handlePlanChange("Premium")}
-                >
-                  Selecionar
-                </Button>
-              )}
-            </div>
+            ))}
           </div>
-
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>Nota:</strong> As mudanças de plano entram em vigor imediatamente. Para downgrades, você manterá o
@@ -528,60 +483,24 @@ function SettingsSection({ userPlan }: { userPlan: string }) {
           </div>
         </CardContent>
       </Card>
-
-      {barbershop?.id && (
-        <BusinessHoursConfig barbershopId={barbershop.id} />
-      )}
-
-      {barbershop?.id && (
-        <TimeBlockManager 
-          barbershopId={barbershop.id} 
-          isManager={true}
-        />
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Políticas de Agendamento</CardTitle>
-          <CardDescription>Configure as regras para agendamentos</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Antecedência mínima</label>
-              <select className="w-full mt-1 p-2 border rounded-md">
-                <option>30 minutos</option>
-                <option>1 hora</option>
-                <option>2 horas</option>
-                <option>1 dia</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Cancelamento até</label>
-              <select className="w-full mt-1 p-2 border rounded-md">
-                <option>2 horas antes</option>
-                <option>4 horas antes</option>
-                <option>1 dia antes</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" defaultChecked />
-              <span className="text-sm">Permitir reagendamento pelo cliente</span>
-            </label>
-          </div>
-          <div>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" defaultChecked />
-              <span className="text-sm">Enviar lembretes automáticos</span>
-            </label>
-          </div>
-          <Button className="bg-amber-600 hover:bg-amber-700">Salvar Configurações</Button>
-        </CardContent>
-      </Card>
     </div>
   )
+}
+
+// ─── Horários ─────────────────────────────────────────────────
+function SettingsHoursSection() {
+  const { user } = useAuth()
+  const barbershop = user?.barbershop
+
+  if (!barbershop?.id) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+      </div>
+    )
+  }
+
+  return <BusinessHoursConfig barbershopId={barbershop.id} />
 }
 
 function AppointmentsSection({ userPlan }: { userPlan: string }) {
