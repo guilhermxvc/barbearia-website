@@ -11,6 +11,41 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
     const status = searchParams.get('status');
     const month = searchParams.get('month');
 
+    // ── Barbeiro: busca as próprias comandas pelo userId ──────────
+    if (req.user!.userType === 'barber') {
+      const barber = await db.query.barbers.findFirst({
+        where: eq(barbers.userId, req.user!.id),
+      });
+
+      if (!barber) {
+        return NextResponse.json({ error: 'Barbeiro não encontrado' }, { status: 404 });
+      }
+
+      let conditions: any[] = [eq(comandas.barberId, barber.id)];
+      if (status && status !== 'all') conditions.push(eq(comandas.status, status));
+      if (month) conditions.push(eq(comandas.referenceMonth, month));
+
+      const list = await db
+        .select()
+        .from(comandas)
+        .where(and(...conditions))
+        .orderBy(desc(comandas.createdAt));
+
+      const result = await Promise.all(
+        list.map(async (c) => {
+          const items = await db
+            .select()
+            .from(comandaItems)
+            .where(eq(comandaItems.comandaId, c.id))
+            .orderBy(comandaItems.createdAt);
+          return { ...c, items };
+        })
+      );
+
+      return NextResponse.json({ success: true, comandas: result });
+    }
+
+    // ── Manager: comportamento original ───────────────────────────
     if (!barbershopId) {
       return NextResponse.json({ error: 'barbershopId é obrigatório' }, { status: 400 });
     }

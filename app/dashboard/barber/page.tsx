@@ -18,6 +18,7 @@ import { apiClient } from "@/lib/api"
 import { format, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarView } from "@/components/calendar-view"
+import { BarberFinancial } from "@/components/barber-financial"
 
 export default function BarberDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -50,6 +51,10 @@ export default function BarberDashboard() {
       title: "Estatísticas",
       description: "Acompanhe seu desempenho e métricas",
     },
+    financial: {
+      title: "Financeiro",
+      description: "Suas comandas abertas e recibos de comissão",
+    },
     profile: {
       title: "Meu Perfil",
       description: "Gerencie suas informações e especialidades",
@@ -70,6 +75,8 @@ export default function BarberDashboard() {
         return <BarberReports />
       case "stats":
         return <BarberStats />
+      case "financial":
+        return <BarberFinancial />
       case "profile":
         return <BarberProfile />
       case "ai":
