@@ -340,6 +340,19 @@ export const DELETE = withAuth(['manager', 'barber', 'client'])(async (req, cont
 
     // Se já está cancelado, deletar definitivamente; caso contrário, apenas cancelar
     if (appointment.status === 'cancelled') {
+      // Apagar comanda vinculada (e seus itens) antes de apagar o agendamento
+      try {
+        const linkedComanda = await db.query.comandas.findFirst({
+          where: eq(comandas.appointmentId, id),
+        });
+        if (linkedComanda) {
+          await db.delete(comandaItems).where(eq(comandaItems.comandaId, linkedComanda.id));
+          await db.delete(comandas).where(eq(comandas.id, linkedComanda.id));
+        }
+      } catch (e) {
+        console.error('Erro ao apagar comanda vinculada:', e);
+      }
+
       await db.delete(appointments).where(eq(appointments.id, id));
       return NextResponse.json({
         success: true,

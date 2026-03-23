@@ -325,7 +325,10 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
   const totalCommissionsPaid = monthReceipts.reduce((acc: number, r: CommissionReceipt) => acc + parseFloat(r.totalCommissions || "0"), 0)
   const netProfit = totalRevenue - totalCommissionsPaid
   const avgTicket = filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0
-  const totalAppts = filteredAppts.length
+  // Apenas agendamentos efetivamente realizados (concluídos/finalizados)
+  const totalAppts = filteredAppts.filter((a: AppointmentRecord) =>
+    a.status === "completed" || a.status === "finished"
+  ).length
 
   const dailyMap: Record<number, number> = {}
   filteredSales.forEach((s: SaleRecord) => {
@@ -364,7 +367,7 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
         <StatCard icon={DollarSign} label="Faturamento Total" value={formatCurrency(totalRevenue)} color="text-amber-600" bg="bg-amber-50" />
         <StatCard icon={TrendingUp} label="Lucro Líquido" value={formatCurrency(netProfit)} color={netProfit >= 0 ? "text-green-600" : "text-red-500"} bg={netProfit >= 0 ? "bg-green-50" : "bg-red-50"} />
         <StatCard icon={CheckCircle} label="Ticket Médio" value={formatCurrency(avgTicket)} color="text-blue-600" bg="bg-blue-50" />
-        <StatCard icon={Calendar} label="Agendamentos" value={String(totalAppts)} color="text-purple-600" bg="bg-purple-50" />
+        <StatCard icon={Calendar} label="Realizados" value={String(totalAppts)} color="text-purple-600" bg="bg-purple-50" />
       </div>
 
       <Card>
