@@ -810,28 +810,21 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                     )}
 
                     <div className="flex flex-col gap-2 pt-4 border-t">
-                      {['confirmed', 'in_progress'].includes(apt.status) && (
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          Desmarcar Agendamento
-                        </Button>
-                      )}
-                      {apt.status === 'finished' && (
+                      {['confirmed', 'in_progress', 'finished'].includes(apt.status) && (
                         <div className="space-y-2">
-                          <p className="text-sm text-orange-600 font-medium">
-                            Atendimento finalizado. Confirme se foi realizado:
-                          </p>
+                          {apt.status === 'finished' && (
+                            <p className="text-sm text-orange-600 font-medium">
+                              Atendimento finalizado pelo barbeiro. Confirme:
+                            </p>
+                          )}
                           <div className="flex gap-2">
-                            <Button 
+                            <Button
                               onClick={() => handleOpenPaymentModal(apt.id)}
                               className="bg-green-600 hover:bg-green-700 text-white flex-1"
                             >
                               Concluir e Registrar Pagamento
                             </Button>
-                            <Button 
+                            <Button
                               variant="outline"
                               onClick={() => handleUpdateAppointmentStatus(apt.id, 'no_show')}
                               className="text-red-600 border-red-300 hover:bg-red-50 flex-1"
@@ -839,6 +832,13 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                               Não Compareceu
                             </Button>
                           </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
+                            className="w-full text-gray-500 border-gray-300 hover:bg-gray-50 text-sm"
+                          >
+                            Desmarcar Agendamento
+                          </Button>
                         </div>
                       )}
                       {apt.status === 'completed' && (
