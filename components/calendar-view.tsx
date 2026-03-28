@@ -24,7 +24,8 @@ import {
   Lock,
   Scissors,
   AlertCircle,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import { format, addDays, startOfWeek, endOfWeek, isToday, isSameDay, addWeeks, subWeeks, parseISO } from "date-fns"
@@ -211,8 +212,8 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
     loadData()
   }, [currentDate, barbershopId, barberId])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true)
     setError("")
     
     try {
@@ -579,6 +580,9 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
               </Button>
               <Button variant="outline" size="icon" onClick={handleNext}>
                 <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => loadData()} title="Atualizar">
+                <RefreshCw className="h-4 w-4" />
               </Button>
               <span className="text-sm font-medium ml-2">
                 {viewMode === 'week' 
