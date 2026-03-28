@@ -810,7 +810,16 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                     )}
 
                     <div className="flex flex-col gap-2 pt-4 border-t">
-                      {['confirmed', 'in_progress', 'finished'].includes(apt.status) && (
+                      {apt.status === 'confirmed' && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          Desmarcar Agendamento
+                        </Button>
+                      )}
+                      {['in_progress', 'finished'].includes(apt.status) && (
                         <div className="space-y-2">
                           {apt.status === 'finished' && (
                             <p className="text-sm text-orange-600 font-medium">
@@ -826,19 +835,12 @@ export function CalendarView({ barbershopId, barberId, isManager = false, onAppo
                             </Button>
                             <Button
                               variant="outline"
-                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'no_show')}
+                              onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
                               className="text-red-600 border-red-300 hover:bg-red-50 flex-1"
                             >
                               Não Compareceu
                             </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleUpdateAppointmentStatus(apt.id, 'cancelled')}
-                            className="w-full text-gray-500 border-gray-300 hover:bg-gray-50 text-sm"
-                          >
-                            Desmarcar Agendamento
-                          </Button>
                         </div>
                       )}
                       {apt.status === 'completed' && (
