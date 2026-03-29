@@ -98,10 +98,24 @@ function formatCurrency(value: number) {
 }
 
 function formatMonthLabel(yyyymm: string) {
-  const [y, m] = yyyymm.split("-").map(Number)
+  const [y, m] = safeParseMonth(yyyymm)
   return format(new Date(y, m - 1, 1), "MMM/yy", { locale: ptBR })
 }
 
+function nowMonthStr() {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
+}
+
+function safeMonth(v: string) {
+  return v && /^\d{4}-\d{2}$/.test(v) ? v : nowMonthStr()
+}
+
+function safeParseMonth(v: string): [number, number] {
+  const s = safeMonth(v)
+  const [y, m] = s.split("-").map(Number)
+  return [y, m]
+}
 
 function downloadCSV(rows: string[][], filename: string) {
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n")
@@ -292,7 +306,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillingMonth }: any) {
   const [viewingReceipt, setViewingReceipt] = useState<CommissionReceipt | null>(null)
 
-  const [y, m] = billingMonth.split("-").map(Number)
+  const [y, m] = safeParseMonth(billingMonth)
   const monthStart = startOfMonth(new Date(y, m - 1, 1))
   const monthEnd = endOfMonth(new Date(y, m - 1, 1))
   const daysInMonth = getDaysInMonth(new Date(y, m - 1, 1))
@@ -339,7 +353,10 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
           <Calendar className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">Mês de Referência</span>
         </div>
-        <Input type="month" value={billingMonth} onChange={e => setBillingMonth(e.target.value)} className="h-8 text-sm w-44" />
+        <div className="flex items-center gap-1">
+          <Input type="month" value={safeMonth(billingMonth)} onChange={e => setBillingMonth(e.target.value || nowMonthStr())} className="h-8 text-sm w-44 [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setBillingMonth(nowMonthStr())}>Geral</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -549,7 +566,7 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
 // ─────────────────────────────────────────────────────────────────
 function CompareTab({ sales, appointments, compareMonth1, setCompareMonth1, compareMonth2, setCompareMonth2 }: any) {
   const getMonthStats = (yyyymm: string) => {
-    const [y, m] = yyyymm.split("-").map(Number)
+    const [y, m] = safeParseMonth(yyyymm)
     const start = startOfMonth(new Date(y, m - 1, 1))
     const end = endOfMonth(new Date(y, m - 1, 1))
     const s = sales.filter((s: SaleRecord) => {
@@ -598,11 +615,11 @@ function CompareTab({ sales, appointments, compareMonth1, setCompareMonth1, comp
           <div className="flex flex-wrap gap-4">
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Mês 1</Label>
-              <Input type="month" value={compareMonth1} onChange={e => setCompareMonth1(e.target.value)} className="h-9 text-sm" />
+              <Input type="month" value={safeMonth(compareMonth1)} onChange={e => setCompareMonth1(e.target.value || nowMonthStr())} className="h-9 text-sm [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Mês 2</Label>
-              <Input type="month" value={compareMonth2} onChange={e => setCompareMonth2(e.target.value)} className="h-9 text-sm" />
+              <Input type="month" value={safeMonth(compareMonth2)} onChange={e => setCompareMonth2(e.target.value || nowMonthStr())} className="h-9 text-sm [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
             </div>
           </div>
         </CardContent>
@@ -705,7 +722,7 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
   })
 
-  const [by, bm] = barberMonth.split("-").map(Number)
+  const [by, bm] = safeParseMonth(barberMonth)
 
   const filteredSales = sales.filter((s: SaleRecord) => {
     const d = new Date(s.createdAt)
@@ -747,7 +764,10 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
           <span className="text-base font-semibold text-gray-800">Barbeiros</span>
         </div>
         <div className="flex items-center gap-2">
-          <Input type="month" value={barberMonth} onChange={e => setBarberMonth(e.target.value)} className="h-8 text-sm w-44" />
+          <div className="flex items-center gap-1">
+            <Input type="month" value={safeMonth(barberMonth)} onChange={e => setBarberMonth(e.target.value || nowMonthStr())} className="h-8 text-sm w-44 [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
+            <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setBarberMonth(nowMonthStr())}>Geral</Button>
+          </div>
           <Select value={selectedBarber} onValueChange={setSelectedBarber}>
             <SelectTrigger className="w-40 h-8 text-sm">
               <SelectValue placeholder="Todos" />
@@ -825,7 +845,7 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
   })
 
-  const [sy, sm] = serviceMonth.split("-").map(Number)
+  const [sy, sm] = safeParseMonth(serviceMonth)
 
   const filteredSales = sales.filter(s => {
     const d = new Date(s.createdAt)
@@ -857,7 +877,10 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
           <span className="text-base font-semibold text-gray-800">Serviços</span>
         </div>
         <div className="flex items-center gap-2">
-          <Input type="month" value={serviceMonth} onChange={e => setServiceMonth(e.target.value)} className="h-8 text-sm w-44" />
+          <div className="flex items-center gap-1">
+            <Input type="month" value={safeMonth(serviceMonth)} onChange={e => setServiceMonth(e.target.value || nowMonthStr())} className="h-8 text-sm w-44 [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
+            <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setServiceMonth(nowMonthStr())}>Geral</Button>
+          </div>
         </div>
       </div>
 
@@ -936,7 +959,7 @@ function NoShowTab({ appointments }: any) {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
   })
 
-  const [ny, nm] = noShowMonth.split("-").map(Number)
+  const [ny, nm] = safeParseMonth(noShowMonth)
 
   const filtered = appointments.filter((a: AppointmentRecord) => {
     const d = parseISO(a.scheduledAt)
@@ -983,7 +1006,10 @@ function NoShowTab({ appointments }: any) {
           <AlertCircle className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">No-show</span>
         </div>
-        <Input type="month" value={noShowMonth} onChange={e => setNoShowMonth(e.target.value)} className="h-8 text-sm w-44" />
+        <div className="flex items-center gap-1">
+          <Input type="month" value={safeMonth(noShowMonth)} onChange={e => setNoShowMonth(e.target.value || nowMonthStr())} className="h-8 text-sm w-44 [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden" />
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setNoShowMonth(nowMonthStr())}>Geral</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
