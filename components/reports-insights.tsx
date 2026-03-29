@@ -259,19 +259,7 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
 
         {/* ──────────────── NO-SHOW ──────────────── */}
         <TabsContent value="noshow" className="mt-6 space-y-4">
-          <NoShowTab
-            appointments={appointments}
-            periodPreset={periodPreset}
-            setPeriodPreset={setPeriodPreset}
-            customStart={customStart}
-            setCustomStart={setCustomStart}
-            customEnd={customEnd}
-            setCustomEnd={setCustomEnd}
-            useCustom={useCustom}
-            setUseCustom={setUseCustom}
-            getPeriodRange={getPeriodRange}
-            filterApptsByRange={filterApptsByRange}
-          />
+          <NoShowTab appointments={appointments} />
         </TabsContent>
       </Tabs>
 
@@ -350,15 +338,12 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
           <Calendar className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">Mês de Referência</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="month"
-            value={billingMonth}
-            onChange={e => setBillingMonth(e.target.value)}
-            className="h-8 text-sm w-40"
-          />
-          <span className="text-sm text-gray-500 capitalize hidden sm:inline">{monthLabel}</span>
-        </div>
+        <Input
+          type="month"
+          value={billingMonth}
+          onChange={e => setBillingMonth(e.target.value)}
+          className="h-8 text-sm w-40"
+        />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -764,7 +749,6 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">Barbeiros</span>
-          <span className="text-sm text-gray-500 capitalize hidden sm:inline">— {barberMonthLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -880,7 +864,6 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
         <div className="flex items-center gap-2">
           <PieChartIcon className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">Serviços</span>
-          <span className="text-sm text-gray-500 capitalize hidden sm:inline">— {serviceMonthLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -961,9 +944,18 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB: NO-SHOW
 // ─────────────────────────────────────────────────────────────────
-function NoShowTab({ appointments, periodPreset, setPeriodPreset, customStart, setCustomStart, customEnd, setCustomEnd, useCustom, setUseCustom, getPeriodRange, filterApptsByRange }: any) {
-  const range = getPeriodRange()
-  const filtered = appointments.filter((a: AppointmentRecord) => filterApptsByRange(a, range))
+function NoShowTab({ appointments }: any) {
+  const [noShowMonth, setNoShowMonth] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
+  })
+
+  const [ny, nm] = noShowMonth.split("-").map(Number)
+
+  const filtered = appointments.filter((a: AppointmentRecord) => {
+    const d = parseISO(a.scheduledAt)
+    return d.getFullYear() === ny && d.getMonth() + 1 === nm
+  })
 
   const counts = {
     total: filtered.length,
@@ -1005,25 +997,12 @@ function NoShowTab({ appointments, periodPreset, setPeriodPreset, customStart, s
           <AlertCircle className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">No-show</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {PERIOD_PRESETS.map(p => (
-            <Button
-              key={p.value}
-              size="sm"
-              variant={!useCustom && periodPreset === p.value ? "default" : "outline"}
-              className={!useCustom && periodPreset === p.value ? "bg-amber-600 hover:bg-amber-700 h-8 text-xs" : "h-8 text-xs"}
-              onClick={() => { setPeriodPreset(p.value); setUseCustom(false) }}
-            >
-              {p.label}
-            </Button>
-          ))}
-          <Input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setUseCustom(true) }} className="h-8 text-sm w-34" />
-          <span className="text-xs text-gray-400">até</span>
-          <Input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setUseCustom(true) }} className="h-8 text-sm w-34" />
-          {useCustom && (
-            <Button size="sm" variant="ghost" onClick={() => setUseCustom(false)} className="h-8 text-xs text-gray-500">Limpar</Button>
-          )}
-        </div>
+        <Input
+          type="month"
+          value={noShowMonth}
+          onChange={e => setNoShowMonth(e.target.value)}
+          className="h-8 text-sm w-40"
+        />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
