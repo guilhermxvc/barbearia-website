@@ -379,7 +379,7 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
         </div>
         <div className="flex items-center gap-1">
           <MonthInput value={safeMonth(billingMonth)} onChange={v => { setAllTime(false); setBillingMonth(v || nowMonthStr()) }} className={allTime ? "opacity-50" : ""} />
-          <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(true)}>Geral</Button>
+          <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(v => !v)}>Geral</Button>
         </div>
       </div>
 
@@ -788,7 +788,7 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <MonthInput value={safeMonth(barberMonth)} onChange={v => { setAllTime(false); setBarberMonth(v || nowMonthStr()) }} className={allTime ? "opacity-50" : ""} />
-            <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(true)}>Geral</Button>
+            <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(v => !v)}>Geral</Button>
           </div>
           <Select value={selectedBarber} onValueChange={setSelectedBarber}>
             <SelectTrigger className="w-40 h-8 text-sm">
@@ -899,7 +899,7 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <MonthInput value={safeMonth(serviceMonth)} onChange={v => { setAllTime(false); setServiceMonth(v || nowMonthStr()) }} className={allTime ? "opacity-50" : ""} />
-            <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(true)}>Geral</Button>
+            <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(v => !v)}>Geral</Button>
           </div>
         </div>
       </div>
@@ -1026,7 +1026,7 @@ function NoShowTab({ appointments }: any) {
         </div>
         <div className="flex items-center gap-1">
           <MonthInput value={safeMonth(noShowMonth)} onChange={v => { setAllTime(false); setNoShowMonth(v || nowMonthStr()) }} className={allTime ? "opacity-50" : ""} />
-          <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(true)}>Geral</Button>
+          <Button variant={allTime ? "default" : "outline"} size="sm" className="h-8 text-xs px-2" onClick={() => setAllTime(v => !v)}>Geral</Button>
         </div>
       </div>
 
