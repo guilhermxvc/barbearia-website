@@ -345,23 +345,21 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="text-base font-semibold">Mês de Referência</CardTitle>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-gray-400" />
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
-            <Input
-              type="month"
-              value={billingMonth}
-              onChange={e => setBillingMonth(e.target.value)}
-              className="h-9 text-sm w-44"
-            />
-            <span className="text-sm text-gray-500 capitalize">{monthLabel}</span>
-          </div>
-        </CardContent>
-      </Card>
+          <span className="text-base font-semibold text-gray-800">Mês de Referência</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="month"
+            value={billingMonth}
+            onChange={e => setBillingMonth(e.target.value)}
+            className="h-8 text-sm w-40"
+          />
+          <span className="text-sm text-gray-500 capitalize hidden sm:inline">{monthLabel}</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={DollarSign} label="Faturamento Total" value={formatCurrency(totalRevenue)} color="text-amber-600" bg="bg-amber-50" />
