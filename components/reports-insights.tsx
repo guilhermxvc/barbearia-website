@@ -213,8 +213,8 @@ export function ReportsInsights({ barbershopId }: ReportsInsightsProps) {
         <TabsList className="grid w-full grid-cols-5 h-auto">
           <TabsTrigger value="period" className="text-xs sm:text-sm py-2">Faturamento</TabsTrigger>
           <TabsTrigger value="compare" className="text-xs sm:text-sm py-2">Comparar Meses</TabsTrigger>
-          <TabsTrigger value="barber" className="text-xs sm:text-sm py-2">Por Barbeiro</TabsTrigger>
-          <TabsTrigger value="service" className="text-xs sm:text-sm py-2">Por Serviço</TabsTrigger>
+          <TabsTrigger value="barber" className="text-xs sm:text-sm py-2">Barbeiros</TabsTrigger>
+          <TabsTrigger value="service" className="text-xs sm:text-sm py-2">Serviço</TabsTrigger>
           <TabsTrigger value="noshow" className="text-xs sm:text-sm py-2">No-show</TabsTrigger>
         </TabsList>
 
@@ -719,9 +719,27 @@ function CompareCard({ label, stats, highlight }: { label: string; stats: any; h
 // TAB: POR BARBEIRO
 // ─────────────────────────────────────────────────────────────────
 function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBarber }: any) {
+  const [barberMonth, setBarberMonth] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
+  })
+
+  const [by, bm] = barberMonth.split("-").map(Number)
+
+  const filteredSales = sales.filter((s: SaleRecord) => {
+    const d = new Date(s.createdAt)
+    return d.getFullYear() === by && d.getMonth() + 1 === bm
+  })
+  const filteredAppts = appointments.filter((a: AppointmentRecord) => {
+    const d = parseISO(a.scheduledAt)
+    return d.getFullYear() === by && d.getMonth() + 1 === bm
+  })
+
+  const barberMonthLabel = format(new Date(by, bm - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
+
   const barberStats = barbers.map((b: BarberOption) => {
-    const bs = sales.filter((s: SaleRecord) => s.barberId === b.id)
-    const ba = appointments.filter((a: AppointmentRecord) => a.barber?.id === b.id)
+    const bs = filteredSales.filter((s: SaleRecord) => s.barberId === b.id)
+    const ba = filteredAppts.filter((a: AppointmentRecord) => a.barber?.id === b.id)
     const revenue = bs.reduce((acc: number, s: SaleRecord) => acc + parseFloat(s.totalAmount || "0"), 0)
     const completed = ba.filter((a: AppointmentRecord) => a.status === "completed" || a.status === "finished")
     return {
@@ -742,13 +760,21 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Filtrar Barbeiro</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-gray-400" />
+          <span className="text-base font-semibold text-gray-800">Barbeiros</span>
+          <span className="text-sm text-gray-500 capitalize hidden sm:inline">— {barberMonthLabel}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="month"
+            value={barberMonth}
+            onChange={e => setBarberMonth(e.target.value)}
+            className="h-8 text-sm w-40"
+          />
           <Select value={selectedBarber} onValueChange={setSelectedBarber}>
-            <SelectTrigger className="w-48 h-9 text-sm">
+            <SelectTrigger className="w-40 h-8 text-sm">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -758,8 +784,8 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
               ))}
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {barbers.length === 0 ? (
         <EmptyState message="Nenhum barbeiro encontrado." />
@@ -819,8 +845,22 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
 // TAB: POR SERVIÇO
 // ─────────────────────────────────────────────────────────────────
 function ServiceTab({ sales }: { sales: SaleRecord[] }) {
+  const [serviceMonth, setServiceMonth] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
+  })
+
+  const [sy, sm] = serviceMonth.split("-").map(Number)
+
+  const filteredSales = sales.filter(s => {
+    const d = new Date(s.createdAt)
+    return d.getFullYear() === sy && d.getMonth() + 1 === sm
+  })
+
+  const serviceMonthLabel = format(new Date(sy, sm - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
+
   const serviceMap: Record<string, { revenue: number; qty: number }> = {}
-  sales.forEach(s => {
+  filteredSales.forEach(s => {
     const name = s.serviceName || "Serviço"
     if (!serviceMap[name]) serviceMap[name] = { revenue: 0, qty: 0 }
     serviceMap[name].revenue += parseFloat(s.totalAmount || "0")
@@ -836,6 +876,22 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <PieChartIcon className="h-4 w-4 text-gray-400" />
+          <span className="text-base font-semibold text-gray-800">Serviços</span>
+          <span className="text-sm text-gray-500 capitalize hidden sm:inline">— {serviceMonthLabel}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="month"
+            value={serviceMonth}
+            onChange={e => setServiceMonth(e.target.value)}
+            className="h-8 text-sm w-40"
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -944,39 +1000,31 @@ function NoShowTab({ appointments, periodPreset, setPeriodPreset, customStart, s
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Filtro de Período</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {PERIOD_PRESETS.map(p => (
-              <Button
-                key={p.value}
-                size="sm"
-                variant={!useCustom && periodPreset === p.value ? "default" : "outline"}
-                className={!useCustom && periodPreset === p.value ? "bg-amber-600 hover:bg-amber-700" : ""}
-                onClick={() => { setPeriodPreset(p.value); setUseCustom(false) }}
-              >
-                {p.label}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Data início</Label>
-              <Input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setUseCustom(true) }} className="h-9 text-sm w-36" />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Data fim</Label>
-              <Input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setUseCustom(true) }} className="h-9 text-sm w-36" />
-            </div>
-            {useCustom && (
-              <Button size="sm" variant="ghost" onClick={() => setUseCustom(false)} className="text-gray-500">Limpar</Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-gray-400" />
+          <span className="text-base font-semibold text-gray-800">No-show</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {PERIOD_PRESETS.map(p => (
+            <Button
+              key={p.value}
+              size="sm"
+              variant={!useCustom && periodPreset === p.value ? "default" : "outline"}
+              className={!useCustom && periodPreset === p.value ? "bg-amber-600 hover:bg-amber-700 h-8 text-xs" : "h-8 text-xs"}
+              onClick={() => { setPeriodPreset(p.value); setUseCustom(false) }}
+            >
+              {p.label}
+            </Button>
+          ))}
+          <Input type="date" value={customStart} onChange={e => { setCustomStart(e.target.value); setUseCustom(true) }} className="h-8 text-sm w-34" />
+          <span className="text-xs text-gray-400">até</span>
+          <Input type="date" value={customEnd} onChange={e => { setCustomEnd(e.target.value); setUseCustom(true) }} className="h-8 text-sm w-34" />
+          {useCustom && (
+            <Button size="sm" variant="ghost" onClick={() => setUseCustom(false)} className="h-8 text-xs text-gray-500">Limpar</Button>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Calendar} label="Total Agend." value={String(counts.total)} color="text-blue-600" bg="bg-blue-50" />
