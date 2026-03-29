@@ -102,41 +102,6 @@ function formatMonthLabel(yyyymm: string) {
   return format(new Date(y, m - 1, 1), "MMM/yy", { locale: ptBR })
 }
 
-const MONTHS_PT = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-]
-
-function MonthPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [yearStr, monthStr] = value.split("-")
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
-
-  return (
-    <div className="flex items-center gap-1">
-      <Select value={monthStr} onValueChange={m => onChange(`${yearStr}-${m}`)}>
-        <SelectTrigger className="w-32 h-8 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {MONTHS_PT.map((name, i) => (
-            <SelectItem key={i} value={String(i + 1).padStart(2, "0")}>{name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={yearStr} onValueChange={y => onChange(`${y}-${monthStr}`)}>
-        <SelectTrigger className="w-24 h-8 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map(y => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
 
 function downloadCSV(rows: string[][], filename: string) {
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n")
@@ -374,7 +339,7 @@ function FaturamentoTab({ sales, appointments, receipts, billingMonth, setBillin
           <Calendar className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">Mês de Referência</span>
         </div>
-        <MonthPicker value={billingMonth} onChange={setBillingMonth} />
+        <Input type="month" value={billingMonth} onChange={e => setBillingMonth(e.target.value)} className="h-8 text-sm w-44" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -633,11 +598,11 @@ function CompareTab({ sales, appointments, compareMonth1, setCompareMonth1, comp
           <div className="flex flex-wrap gap-4">
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Mês 1</Label>
-              <MonthPicker value={compareMonth1} onChange={setCompareMonth1} />
+              <Input type="month" value={compareMonth1} onChange={e => setCompareMonth1(e.target.value)} className="h-9 text-sm" />
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Mês 2</Label>
-              <MonthPicker value={compareMonth2} onChange={setCompareMonth2} />
+              <Input type="month" value={compareMonth2} onChange={e => setCompareMonth2(e.target.value)} className="h-9 text-sm" />
             </div>
           </div>
         </CardContent>
@@ -782,7 +747,7 @@ function BarberTab({ sales, appointments, barbers, selectedBarber, setSelectedBa
           <span className="text-base font-semibold text-gray-800">Barbeiros</span>
         </div>
         <div className="flex items-center gap-2">
-          <MonthPicker value={barberMonth} onChange={setBarberMonth} />
+          <Input type="month" value={barberMonth} onChange={e => setBarberMonth(e.target.value)} className="h-8 text-sm w-44" />
           <Select value={selectedBarber} onValueChange={setSelectedBarber}>
             <SelectTrigger className="w-40 h-8 text-sm">
               <SelectValue placeholder="Todos" />
@@ -892,7 +857,7 @@ function ServiceTab({ sales }: { sales: SaleRecord[] }) {
           <span className="text-base font-semibold text-gray-800">Serviços</span>
         </div>
         <div className="flex items-center gap-2">
-          <MonthPicker value={serviceMonth} onChange={setServiceMonth} />
+          <Input type="month" value={serviceMonth} onChange={e => setServiceMonth(e.target.value)} className="h-8 text-sm w-44" />
         </div>
       </div>
 
@@ -1018,7 +983,7 @@ function NoShowTab({ appointments }: any) {
           <AlertCircle className="h-4 w-4 text-gray-400" />
           <span className="text-base font-semibold text-gray-800">No-show</span>
         </div>
-        <MonthPicker value={noShowMonth} onChange={setNoShowMonth} />
+        <Input type="month" value={noShowMonth} onChange={e => setNoShowMonth(e.target.value)} className="h-8 text-sm w-44" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
