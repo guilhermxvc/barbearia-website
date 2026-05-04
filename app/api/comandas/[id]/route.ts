@@ -25,7 +25,7 @@ export const GET = withAuth(['manager', 'barber'])(async (req, { params }: { par
 export const PUT = withAuth(['manager'])(async (req, { params }: { params: { id: string } }) => {
   try {
     const body = await req.json();
-    const { action, paymentMethod, notes } = body;
+    const { action, notes } = body;
 
     const comanda = await db.query.comandas.findFirst({ where: eq(comandas.id, params.id) });
     if (!comanda) return NextResponse.json({ error: 'Comanda não encontrada' }, { status: 404 });
@@ -47,7 +47,6 @@ export const PUT = withAuth(['manager'])(async (req, { params }: { params: { id:
         .update(comandas)
         .set({
           status: 'closed',
-          paymentMethod: paymentMethod || null,
           totalAmount: String(total),
           notes: notes || comanda.notes,
           closedAt: new Date(),
@@ -64,7 +63,6 @@ export const PUT = withAuth(['manager'])(async (req, { params }: { params: { id:
           appointmentId: comanda.appointmentId || null,
           items: items.map((i) => ({ name: i.name, type: i.type, qty: i.qty, price: i.price, subtotal: i.subtotal })),
           totalAmount: String(total),
-          paymentMethod: paymentMethod || null,
         });
       }
 

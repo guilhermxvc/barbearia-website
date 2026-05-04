@@ -35,7 +35,6 @@ interface Comanda {
   barberName: string
   status: string
   referenceMonth: string
-  paymentMethod: string | null
   totalAmount: string
   notes: string | null
   closedAt: string | null
