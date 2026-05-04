@@ -49,6 +49,7 @@ export const barbershops = pgTable('barbershops', {
   phone: text('phone'),
   email: text('email'),
   logoUrl: text('logo_url'), // URL da logo da barbearia
+  description: text('description'), // Descrição/bio da barbearia exibida para clientes
   latitude: decimal('latitude', { precision: 10, scale: 8 }), // Para busca por localização
   longitude: decimal('longitude', { precision: 11, scale: 8 }),
   subscriptionPlanId: uuid('subscription_plan_id').references(() => subscriptionPlans.id),

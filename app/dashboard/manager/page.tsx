@@ -255,6 +255,7 @@ function SettingsBarbershopSection({ userPlan }: { userPlan: string }) {
     address: barbershop?.address || '',
     email: barbershop?.email || '',
     logoUrl: barbershop?.logoUrl || '',
+    description: (barbershop as any)?.description || '',
   })
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -267,6 +268,7 @@ function SettingsBarbershopSection({ userPlan }: { userPlan: string }) {
         address: barbershop.address || '',
         email: barbershop.email || '',
         logoUrl: barbershop.logoUrl || '',
+        description: (barbershop as any)?.description || '',
       })
     }
   }, [barbershop])
@@ -344,6 +346,17 @@ function SettingsBarbershopSection({ userPlan }: { userPlan: string }) {
               onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
             />
           </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Descrição / Biografia</label>
+          <textarea
+            className="w-full mt-1 p-2 border rounded-md text-sm resize-none"
+            rows={4}
+            placeholder="Conte um pouco sobre sua barbearia: estilo, diferenciais, anos de experiência... Essa mensagem será exibida para clientes ao escolher onde agendar."
+            value={formData.description}
+            onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
+          />
+          <p className="text-xs text-gray-500 mt-1">{formData.description.length}/500 caracteres</p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Logo da Barbearia (URL)</label>

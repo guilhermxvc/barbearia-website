@@ -18,6 +18,7 @@ export interface User {
     email?: string;
     code?: string;
     logoUrl?: string;
+    description?: string;
     subscriptionPlan?: string;
     isActive?: boolean;
   };

@@ -311,6 +311,9 @@ function SearchSection() {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-xl font-semibold text-gray-900 mb-1">{barbershop.name}</h3>
                       <p className="text-gray-600 text-sm mb-2">{barbershop.address || 'Endereço não informado'}</p>
+                      {barbershop.description && (
+                        <p className="text-gray-500 text-sm mb-2 italic line-clamp-2">{barbershop.description}</p>
+                      )}
                       <div className="flex items-center space-x-4 mb-3">
                         {barbershop.phone && (
                           <span className="text-sm text-gray-500">{barbershop.phone}</span>
