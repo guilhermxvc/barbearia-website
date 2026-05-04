@@ -10,16 +10,7 @@ export const GET = withAuth(['client'])(async (req) => {
     const { searchParams } = new URL(req.url);
 
     const barbershopsList = await db
-      .select({
-        id: barbershops.id,
-        name: barbershops.name,
-        address: barbershops.address,
-        phone: barbershops.phone,
-        logoUrl: barbershops.logoUrl,
-        description: barbershops.description,
-        businessHours: barbershops.businessHours,
-        subscriptionPlan: barbershops.subscriptionPlan,
-      })
+      .select()
       .from(barbershops)
       .where(eq(barbershops.isActive, true));
 
