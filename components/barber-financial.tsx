@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input"
 import {
   FileText, Receipt, Loader2, AlertCircle, CheckCircle,
-  Clock, User, Calendar, DollarSign, Package, Eye, Scissors,
+  Clock, User, Calendar, DollarSign, Package, Eye, Scissors, Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/AuthContext"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -97,12 +98,60 @@ export function BarberFinancial() {
   const [viewingComanda, setViewingComanda] = useState<Comanda | null>(null)
   const [viewingReceipt, setViewingReceipt] = useState<CommissionReceipt | null>(null)
 
+  // Nova comanda avulsa
+  const [newComandaOpen, setNewComandaOpen] = useState(false)
+  const [newClientName, setNewClientName] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState("")
+
   // Filtro de mês para recibos (vazio = todos)
   const [receiptMonthFilter, setReceiptMonthFilter] = useState<string>("")
 
   useEffect(() => {
     loadData()
   }, [])
+
+  const handleCreateComanda = async () => {
+    if (!newClientName.trim()) {
+      setCreateError("Informe o nome do cliente ou visitante.")
+      return
+    }
+    const barbershopId = user?.barber?.barbershopId
+    const barberId = user?.barber?.id
+    const barberName = user?.name
+    if (!barbershopId || !barberId || !barberName) {
+      setCreateError("Dados do barbeiro incompletos. Faça login novamente.")
+      return
+    }
+    setCreating(true)
+    setCreateError("")
+    try {
+      const token = localStorage.getItem("authToken")
+      const res = await fetch("/api/comandas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          barbershopId,
+          barberId,
+          clientName: newClientName.trim(),
+          barberName,
+          avulsa: true,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setCreateError(data.error || "Erro ao criar comanda.")
+        return
+      }
+      setNewComandaOpen(false)
+      setNewClientName("")
+      await loadData()
+    } catch {
+      setCreateError("Erro de conexão. Tente novamente.")
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -226,11 +275,23 @@ export function BarberFinancial() {
           {/* Abertas */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock className="h-5 w-5 text-amber-600" />
-                Comandas Abertas
-              </CardTitle>
-              <CardDescription>Atendimentos realizados ainda não comissionados</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Clock className="h-5 w-5 text-amber-600" />
+                    Comandas Abertas
+                  </CardTitle>
+                  <CardDescription>Atendimentos realizados ainda não comissionados</CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                  onClick={() => { setCreateError(""); setNewComandaOpen(true) }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova Comanda Avulsa
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {openComandas.length === 0 ? (
@@ -323,6 +384,61 @@ export function BarberFinancial() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ─── MODAL: Nova Comanda Avulsa ─── */}
+      <Dialog open={newComandaOpen} onOpenChange={(o) => { if (!creating) { setNewComandaOpen(o); setNewClientName(""); setCreateError("") } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-amber-600" />
+              Nova Comanda Avulsa
+            </DialogTitle>
+            <DialogDescription>
+              Para venda de produto sem agendamento. Só é permitido dentro do horário de funcionamento da barbearia.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="avulsa-client">Nome do cliente / visitante</Label>
+              <Input
+                id="avulsa-client"
+                placeholder="Ex.: João Silva"
+                value={newClientName}
+                onChange={e => setNewClientName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !creating && handleCreateComanda()}
+                disabled={creating}
+              />
+            </div>
+
+            {createError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-lg text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                {createError}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setNewComandaOpen(false); setNewClientName(""); setCreateError("") }}
+                disabled={creating}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleCreateComanda}
+                disabled={creating || !newClientName.trim()}
+              >
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                {creating ? "Criando..." : "Criar Comanda"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── MODAL: Detalhes da Comanda ─── */}
       <Dialog open={!!viewingComanda} onOpenChange={() => setViewingComanda(null)}>

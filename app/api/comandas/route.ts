@@ -89,10 +89,44 @@ export const GET = withAuth(['manager', 'barber'])(async (req) => {
 export const POST = withAuth(['manager', 'barber', 'client'])(async (req) => {
   try {
     const body = await req.json();
-    const { barbershopId, barberId, appointmentId, clientId, clientName, barberName, initialService } = body;
+    const { barbershopId, barberId, appointmentId, clientId, clientName, barberName, initialService, avulsa } = body;
 
     if (!barbershopId || !barberId || !clientName || !barberName) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
+    }
+
+    // Validação de horário de funcionamento apenas para comandas avulsas criadas pelo barbeiro
+    if (avulsa && req.user!.userType === 'barber') {
+      const barbershop = await db.query.barbershops.findFirst({
+        where: eq(barbershops.id, barbershopId),
+        columns: { businessHours: true },
+      });
+
+      if (barbershop?.businessHours) {
+        const bh = barbershop.businessHours as Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
+        const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const now = new Date();
+        const dayKey = DAY_KEYS[now.getDay()];
+        const dayHours = bh[dayKey];
+
+        if (!dayHours?.isOpen) {
+          return NextResponse.json(
+            { error: 'A barbearia está fechada hoje. Não é possível abrir uma comanda avulsa.' },
+            { status: 403 }
+          );
+        }
+
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = `${hh}:${mm}`;
+
+        if (currentTime < dayHours.openTime || currentTime >= dayHours.closeTime) {
+          return NextResponse.json(
+            { error: `Fora do horário de funcionamento (${dayHours.openTime} – ${dayHours.closeTime}). Não é possível abrir uma comanda agora.` },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     const now = new Date();
