@@ -240,7 +240,12 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
         const monthRevenue = currentMonthSales.reduce((acc, s) => acc + s.service_price, 0)
         setMonthlyRevenue(monthRevenue)
 
-        const paidTotal = loadedReceipts.reduce((acc, r) => acc + parseFloat(r.totalCommissions), 0)
+        const paidTotal = loadedReceipts
+          .filter(r => {
+            const d = new Date(r.paidAt)
+            return d.getFullYear() === currentYear && d.getMonth() === currentMonth
+          })
+          .reduce((acc, r) => acc + parseFloat(r.totalCommissions), 0)
         setTotalCommissions(paidTotal)
 
         const paidMonthBarbers = new Set(loadedReceipts.map(r => `${r.barberId}|${r.referenceMonth}`))
