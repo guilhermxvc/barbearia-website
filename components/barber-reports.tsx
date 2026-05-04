@@ -135,7 +135,7 @@ export function BarberReports() {
 
   const serviceRanking = useMemo(() => {
     const counts: Record<string, number> = {}
-    completedAppointments.forEach((a) => {
+    filteredAppointments.forEach((a) => {
       const name = a.service?.name || "Outro"
       counts[name] = (counts[name] || 0) + 1
     })
@@ -143,7 +143,7 @@ export function BarberReports() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 7)
-  }, [completedAppointments])
+  }, [filteredAppointments])
 
   if (loading) {
     return (
@@ -247,7 +247,7 @@ export function BarberReports() {
       <Card>
         <CardHeader>
           <CardTitle>Serviços Mais Realizados</CardTitle>
-          <CardDescription>Ranking geral de todos os serviços completados</CardDescription>
+          <CardDescription>Ranking do período: {periodLabel}</CardDescription>
         </CardHeader>
         <CardContent>
           {serviceRanking.length === 0 ? (
