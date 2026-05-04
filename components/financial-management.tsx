@@ -459,6 +459,12 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
     )
   }
 
+  const now = new Date()
+  const currentMonthReceipts = commissionReceipts.filter(r => {
+    const d = new Date(r.paidAt)
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  })
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -834,20 +840,20 @@ export function FinancialManagement({ barbershopId }: FinancialManagementProps) 
                     <FileText className="h-5 w-5 text-green-600" />
                     Recibos Pagos
                   </CardTitle>
-                  <CardDescription>Histórico de pagamentos de comissões realizados</CardDescription>
+                  <CardDescription>Pagamentos de comissões realizados no mês atual. Consulte meses anteriores em Relatórios.</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {commissionReceipts.length === 0 ? (
+              {currentMonthReceipts.length === 0 ? (
                 <div className="text-center py-8">
                   <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum recibo registrado</h3>
-                  <p className="text-muted-foreground">Os recibos aparecerão aqui após registrar os pagamentos de comissões.</p>
+                  <h3 className="text-lg font-semibold mb-2">Nenhum recibo neste mês</h3>
+                  <p className="text-muted-foreground">Os recibos do mês atual aparecerão aqui após registrar os pagamentos de comissões.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {commissionReceipts.map((receipt) => {
+                  {currentMonthReceipts.map((receipt) => {
                     const [year, month] = receipt.referenceMonth.split('-').map(Number)
                     const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
                     const monthLabel = `${monthNames[month - 1]} ${year}`
