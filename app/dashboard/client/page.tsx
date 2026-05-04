@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { MapPin, Search, Star, Loader2 } from "lucide-react"
+import { MapPin, Search, Star, Loader2, Users, Scissors, Quote } from "lucide-react"
 import { ClientSidebar } from "@/components/client-sidebar"
 import { BookingFlow } from "@/components/booking-flow"
 import { ClientAppointments } from "@/components/client-appointments"
@@ -92,8 +92,12 @@ export default function ClientDashboard() {
         <div className="p-4 lg:p-6">
           <div className="mb-4 lg:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}</h1>
-              <p className="text-sm lg:text-base text-gray-600">{sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}</p>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                {sectionTitles[activeSection as keyof typeof sectionTitles]?.title || "Dashboard"}
+              </h1>
+              <p className="text-sm lg:text-base text-gray-600">
+                {sectionTitles[activeSection as keyof typeof sectionTitles]?.description || "Gerencie sua conta"}
+              </p>
             </div>
             <NotificationsSystem userType="client" />
           </div>
@@ -104,15 +108,16 @@ export default function ClientDashboard() {
   )
 }
 
+// ─── Logo da barbearia ────────────────────────────────────────
 function BarbershopLogo({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
   const [imageError, setImageError] = useState(false)
   const initial = name?.charAt(0)?.toUpperCase() || 'B'
-  
+
   return (
-    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-amber-200 flex-shrink-0 flex items-center justify-center border border-amber-200">
+    <div className="w-16 h-16 rounded-xl overflow-hidden bg-gradient-to-br from-amber-100 to-amber-200 flex-shrink-0 flex items-center justify-center border border-amber-200">
       {logoUrl && !imageError ? (
-        <img 
-          src={logoUrl} 
+        <img
+          src={logoUrl}
           alt={`Logo ${name}`}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}
@@ -124,6 +129,28 @@ function BarbershopLogo({ name, logoUrl }: { name: string; logoUrl?: string | nu
   )
 }
 
+// ─── Estrelas de avaliação ────────────────────────────────────
+function StarRating({ rating, total }: { rating: number; total: number }) {
+  if (total === 0) {
+    return <span className="text-xs text-gray-400">Sem avaliações</span>
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`h-3.5 w-3.5 ${star <= Math.round(rating) ? "fill-amber-400 text-amber-400" : "text-gray-200 fill-gray-200"}`}
+          />
+        ))}
+      </div>
+      <span className="text-xs font-medium text-gray-700">{rating.toFixed(1)}</span>
+      <span className="text-xs text-gray-400">({total})</span>
+    </div>
+  )
+}
+
+// ─── Seção de busca ───────────────────────────────────────────
 function SearchSection() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedBarbershop, setSelectedBarbershop] = useState<any>(null)
@@ -145,22 +172,19 @@ function SearchSection() {
     try {
       setIsLoading(true)
       setError("")
-
       const response = await apiClient.get<{ success: boolean; barbershops: any[]; error?: string }>('/barbershops')
-
       if (response.success && response.data) {
-        const apiData = response.data as { success: boolean; barbershops: any[]; error?: string }
+        const apiData = response.data as { success: boolean; barbershops: any[] }
         if (apiData.success && apiData.barbershops) {
           setBarbershops(apiData.barbershops)
           setFilteredBarbershops(apiData.barbershops)
         } else {
-          setError(apiData.error || "Erro ao carregar barbearias")
+          setError("Erro ao carregar barbearias")
         }
       } else {
         setError(response.error || "Erro ao carregar barbearias")
       }
-    } catch (error) {
-      console.error("Erro ao carregar barbearias:", error)
+    } catch {
       setError("Erro ao carregar barbearias")
     } finally {
       setIsLoading(false)
@@ -169,37 +193,30 @@ function SearchSection() {
 
   const applyFilters = () => {
     let filtered = [...barbershops]
-
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(b => 
-        b.name?.toLowerCase().includes(query) ||
-        b.address?.toLowerCase().includes(query) ||
-        b.services?.some((s: any) => s.name?.toLowerCase().includes(query))
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(b =>
+        b.name?.toLowerCase().includes(q) ||
+        b.address?.toLowerCase().includes(q) ||
+        b.description?.toLowerCase().includes(q)
       )
     }
-
     if (activeFilter === 'maisBarbers') {
       filtered = filtered.sort((a, b) => (b.barbers?.length || 0) - (a.barbers?.length || 0))
+    } else if (activeFilter === 'melhorAvaliacao') {
+      filtered = filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0))
     } else if (activeFilter === 'menorPreco') {
       filtered = filtered.sort((a, b) => {
         const minA = a.services?.length > 0 ? Math.min(...a.services.map((s: any) => Number(s.price))) : Infinity
         const minB = b.services?.length > 0 ? Math.min(...b.services.map((s: any) => Number(s.price))) : Infinity
         return minA - minB
       })
-    } else if (activeFilter === 'maisServicos') {
-      filtered = filtered.sort((a, b) => (b.services?.length || 0) - (a.services?.length || 0))
     }
-
     setFilteredBarbershops(filtered)
   }
 
-  const handleFilterClick = (filter: string) => {
-    if (activeFilter === filter) {
-      setActiveFilter(null)
-    } else {
-      setActiveFilter(filter)
-    }
+  const toggleFilter = (filter: string) => {
+    setActiveFilter(prev => prev === filter ? null : filter)
   }
 
   if (selectedBarbershop) {
@@ -207,144 +224,141 @@ function SearchSection() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Busca por Nome/Serviço */}
+    <div className="space-y-5">
+      {/* Barra de busca */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MapPin className="h-5 w-5 mr-2 text-amber-600" />
-            Encontrar Barbearias
-          </CardTitle>
-          <CardDescription>Pesquise por nome, endereço ou serviço</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex space-x-4">
+        <CardContent className="p-4">
+          <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar por nome, endereço ou serviço..."
+                placeholder="Buscar por nome, endereço ou descrição..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Button 
-              variant="outline" 
-              onClick={() => { setSearchQuery(""); setActiveFilter(null); }}
-            >
-              Limpar
-            </Button>
+            {searchQuery && (
+              <Button variant="outline" onClick={() => setSearchQuery("")}>
+                Limpar
+              </Button>
+            )}
+          </div>
+          {/* Filtros rápidos */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {[
+              { key: 'melhorAvaliacao', label: 'Melhor Avaliados' },
+              { key: 'maisBarbers', label: 'Mais Barbeiros' },
+              { key: 'menorPreco', label: 'Menor Preço' },
+            ].map(f => (
+              <button
+                key={f.key}
+                onClick={() => toggleFilter(f.key)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                  activeFilter === f.key
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-700'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Filtros Rápidos */}
-      <div className="flex flex-wrap gap-2">
-        <Button 
-          variant={activeFilter === 'maisBarbers' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => handleFilterClick('maisBarbers')}
-          className={activeFilter === 'maisBarbers' ? 'bg-amber-600 hover:bg-amber-700' : ''}
-        >
-          Mais Barbeiros
-        </Button>
-        <Button 
-          variant={activeFilter === 'menorPreco' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => handleFilterClick('menorPreco')}
-          className={activeFilter === 'menorPreco' ? 'bg-amber-600 hover:bg-amber-700' : ''}
-        >
-          Menor Preço
-        </Button>
-        <Button 
-          variant={activeFilter === 'maisServicos' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => handleFilterClick('maisServicos')}
-          className={activeFilter === 'maisServicos' ? 'bg-amber-600 hover:bg-amber-700' : ''}
-        >
-          Mais Serviços
-        </Button>
-      </div>
-
-      {/* Contador de Resultados */}
+      {/* Contador */}
       {!isLoading && !error && (
-        <p className="text-sm text-gray-600">
-          {filteredBarbershops.length} {filteredBarbershops.length === 1 ? 'barbearia encontrada' : 'barbearias encontradas'}
+        <p className="text-sm text-gray-500 px-1">
+          {filteredBarbershops.length}{' '}
+          {filteredBarbershops.length === 1 ? 'barbearia encontrada' : 'barbearias encontradas'}
           {searchQuery && ` para "${searchQuery}"`}
         </p>
       )}
 
-      {/* Lista de Barbearias */}
+      {/* Lista */}
       {isLoading ? (
-        <div className="flex items-center justify-center p-12">
+        <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
         </div>
       ) : error ? (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          {error}
-        </div>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">{error}</div>
       ) : filteredBarbershops.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma barbearia encontrada</h3>
-            <p className="text-gray-600">
-              {searchQuery 
-                ? `Não encontramos resultados para "${searchQuery}". Tente outra pesquisa.`
-                : "Não encontramos barbearias cadastradas no momento. Volte mais tarde!"
-              }
+            <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma barbearia encontrada</h3>
+            <p className="text-gray-500 text-sm">
+              {searchQuery
+                ? `Nenhum resultado para "${searchQuery}". Tente outra busca.`
+                : "Nenhuma barbearia cadastrada no momento. Volte em breve!"}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
-          {filteredBarbershops.map((barbershop) => {
-            const priceRange = barbershop.services.length > 0
-              ? `R$ ${Math.min(...barbershop.services.map((s: any) => Number(s.price)))} - R$ ${Math.max(...barbershop.services.map((s: any) => Number(s.price)))}`
-              : 'Preços sob consulta'
+        <div className="grid gap-4">
+          {filteredBarbershops.map((shop) => {
+            const priceRange = shop.services?.length > 0
+              ? `R$ ${Math.min(...shop.services.map((s: any) => Number(s.price)))} – R$ ${Math.max(...shop.services.map((s: any) => Number(s.price)))}`
+              : null
 
             return (
-              <Card key={barbershop.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardContent className="p-6">
+              <Card key={shop.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-5">
                   <div className="flex items-start gap-4">
-                    <BarbershopLogo name={barbershop.name} logoUrl={barbershop.logoUrl} />
+                    <BarbershopLogo name={shop.name} logoUrl={shop.logoUrl} />
+
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-1">{barbershop.name}</h3>
-                      <p className="text-gray-600 text-sm mb-2">{barbershop.address || 'Endereço não informado'}</p>
-                      {barbershop.description && (
-                        <p className="text-gray-500 text-sm mb-2 italic line-clamp-2">{barbershop.description}</p>
+                      {/* Nome + avaliação */}
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-gray-900 leading-tight">{shop.name}</h3>
+                      </div>
+
+                      <StarRating rating={shop.rating || 0} total={shop.totalRatings || 0} />
+
+                      {/* Endereço */}
+                      {shop.address && (
+                        <div className="flex items-center gap-1.5 mt-2 text-gray-500 text-sm">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                          <span className="truncate">{shop.address}</span>
+                        </div>
                       )}
-                      <div className="flex items-center space-x-4 mb-3">
-                        {barbershop.phone && (
-                          <span className="text-sm text-gray-500">{barbershop.phone}</span>
+
+                      {/* Sobre nós */}
+                      {shop.description ? (
+                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Quote className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                            <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Sobre nós</span>
+                          </div>
+                          <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">{shop.description}</p>
+                        </div>
+                      ) : (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <p className="text-xs text-gray-400 italic">Esta barbearia ainda não adicionou uma descrição.</p>
+                        </div>
+                      )}
+
+                      {/* Rodapé: barbeiros + preço */}
+                      <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <Users className="h-3.5 w-3.5 text-gray-400" />
+                          <span>{shop.barbers?.length || 0} {shop.barbers?.length === 1 ? 'barbeiro' : 'barbeiros'}</span>
+                        </div>
+                        {priceRange && (
+                          <div className="flex items-center gap-1 text-xs text-amber-700 font-medium">
+                            <Scissors className="h-3.5 w-3.5" />
+                            <span>{priceRange}</span>
+                          </div>
                         )}
-                        <span className="text-sm text-amber-600 font-medium">{priceRange}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {barbershop.services.slice(0, 3).map((service: any) => (
-                          <Badge key={service.id} variant="outline" className="text-xs">
-                            {service.name}
-                          </Badge>
-                        ))}
-                        {barbershop.services.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{barbershop.services.length - 3} serviços
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="text-xs">
-                          {barbershop.barbers.length} {barbershop.barbers.length === 1 ? 'barbeiro' : 'barbeiros'}
-                        </Badge>
-                        <Badge className={`text-xs ${barbershop.subscriptionPlan === 'premium' ? 'bg-purple-100 text-purple-800' : barbershop.subscriptionPlan === 'profissional' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                          Plano {barbershop.subscriptionPlan}
-                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
+
+                    {/* Botão */}
+                    <div className="flex-shrink-0">
                       <Button
-                        onClick={() => setSelectedBarbershop(barbershop)}
-                        className="bg-amber-600 hover:bg-amber-700"
+                        onClick={() => setSelectedBarbershop(shop)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-sm"
                       >
                         Agendar
                       </Button>
@@ -360,14 +374,15 @@ function SearchSection() {
   )
 }
 
+// ─── Favoritos ────────────────────────────────────────────────
 function FavoritesSection() {
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="p-12 text-center">
-          <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Funcionalidade em breve</h3>
-          <p className="text-gray-600 mb-4">
+          <Star className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Funcionalidade em breve</h3>
+          <p className="text-gray-500 mb-4">
             Em breve você poderá salvar suas barbearias favoritas e ter acesso rápido a elas.
           </p>
           <Button className="bg-amber-600 hover:bg-amber-700">Encontrar Barbearias</Button>

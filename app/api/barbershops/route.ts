@@ -8,10 +8,7 @@ import { eq, sql } from 'drizzle-orm';
 export const GET = withAuth(['client'])(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
-    const location = searchParams.get('location');
-    const openNow = searchParams.get('openNow') === 'true';
 
-    // Por enquanto, retornar todas as barbearias ativas
     const barbershopsList = await db
       .select({
         id: barbershops.id,
@@ -19,13 +16,13 @@ export const GET = withAuth(['client'])(async (req) => {
         address: barbershops.address,
         phone: barbershops.phone,
         logoUrl: barbershops.logoUrl,
+        description: barbershops.description,
         businessHours: barbershops.businessHours,
         subscriptionPlan: barbershops.subscriptionPlan,
       })
       .from(barbershops)
       .where(eq(barbershops.isActive, true));
 
-    // Para cada barbearia, buscar serviços e barbeiros
     const barbershopsWithDetails = await Promise.all(
       barbershopsList.map(async (barbershop) => {
         const barbershopServices = await db
@@ -46,6 +43,8 @@ export const GET = withAuth(['client'])(async (req) => {
             name: users.name,
             photoUrl: users.photoUrl,
             specialties: barbers.specialties,
+            rating: barbers.rating,
+            totalRatings: barbers.totalRatings,
           })
           .from(barbers)
           .innerJoin(users, eq(barbers.userId, users.id))
@@ -53,12 +52,22 @@ export const GET = withAuth(['client'])(async (req) => {
             sql`${barbers.barbershopId} = ${barbershop.id} AND ${barbers.isApproved} = true AND ${barbers.isActive} = true`
           );
 
+        // Calcular nota média ponderada da barbearia a partir dos barbeiros
+        let rating = 0;
+        let totalRatings = 0;
+        const ratingsData = barbershopBarbers.filter(b => Number(b.totalRatings) > 0);
+        if (ratingsData.length > 0) {
+          const weightedSum = ratingsData.reduce((acc, b) => acc + Number(b.rating) * Number(b.totalRatings), 0);
+          totalRatings = ratingsData.reduce((acc, b) => acc + Number(b.totalRatings), 0);
+          rating = totalRatings > 0 ? weightedSum / totalRatings : 0;
+        }
+
         return {
           ...barbershop,
           services: barbershopServices,
           barbers: barbershopBarbers,
-          // Campos calculados removidos - serão implementados em versões futuras
-          // rating, reviewCount, distance, openNow, nextAvailable
+          rating: parseFloat(rating.toFixed(1)),
+          totalRatings,
         };
       })
     );
